@@ -39,6 +39,9 @@ pub use state::{bar_alphas_for, STALE_ALPHAS};
 pub use status_overlay::{paint_overlay, IncidentSeverity};
 pub use style::IconStyle;
 pub use theme_detect::detect_taskbar_theme;
+/// Re export `tiny_skia::Color` so the desktop shell does not need a
+/// direct `tiny-skia` dependency to pass colors into the renderer.
+pub use tiny_skia::Color;
 pub use twists::paint_twist;
 
 /// Logical canvas size in points.

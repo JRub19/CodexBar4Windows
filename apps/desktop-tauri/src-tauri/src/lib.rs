@@ -7,6 +7,7 @@
 
 pub mod commands;
 pub mod secrets_commands;
+pub mod tray_renderer;
 
 use std::sync::Arc;
 
