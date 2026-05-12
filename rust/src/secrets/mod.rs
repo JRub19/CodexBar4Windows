@@ -9,9 +9,11 @@ pub mod dpapi;
 pub mod errors;
 pub mod keyring_store;
 pub mod secure_file;
+pub mod token_account;
 
 pub use blob_store::{FileSecretBlobStore, SecretBlobStore, SecretKey};
 pub use dpapi::{dpapi_protect, dpapi_unprotect, unwrap_string, wrap_string};
 pub use errors::SecretsError;
 pub use keyring_store::CredentialManagerOAuthStore;
 pub use secure_file::SecureFile;
+pub use token_account::{ProviderTokenAccounts, TokenAccount, TokenAccountStore, TokenKind};
