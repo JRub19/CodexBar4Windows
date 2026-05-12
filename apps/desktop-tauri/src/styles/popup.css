@@ -426,11 +426,20 @@ html, body, #root {
 }
 
 .metric-row__captions,
-.metric-row__details {
+.metric-row__details,
+.pace-text {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+.pace-text {
+  color: var(--text-secondary);
+}
+
+.pace-text__left {
+  color: var(--text-primary);
 }
 
 .metric-row__captions .metric-row__percent {
