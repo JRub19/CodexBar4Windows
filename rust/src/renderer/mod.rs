@@ -9,11 +9,15 @@
 //! into an ICO atlas. We mirror that contract exactly so the geometry
 //! tables in `docs/windows/spec/10-tray-icon-system.md` apply unchanged.
 
+pub mod bars;
 pub mod canvas;
 pub mod pixel_grid;
+pub mod style;
 
+pub use bars::{draw_bar, BarAlphas, BarRect};
 pub use canvas::IconRenderer;
 pub use pixel_grid::PixelGrid;
+pub use style::IconStyle;
 
 /// Logical canvas size in points.
 pub const CANVAS_PT: u32 = 18;
