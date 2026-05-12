@@ -11,6 +11,7 @@ import type {
 import { useUsageStore } from "./state/usageStore";
 import { PopupHeader } from "./header/PopupHeader";
 import { CardStack } from "./cards/CardStack";
+import { PopupFooter } from "./footer/PopupFooter";
 import { EmptyState } from "../components/EmptyState";
 import "../styles/popup.css";
 
@@ -64,17 +65,7 @@ export function PopupShell() {
       <main className="popup-body">
         {descriptors.length === 0 ? <EmptyState /> : <CardStack />}
       </main>
-      <footer className="popup-footer">
-        <button
-          type="button"
-          onClick={() => {
-            void invoke("refresh_now");
-          }}
-        >
-          Refresh now
-        </button>
-        <span>Phase 3 popup scaffold</span>
-      </footer>
+      <PopupFooter />
     </div>
   );
 }

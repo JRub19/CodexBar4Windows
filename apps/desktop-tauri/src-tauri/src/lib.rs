@@ -213,6 +213,7 @@ pub fn run() {
             commands::refresh_now,
             commands::toggle_pause,
             commands::open_preferences,
+            commands::quit_app,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,

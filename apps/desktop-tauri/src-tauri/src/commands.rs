@@ -122,6 +122,12 @@ pub async fn open_preferences() -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn quit_app(app: AppHandle) {
+    info!(target: "codexbar::commands", "quit.invoked");
+    app.exit(0);
+}
+
 /// Helper for the Tauri builder to register the State once paths are known.
 pub fn build_settings_handle(config_path: std::path::PathBuf) -> SettingsHandle {
     Arc::new(codexbar::settings::SettingsStore::load(config_path))
