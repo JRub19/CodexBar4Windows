@@ -8,6 +8,7 @@ pub mod auth;
 pub mod cli;
 pub mod descriptor;
 pub mod history;
+pub mod managed;
 pub mod oauth;
 pub mod planner;
 pub mod promotion;
