@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect } from "react";
 import { EmptyState } from "./components/EmptyState";
 import { useSettings } from "./hooks/useSettings";
 import { useUsageEvents } from "./hooks/useUsageEvents";
@@ -7,6 +9,17 @@ import "./styles/popup.css";
 function App() {
   const settings = useSettings();
   const { descriptors, lastUpdate } = useUsageEvents();
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void getCurrentWindow().hide();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div className="popup-root">

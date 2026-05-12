@@ -18,7 +18,7 @@ use codexbar::settings::SettingsHandle;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Manager, WindowEvent,
 };
 use tokio::runtime::Runtime;
 use tracing::info;
@@ -221,6 +221,16 @@ pub fn run() {
             secrets_commands::import_cookies_for,
             secrets_commands::clear_cookie_cache,
         ])
+        .on_window_event(|window, event| {
+            // Auto-dismiss the popup on focus loss to match the spec 80
+            // behavior: the popover disappears whenever the user clicks
+            // outside it or alt-tabs to another app.
+            if window.label() == "main" {
+                if let WindowEvent::Focused(false) = event {
+                    let _ = window.hide();
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
