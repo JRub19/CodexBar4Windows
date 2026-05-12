@@ -22,6 +22,7 @@ pub mod morph;
 pub mod patterns;
 pub mod pixel_grid;
 pub mod popup_position;
+pub mod popup_size;
 pub mod state;
 pub mod status_overlay;
 pub mod style;
@@ -42,6 +43,10 @@ pub use morph::{cache_key as morph_cache_key, progress_bucket, ribbon_alphas, Mo
 pub use patterns::LoadingPattern;
 pub use pixel_grid::PixelGrid;
 pub use popup_position::{compute as compute_popup_position, detect_edge, TaskbarEdge};
+pub use popup_size::{
+    pick as pick_popup_width, POPUP_HORIZONTAL_PADDING_PX, POPUP_WIDTH_MAX_PX, POPUP_WIDTH_MIN_PX,
+    POPUP_WIDTH_TARGET_PX,
+};
 pub use state::{bar_alphas_for, STALE_ALPHAS};
 pub use status_overlay::{paint_overlay, IncidentSeverity};
 pub use style::IconStyle;
