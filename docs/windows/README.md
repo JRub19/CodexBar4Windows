@@ -53,6 +53,23 @@ Once the direction above is set, the deep behavioral spec lives in [spec/](spec/
 - [spec/80-feel-and-polish.md](spec/80-feel-and-polish.md) — animations, sound, polish checklist (1,064 lines)
 - [spec/90-cli-widgets-build.md](spec/90-cli-widgets-build.md) — CLI, build, release (806 lines)
 
+### Execution plan, `plan/` (the daily working layer)
+
+Once the direction and the spec are settled, the day to day execution lives in [plan/](plan/). 10 phase plans plus a cross phase test strategy, 10,952 lines, 297 atomic commit tasks. **Start here when you sit down to actually code.**
+
+- [plan/00-master-plan.md](plan/00-master-plan.md), master execution plan with critical path, parallel tracks, gates between phases
+- [plan/phase-0-bootstrap.md](plan/phase-0-bootstrap.md), wipe Swift, scaffold Tauri, CI green, 22 tasks
+- [plan/phase-1-foundations.md](plan/phase-1-foundations.md), config, logging, settings, refresh skeleton, IPC, 12 tasks
+- [plan/phase-2-auth.md](plan/phase-2-auth.md), DPAPI, Credential Manager, cookie readers, 19 tasks
+- [plan/phase-3-tray-popup.md](plan/phase-3-tray-popup.md), dynamic icon, Mica popup, mock cards, 44 tasks
+- [plan/phase-4-provider-framework-claude.md](plan/phase-4-provider-framework-claude.md), provider framework plus first real provider, 20 tasks
+- [plan/phase-5-codex.md](plan/phase-5-codex.md), Codex with account promotion, 44 tasks
+- [plan/phase-6-tier1-cohort.md](plan/phase-6-tier1-cohort.md), Cursor, Copilot, Gemini, OpenRouter, Factory, 37 tasks
+- [plan/phase-7-cost-status-notifications.md](plan/phase-7-cost-status-notifications.md), JSONL scanner, status overlay, toasts, 34 tasks
+- [plan/phase-8-prefs-onboarding-hotkeys.md](plan/phase-8-prefs-onboarding-hotkeys.md), 7 pane prefs, first run, Win+Shift+U, 33 tasks
+- [plan/phase-9-release.md](plan/phase-9-release.md), Inno, Authenticode, updater, Winget, v1.0.0, 32 tasks
+- [plan/test-strategy.md](plan/test-strategy.md), test pyramid, three CI tiers, per phase gates, 1100 unit tests by GA
+
 ## TL;DR
 
 - The Mac app is **~250 Swift files**: AppKit status item + SwiftUI prefs + a `CodexBarCore` library that does all the provider polling, parsing, OAuth/cookie/CLI plumbing, and cost scanning.
