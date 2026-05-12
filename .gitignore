@@ -46,6 +46,9 @@ Desktop.ini
 # Claude Code worktrees and session state
 .claude/
 
+# Local-only smoke-test cookies, env files, etc.
+.smoke_*
+
 # Logs and analysis
 docs/*-analysis.md
 docs/.astro/
