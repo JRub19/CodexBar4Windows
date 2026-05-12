@@ -149,6 +149,18 @@ pub async fn provider_snapshots(
 }
 
 #[tauri::command]
+pub async fn provider_settings_descriptors(
+) -> Result<codexbar::providers::ProviderSettingsSnapshot, String> {
+    // Phase 4 P4-19: assemble settings contributions from each provider.
+    // Hello and Codex contribute nothing today; Claude exposes the
+    // source picker, the CLI toggle, and the multi-account list.
+    let snap = codexbar::providers::ProviderSettingsSnapshot::builder()
+        .with_section(codexbar::providers::claude::settings::contribution())
+        .build();
+    Ok(snap)
+}
+
+#[tauri::command]
 pub async fn refresh_now(refresh: State<'_, RefreshHandle>) -> Result<(), String> {
     refresh.0.refresh_now().await.map_err(|e| e.to_string())
 }

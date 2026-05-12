@@ -222,6 +222,7 @@ pub fn run() {
             commands::toggle_pause,
             commands::open_preferences,
             commands::quit_app,
+            commands::provider_settings_descriptors,
             commands::first_run_state,
             commands::first_run_mark_tray_hint_shown,
             commands::first_run_reset,

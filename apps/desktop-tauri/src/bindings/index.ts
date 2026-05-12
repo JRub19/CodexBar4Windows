@@ -1,5 +1,6 @@
 export * from "./settings";
 export * from "./providers";
+export * from "./providerSettings";
 
 export const EVENTS = {
   SETTINGS_CHANGED: "settings:changed",

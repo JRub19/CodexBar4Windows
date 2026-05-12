@@ -1,20 +1,20 @@
-import { invoke } from "@tauri-apps/api/core";
+// Phase 3 D2: 16x16 Segoe Fluent Settings glyph. Phase 4 P4-19 wires
+// the click to open the inline `ProviderSettingsPanel` instead of the
+// stubbed Preferences window. Phase 8 promotes the panel to a separate
+// Tauri window.
 
-// Phase 3 D2: 16x16 Segoe Fluent Settings glyph. The Fluent UI codepoint
-// for the cog is U+E713 in the Windows Symbol font. Click invokes the
-// Tauri `open_preferences` command which is currently a stub; Phase 8
-// replaces the stub with the real preferences window.
+interface Props {
+  onClick: () => void;
+}
 
-export function SettingsCog() {
+export function SettingsCog({ onClick }: Props) {
   return (
     <button
       type="button"
       className="settings-cog"
       aria-label="Preferences"
       title="Preferences"
-      onClick={() => {
-        void invoke("open_preferences");
-      }}
+      onClick={onClick}
     >
       <span aria-hidden="true">&#xE713;</span>
     </button>

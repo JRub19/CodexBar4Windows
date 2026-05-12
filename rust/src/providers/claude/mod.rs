@@ -11,6 +11,7 @@ pub mod models;
 pub mod oauth;
 pub mod planner;
 pub mod routing;
+pub mod settings;
 pub mod tokens;
 pub mod web;
 
