@@ -140,7 +140,7 @@ pub fn parse_reset_hint(text: &str) -> Option<ResetHint> {
         }
     }
 
-    if let Some(prefix) = month_prefix(&lower) {
+    if let Some(prefix) = month_prefix(lower) {
         let after = lower.split_at(prefix.matched_len).1.trim_start();
         let day_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
         if let Ok(day) = day_str.parse::<u32>() {
