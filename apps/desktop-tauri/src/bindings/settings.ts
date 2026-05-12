@@ -36,6 +36,7 @@ export interface Settings {
   providers: ProviderToggle[];
   display: DisplayPreferences;
   debug: DebugFlags;
+  allow_browser_cookie_import: boolean;
   app_language: string | null;
 }
 
@@ -45,6 +46,7 @@ export interface SettingsPatch {
   providers?: ProviderToggle[];
   display?: DisplayPreferences;
   debug?: DebugFlags;
+  allow_browser_cookie_import?: boolean;
   app_language?: string | null;
 }
 

@@ -21,6 +21,8 @@ pub struct Settings {
     pub display: DisplayPreferences,
     #[serde(default)]
     pub debug: DebugFlags,
+    #[serde(default = "default_allow_browser_cookie_import")]
+    pub allow_browser_cookie_import: bool,
     #[serde(default)]
     pub app_language: Option<String>,
 }
@@ -34,9 +36,14 @@ impl Default for Settings {
             providers: Vec::new(),
             display: DisplayPreferences::default(),
             debug: DebugFlags::default(),
+            allow_browser_cookie_import: true,
             app_language: None,
         }
     }
+}
+
+const fn default_allow_browser_cookie_import() -> bool {
+    true
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +111,7 @@ pub struct SettingsPatch {
     pub providers: Option<Vec<ProviderToggle>>,
     pub display: Option<DisplayPreferences>,
     pub debug: Option<DebugFlags>,
+    pub allow_browser_cookie_import: Option<bool>,
     pub app_language: Option<Option<String>>,
 }
 
@@ -123,6 +131,9 @@ impl Settings {
         }
         if let Some(v) = patch.debug {
             self.debug = v;
+        }
+        if let Some(v) = patch.allow_browser_cookie_import {
+            self.allow_browser_cookie_import = v;
         }
         if let Some(v) = patch.app_language {
             self.app_language = v;
