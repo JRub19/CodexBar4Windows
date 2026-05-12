@@ -64,20 +64,14 @@ pub static REGISTRY: Lazy<ProviderCatalog> =
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::providers::descriptor::{ProviderBranding, ProviderFetchPlan, ProviderMetadata};
+    use crate::providers::branding::ProviderBranding;
+    use crate::providers::descriptor::{ProviderFetchPlan, ProviderMetadata};
 
     fn fake_descriptor(id: &'static str) -> ProviderDescriptor {
         ProviderDescriptor {
             id: ProviderId(id),
-            metadata: ProviderMetadata {
-                display_name: id,
-                homepage: "https://example.com",
-                dashboard_url: None,
-            },
-            branding: ProviderBranding {
-                accent_hex: "#000000",
-                icon_id: id,
-            },
+            metadata: ProviderMetadata::minimal(id, "https://example.com"),
+            branding: ProviderBranding::solid("#000000", id),
             cli: None,
             fetch_plan: ProviderFetchPlan::default(),
         }
