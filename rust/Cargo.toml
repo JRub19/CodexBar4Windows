@@ -35,6 +35,7 @@ image = "0.25"
 ico = "0.4"
 lru = "0.13"
 parking_lot = "0.12"
+async-trait = "0.1"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [
@@ -47,7 +48,7 @@ windows = { version = "0.61", features = [
 winreg = "0.55"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["test-util", "sync", "rt", "time"] }
+tokio = { version = "1", features = ["test-util", "sync", "rt", "rt-multi-thread", "time"] }
 criterion = "0.5"
 
 [[bench]]
