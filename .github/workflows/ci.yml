@@ -46,7 +46,12 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        # Phase 1 enforces `-D clippy::unwrap_used` on non test code (tests
+        # use unwrap idiomatically). `expect_used` enforcement is deferred to
+        # a later phase per the phase 1 plan compromise.
+        run: |
+          cargo clippy --workspace -- -D warnings -D clippy::unwrap_used
+          cargo clippy --workspace --tests -- -D warnings
 
       - name: Cargo test
         run: cargo test --workspace --all-features
@@ -54,6 +59,10 @@ jobs:
       - name: Install desktop deps
         working-directory: apps/desktop-tauri
         run: npm ci
+
+      - name: TypeScript typecheck
+        working-directory: apps/desktop-tauri
+        run: npm run typecheck
 
       - name: Tauri build (release)
         working-directory: apps/desktop-tauri

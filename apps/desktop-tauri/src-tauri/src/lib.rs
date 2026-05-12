@@ -93,8 +93,12 @@ pub fn run() {
                 &[&refresh_i, &pause_i, &sep1, &prefs_i, &sep2, &quit_i],
             )?;
 
+            let icon = app
+                .default_window_icon()
+                .cloned()
+                .ok_or("default window icon missing; bundle is misconfigured")?;
             let _tray = TrayIconBuilder::with_id("main")
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(icon)
                 .tooltip("CodexBar4Windows\nAI coding limits in your Windows tray")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
