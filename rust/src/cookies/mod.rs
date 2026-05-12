@@ -13,9 +13,11 @@
 
 pub mod detect;
 pub mod errors;
+pub mod normalizer;
 
 pub use detect::{BrowserDetection, BrowserPresence};
 pub use errors::ImportError;
+pub use normalizer::CookieHeaderNormalizer;
 
 /// One cookie value as it appears in an HTTP `Cookie:` header.
 #[derive(Clone, Debug, PartialEq, Eq)]
