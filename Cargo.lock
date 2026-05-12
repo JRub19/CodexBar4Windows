@@ -469,6 +469,7 @@ dependencies = [
 name = "codexbar"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "inventory",
  "once_cell",
  "regex",
@@ -480,6 +481,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "windows",
 ]
 
 [[package]]

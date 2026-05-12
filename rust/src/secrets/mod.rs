@@ -4,6 +4,8 @@
 //! the modules listed below. Every provider in phase 4 and later goes
 //! through `SecretBlobStore` and the (forthcoming) `TokenAccountStore`.
 
+pub mod dpapi;
 pub mod errors;
 
+pub use dpapi::{dpapi_protect, dpapi_unprotect, unwrap_string, wrap_string};
 pub use errors::SecretsError;
