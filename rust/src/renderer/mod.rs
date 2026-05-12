@@ -9,6 +9,7 @@
 //! into an ICO atlas. We mirror that contract exactly so the geometry
 //! tables in `docs/windows/spec/10-tray-icon-system.md` apply unchanged.
 
+pub mod accent;
 pub mod atlas;
 pub mod bars;
 pub mod brand;
@@ -24,6 +25,7 @@ pub mod style;
 pub mod theme_detect;
 pub mod twists;
 
+pub use accent::{detect_accent_color, fallback_accent};
 pub use atlas::{encode_ico, AtlasError, ATLAS_SIZES_PX};
 pub use bars::{draw_bar, BarAlphas, BarRect};
 pub use brand::{paint_brand, BrandIconParams};
