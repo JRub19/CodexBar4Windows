@@ -62,10 +62,40 @@ pub async fn reset_settings(
 }
 
 #[derive(Serialize)]
+pub struct ProviderMetadataDto {
+    pub display_name: String,
+    pub homepage: String,
+    pub dashboard_url: Option<String>,
+    pub session_label: String,
+    pub weekly_label: String,
+    pub supports_opus: bool,
+    pub supports_credits: bool,
+}
+
+#[derive(Serialize)]
+pub struct ProviderBrandingDto {
+    pub accent_hex: String,
+    pub icon_id: String,
+}
+
+#[derive(Serialize)]
+pub struct ProviderCliConfigDto {
+    pub binary_name: String,
+    pub default_args: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct ProviderFetchPlanDto {
+    pub strategies: Vec<String>,
+}
+
+#[derive(Serialize)]
 pub struct ProviderDescriptorDto {
     pub id: String,
-    pub display_name: String,
-    pub accent_hex: String,
+    pub metadata: ProviderMetadataDto,
+    pub branding: ProviderBrandingDto,
+    pub cli: Option<ProviderCliConfigDto>,
+    pub fetch_plan: ProviderFetchPlanDto,
 }
 
 #[tauri::command]
@@ -78,15 +108,43 @@ fn catalog_to_dtos(catalog: &ProviderCatalog) -> Vec<ProviderDescriptorDto> {
         .descriptors()
         .map(|d: &ProviderDescriptor| ProviderDescriptorDto {
             id: d.id.as_str().to_string(),
-            display_name: d.metadata.display_name.to_string(),
-            accent_hex: d.branding.accent_hex.to_string(),
+            metadata: ProviderMetadataDto {
+                display_name: d.metadata.display_name.to_string(),
+                homepage: d.metadata.homepage.to_string(),
+                dashboard_url: d.metadata.dashboard_url.map(|s| s.to_string()),
+                session_label: d.metadata.session_label.to_string(),
+                weekly_label: d.metadata.weekly_label.to_string(),
+                supports_opus: d.metadata.supports_opus,
+                supports_credits: d.metadata.supports_credits,
+            },
+            branding: ProviderBrandingDto {
+                accent_hex: d.branding.accent_hex.to_string(),
+                icon_id: d.branding.icon_id.to_string(),
+            },
+            cli: d.cli.as_ref().map(|c| ProviderCliConfigDto {
+                binary_name: c.binary_name.to_string(),
+                default_args: c.default_args.iter().map(|s| s.to_string()).collect(),
+            }),
+            fetch_plan: ProviderFetchPlanDto {
+                strategies: d
+                    .fetch_plan
+                    .strategies
+                    .iter()
+                    .map(|s| format!("{s:?}"))
+                    .collect(),
+            },
         })
         .collect()
 }
 
 #[tauri::command]
-pub async fn provider_snapshots() -> Result<serde_json::Value, String> {
-    // Phase 1: empty. Phase 4 fills this with real per provider snapshots.
+pub async fn provider_snapshots(
+    usage: State<'_, UsageHandle>,
+) -> Result<serde_json::Value, String> {
+    // Phase 4 P4-09: read every slot from UsageStore. Phase 4 P4-20 wires
+    // the refresh loop to actually populate slots; until then the map is
+    // empty.
+    let _ = usage;
     Ok(serde_json::json!({}))
 }
 
