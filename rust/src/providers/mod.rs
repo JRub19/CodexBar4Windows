@@ -9,13 +9,20 @@ pub mod cli_config;
 pub mod cookie_source;
 pub mod descriptor;
 pub mod errors;
+pub mod fetch_outcome;
 pub mod identity;
+pub mod models;
 pub mod registry;
 
 pub use branding::ProviderBranding;
 pub use cli_config::ProviderCLIConfig;
 pub use cookie_source::{BrowserKind, CookieSource, DEFAULT_BROWSER_IMPORT_ORDER};
 pub use descriptor::{FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata};
-pub use errors::ProviderError;
+pub use errors::{ProviderError, ProviderFetchError};
+pub use fetch_outcome::{ProviderFetchAttempt, ProviderFetchOutcome};
 pub use identity::ProviderIdentitySnapshot;
+pub use models::{
+    CreditEvent, CreditUnit, CreditsSnapshot, NamedRateWindow, ProviderCostSnapshot,
+    ProviderStorageFootprint, RateWindow, ServiceCost, UsageSnapshot,
+};
 pub use registry::{ProviderCatalog, ProviderRegistration, REGISTRY};

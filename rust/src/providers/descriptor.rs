@@ -6,7 +6,7 @@
 //! `ProviderImplementation` and downstream stores. Every field here is
 //! data the React UI can render before any network call lands.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
@@ -60,7 +60,7 @@ pub struct ProviderFetchPlan {
     pub strategies: Vec<FetchStrategy>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum FetchStrategy {
     OAuth,
     Web,
