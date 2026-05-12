@@ -5,6 +5,8 @@
 //! tray and popup wiring.
 
 pub mod descriptor;
+pub mod errors;
+pub mod oauth;
 
 use std::sync::Arc;
 
