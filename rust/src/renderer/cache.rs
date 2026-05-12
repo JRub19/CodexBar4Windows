@@ -131,9 +131,10 @@ mod tests {
 
     #[test]
     fn quantize_collapses_close_values() {
-        // 49.7 and 49.8 round to the same bucket.
+        // 200 buckets across [0, 100] means each step is 0.5. Values in
+        // the same half-percent window round to the same bucket.
         let a = IconCacheKey::from_inputs(
-            Some(49.7),
+            Some(49.55),
             None,
             None,
             false,
@@ -142,7 +143,7 @@ mod tests {
             Theme::Dark,
         );
         let b = IconCacheKey::from_inputs(
-            Some(49.8),
+            Some(49.70),
             None,
             None,
             false,
