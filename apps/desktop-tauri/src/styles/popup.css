@@ -442,6 +442,59 @@ html, body, #root {
   color: var(--text-primary);
 }
 
+.click-to-copy {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.click-to-copy:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.copied-chip {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: white;
+  font-family: var(--font-small);
+  font-size: 10px;
+  font-weight: 500;
+  pointer-events: none;
+  animation: copied-chip-cycle 1320ms ease-out both;
+}
+
+@keyframes copied-chip-cycle {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  9% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copied-chip {
+    animation: none;
+  }
+}
+
 .metric-row__captions .metric-row__percent {
   color: var(--text-primary);
 }
