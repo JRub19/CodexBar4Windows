@@ -20,6 +20,13 @@
      Both adapt to light mode via the prefers-color-scheme block. */
   --border-card: rgba(255, 255, 255, 0.08);
   --divider: rgba(255, 255, 255, 0.06);
+  /* Windows 11 splits Segoe UI Variable into three optical sizes:
+     Display (>=20pt headlines), Text (11-19pt body), and Small (<11pt
+     captions). We declare all three so older systems without the
+     Variable family fall back through Segoe UI to the system stack. */
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-small: "Segoe UI Variable Small", "Segoe UI", system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: light) {
@@ -39,10 +46,13 @@ html, body, #root {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-text);
   font-size: 13px;
+  line-height: 1.4;
   color: var(--text-primary);
   background: transparent;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "calt";
 }
 
 .popup-root {
@@ -99,8 +109,10 @@ html, body, #root {
 
 .popup-header {
   padding: var(--space-4) 18px var(--space-2);
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.005em;
   -webkit-app-region: drag;
   border-bottom: 1px solid var(--divider);
 }
@@ -156,7 +168,9 @@ html, body, #root {
   display: flex;
   justify-content: space-between;
   padding: var(--space-2) var(--space-4) var(--space-3);
+  font-family: var(--font-small);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   border-top: 1px solid var(--divider);
   -webkit-app-region: no-drag;
@@ -167,6 +181,7 @@ html, body, #root {
   border: 0;
   color: var(--text-secondary);
   cursor: pointer;
+  font-family: inherit;
   font-size: 11px;
   padding: 4px 8px;
 }
