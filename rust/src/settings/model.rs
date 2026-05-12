@@ -99,6 +99,11 @@ pub struct DebugFlags {
     pub debug_menu_enabled: bool,
     #[serde(default)]
     pub verbose_logging: bool,
+    /// When `true`, the secrets subsystem refuses to persist new blobs.
+    /// Existing blobs remain readable. Used by power users debugging
+    /// credential storage issues without losing live state.
+    #[serde(default)]
+    pub disable_secret_storage: bool,
 }
 
 /// A partial mirror of `Settings` where every field is optional. `update_settings`

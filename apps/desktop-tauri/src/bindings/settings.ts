@@ -27,6 +27,7 @@ export interface DisplayPreferences {
 export interface DebugFlags {
   debug_menu_enabled: boolean;
   verbose_logging: boolean;
+  disable_secret_storage: boolean;
 }
 
 export interface Settings {
