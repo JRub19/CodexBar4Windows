@@ -6,3 +6,4 @@ pub mod account_jars;
 pub mod cookie_resolver;
 pub mod endpoints;
 pub mod strategy;
+pub mod text_parsing;
