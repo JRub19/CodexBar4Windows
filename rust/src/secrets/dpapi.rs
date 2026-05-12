@@ -22,7 +22,7 @@ pub fn dpapi_protect(input: &[u8]) -> Result<Vec<u8>, SecretsError> {
     use windows::Win32::Foundation::HLOCAL;
     use windows::Win32::Security::Cryptography::{CryptProtectData, CRYPT_INTEGER_BLOB};
 
-    let mut in_blob = CRYPT_INTEGER_BLOB {
+    let in_blob = CRYPT_INTEGER_BLOB {
         cbData: input.len() as u32,
         pbData: input.as_ptr() as *mut u8,
     };
@@ -33,7 +33,7 @@ pub fn dpapi_protect(input: &[u8]) -> Result<Vec<u8>, SecretsError> {
 
     let ok = unsafe {
         CryptProtectData(
-            &mut in_blob,
+            &in_blob,
             None,
             None,
             None,
@@ -62,7 +62,7 @@ pub fn dpapi_unprotect(blob: &[u8]) -> Result<Vec<u8>, SecretsError> {
     use windows::Win32::Foundation::HLOCAL;
     use windows::Win32::Security::Cryptography::{CryptUnprotectData, CRYPT_INTEGER_BLOB};
 
-    let mut in_blob = CRYPT_INTEGER_BLOB {
+    let in_blob = CRYPT_INTEGER_BLOB {
         cbData: blob.len() as u32,
         pbData: blob.as_ptr() as *mut u8,
     };
@@ -73,7 +73,7 @@ pub fn dpapi_unprotect(blob: &[u8]) -> Result<Vec<u8>, SecretsError> {
 
     let ok = unsafe {
         CryptUnprotectData(
-            &mut in_blob,
+            &in_blob,
             None,
             None,
             None,
