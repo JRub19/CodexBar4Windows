@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.26 — Unreleased
+## [Unreleased], Windows port
+
+This release marks the cut from the macOS Swift project to a Windows Rust plus Tauri rewrite. CodexBar4Windows is a ground up Windows native port of `steipete/CodexBar`. Entries below this line are the upstream macOS history, preserved for attribution. The pre wipe state of the macOS sources is tagged `mac-archive-2026-05-12` for archaeology.
+
+Tracking the Windows refactor: see `docs/windows/plan/00-master-plan.md` for the 10 phase execution plan.
+
+## 0.26 — Unreleased (macOS upstream)
 
 ### Added
 - Display: add a setting to hide quota-warning tick marks on usage bars while keeping quota warning notifications active (#918, fixes #916). Thanks @ThiagoCAltoe!
