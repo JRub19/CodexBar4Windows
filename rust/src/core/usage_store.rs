@@ -13,6 +13,8 @@ use thiserror::Error;
 use tokio::sync::broadcast;
 
 use super::events::{UsageEvent, UsageUpdated};
+use crate::providers::fetch_outcome::ProviderFetchAttempt;
+use crate::providers::models::UsageSnapshot as RichUsageSnapshot;
 
 /// Stable identifier for a provider. The string is `&'static str` so it
 /// doubles as the persistence key without allocation.
@@ -25,9 +27,18 @@ impl ProviderId {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct UsageState {
-    // Phase 1: empty. Phase 4 adds per provider snapshots.
+    /// Per-provider rich snapshots, keyed by provider id. Phase 4 P4-07
+    /// promotes the placeholder identity-only snapshot to the real
+    /// `providers::UsageSnapshot` shape.
+    pub snapshots: std::collections::HashMap<String, ProviderSlot>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ProviderSlot {
+    pub snapshot: RichUsageSnapshot,
+    pub attempts: Vec<ProviderFetchAttempt>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -99,6 +110,46 @@ impl UsageStore {
         };
         let _ = self.tx.send(UsageEvent::Updated(event.clone()));
         Ok(event)
+    }
+
+    /// Phase 4 P4-07: replace the rich per-provider snapshot in the
+    /// store. Returns the bumped `UsageUpdated` event so the caller can
+    /// emit it back over IPC. Enforces identity siloing: the snapshot's
+    /// `identity.provider_id` must match `provider.as_str()`.
+    pub fn replace_snapshot(
+        &self,
+        provider: ProviderId,
+        snapshot: RichUsageSnapshot,
+        attempts: Vec<ProviderFetchAttempt>,
+    ) -> Result<UsageUpdated, StoreError> {
+        if !snapshot.identity.scope_matches(provider) {
+            return Err(StoreError::IdentityMismatch {
+                expected: provider.as_str().to_string(),
+                got: snapshot.identity.provider_id.clone(),
+            });
+        }
+        {
+            let mut state = self.state.write();
+            state.snapshots.insert(
+                provider.as_str().to_string(),
+                ProviderSlot { snapshot, attempts },
+            );
+        }
+        let menu_rev = self.menu_rev.fetch_add(1, Ordering::SeqCst) + 1;
+        let icon_rev = self.icon_rev.fetch_add(1, Ordering::SeqCst) + 1;
+        let event = UsageUpdated {
+            provider,
+            menu_rev,
+            icon_rev,
+        };
+        let _ = self.tx.send(UsageEvent::Updated(event.clone()));
+        Ok(event)
+    }
+
+    /// Read the slot for a provider. Returns `None` when no snapshot
+    /// has been recorded yet.
+    pub fn slot(&self, provider: ProviderId) -> Option<ProviderSlot> {
+        self.state.read().snapshots.get(provider.as_str()).cloned()
     }
 
     pub fn menu_rev(&self) -> u64 {
@@ -176,6 +227,61 @@ mod tests {
         assert!(matches!(err, StoreError::IdentityMismatch { .. }));
         assert_eq!(store.menu_rev(), 0);
         assert_eq!(store.icon_rev(), 0);
+    }
+
+    #[test]
+    fn replace_snapshot_stores_rich_payload_and_attempts() {
+        use crate::providers::identity::ProviderIdentitySnapshot;
+        use crate::providers::models::rate_window::{NamedRateWindow, RateWindow};
+
+        let store = UsageStore::new();
+        let snap = RichUsageSnapshot {
+            identity: ProviderIdentitySnapshot::new(ProviderId("claude"), "acct"),
+            windows: vec![NamedRateWindow {
+                key: "session".into(),
+                window: RateWindow {
+                    label: "Session".into(),
+                    used: 50.0,
+                    allotted: Some(100.0),
+                    reset_at_unix_secs: None,
+                    pace_delta_percent: None,
+                },
+            }],
+            credits: None,
+            cost: None,
+            account_display_name: None,
+            account_email: None,
+            plan_name: None,
+            captured_at_unix_secs: 1,
+        };
+        let event = store
+            .replace_snapshot(ProviderId("claude"), snap.clone(), vec![])
+            .unwrap();
+        assert_eq!(event.menu_rev, 1);
+        let slot = store.slot(ProviderId("claude")).expect("slot must exist");
+        assert_eq!(slot.snapshot, snap);
+    }
+
+    #[test]
+    fn replace_snapshot_rejects_cross_provider_identity() {
+        use crate::providers::identity::ProviderIdentitySnapshot;
+
+        let store = UsageStore::new();
+        let snap = RichUsageSnapshot {
+            identity: ProviderIdentitySnapshot::new(ProviderId("codex"), "acct"),
+            windows: vec![],
+            credits: None,
+            cost: None,
+            account_display_name: None,
+            account_email: None,
+            plan_name: None,
+            captured_at_unix_secs: 0,
+        };
+        let err = store
+            .replace_snapshot(ProviderId("claude"), snap, vec![])
+            .expect_err("expected identity mismatch");
+        assert!(matches!(err, StoreError::IdentityMismatch { .. }));
+        assert_eq!(store.menu_rev(), 0);
     }
 
     #[test]
