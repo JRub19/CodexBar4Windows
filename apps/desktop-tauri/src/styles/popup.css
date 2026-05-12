@@ -34,6 +34,40 @@ html, body, #root {
   overflow: hidden;
   background: var(--surface-popup);
   -webkit-app-region: drag;
+  animation: popup-show 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.popup-root--leaving {
+  animation: popup-hide 140ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes popup-show {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes popup-hide {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(2px) scale(0.99);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-root,
+  .popup-root--leaving {
+    animation: none;
+  }
 }
 
 @media (prefers-color-scheme: light) {
