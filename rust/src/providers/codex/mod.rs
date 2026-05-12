@@ -5,3 +5,4 @@
 //! sessions to verify safely.
 
 pub mod auth;
+pub mod oauth;
