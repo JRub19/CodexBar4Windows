@@ -1,20 +1,25 @@
 //! CodexBar4Windows desktop Tauri shell.
 //!
-//! Phase 1 wires the path environment, file logging, and the settings store
-//! Tauri command surface. The tray icon plus native context menu carry over
-//! from phase 0. Phase 3 onward layers the popup window, dynamic icon, and
-//! real provider data on top of these seams.
+//! Phase 1 wires the path environment, file logging, settings store, usage
+//! store, and the refresh loop. The tray icon plus native context menu from
+//! phase 0 are updated to expose Pause/Resume refresh and Preferences entry
+//! points. Phase 3 onward layers the popup window and dynamic icon on top.
 
 pub mod commands;
 
-use codexbar::core::PathEnvironment;
+use std::sync::Arc;
+
+use codexbar::core::{PathEnvironment, RefreshLoop, UsageStore};
 use codexbar::settings::SettingsHandle;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tokio::runtime::Runtime;
 use tracing::info;
+
+use crate::commands::{RefreshHandle, UsageHandle};
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -40,21 +45,53 @@ pub fn run() {
     info!(target: "codexbar::app", version = codexbar::version(), "app.boot");
 
     let settings: SettingsHandle = commands::build_settings_handle(env.config_file.clone());
+    let usage = Arc::new(UsageStore::new());
+    let refresh = RefreshLoop::new(settings.clone());
+
+    // Spawn the refresh loop on a tokio runtime owned by the main thread.
+    // We leak the runtime intentionally so it lives for the app lifetime;
+    // the OS reclaims on exit and tokio handles will be cancelled.
+    let runtime: &'static Runtime = Box::leak(Box::new(
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .worker_threads(2)
+            .thread_name("codexbar-refresh")
+            .build()
+            .expect("tokio runtime must build"),
+    ));
+    let refresh_for_spawn = refresh.clone();
+    runtime.spawn(async move {
+        refresh_for_spawn.spawn().await.ok();
+    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(settings)
-        .setup(|app| {
+        .manage(settings.clone())
+        .manage(RefreshHandle(refresh))
+        .manage(UsageHandle(usage))
+        .setup(move |app| {
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh now", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "Show window", true, None::<&str>)?;
+            let pause_i = MenuItem::with_id(
+                app,
+                "pause",
+                if settings.snapshot().pause_refresh {
+                    "Resume refresh"
+                } else {
+                    "Pause refresh"
+                },
+                true,
+                None::<&str>,
+            )?;
             let sep1 = PredefinedMenuItem::separator(app)?;
-            let about_i =
-                MenuItem::with_id(app, "about", "About CodexBar4Windows", true, None::<&str>)?;
+            let prefs_i =
+                MenuItem::with_id(app, "preferences", "Preferences...", true, None::<&str>)?;
             let sep2 = PredefinedMenuItem::separator(app)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, Some("CmdOrCtrl+Q"))?;
 
-            let menu =
-                Menu::with_items(app, &[&refresh_i, &show_i, &sep1, &about_i, &sep2, &quit_i])?;
+            let menu = Menu::with_items(
+                app,
+                &[&refresh_i, &pause_i, &sep1, &prefs_i, &sep2, &quit_i],
+            )?;
 
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
@@ -66,18 +103,33 @@ pub fn run() {
                         info!(target: "codexbar::tray", "menu.quit");
                         app.exit(0);
                     }
-                    "show" => {
-                        info!(target: "codexbar::tray", "menu.show");
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
+                    "preferences" => {
+                        info!(target: "codexbar::tray", "menu.preferences");
+                    }
+                    "pause" => {
+                        info!(target: "codexbar::tray", "menu.pause_toggle");
+                        if let Some(handle) = app.try_state::<SettingsHandle>() {
+                            let cur = handle.snapshot();
+                            let _ = handle.update(codexbar::settings::SettingsPatch {
+                                pause_refresh: Some(!cur.pause_refresh),
+                                ..Default::default()
+                            });
                         }
                     }
                     "refresh" => {
                         info!(target: "codexbar::tray", "menu.refresh");
-                    }
-                    "about" => {
-                        info!(target: "codexbar::tray", "menu.about");
+                        if let Some(handle) = app.try_state::<RefreshHandle>() {
+                            let loop_ref = handle.0.clone();
+                            std::thread::spawn(move || {
+                                let rt = tokio::runtime::Builder::new_current_thread()
+                                    .enable_all()
+                                    .build()
+                                    .expect("oneshot runtime");
+                                rt.block_on(async {
+                                    let _ = loop_ref.refresh_now().await;
+                                });
+                            });
+                        }
                     }
                     other => {
                         info!(target: "codexbar::tray", id = other, "menu.unknown");
@@ -111,7 +163,12 @@ pub fn run() {
             greet,
             commands::get_settings,
             commands::update_settings,
-            commands::reset_settings
+            commands::reset_settings,
+            commands::provider_descriptors,
+            commands::provider_snapshots,
+            commands::refresh_now,
+            commands::toggle_pause,
+            commands::open_preferences,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
