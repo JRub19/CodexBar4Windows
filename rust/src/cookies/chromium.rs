@@ -90,34 +90,6 @@ impl ChromiumCookieReader {
         }
         Ok(key)
     }
-
-    fn copy_cookies_db(&self, cookies: &Path) -> Result<(tempfile::TempDir, PathBuf), ImportError> {
-        let dir = tempfile::tempdir().map_err(|source| ImportError::Io {
-            path: cookies.to_path_buf(),
-            source,
-        })?;
-        let dest = dir.path().join("Cookies");
-        std::fs::copy(cookies, &dest).map_err(|source| match classify_copy_error(&source) {
-            true => ImportError::DbLocked(self.presence.browser),
-            false => ImportError::Io {
-                path: cookies.to_path_buf(),
-                source,
-            },
-        })?;
-        // -wal and -shm are optional; ignore copy errors silently.
-        for ext in ["-wal", "-shm"] {
-            let from = cookies.with_file_name(format!(
-                "{}{ext}",
-                cookies.file_name().and_then(|n| n.to_str()).unwrap_or("")
-            ));
-            let to = dest.with_file_name(format!(
-                "{}{ext}",
-                dest.file_name().and_then(|n| n.to_str()).unwrap_or("")
-            ));
-            let _ = std::fs::copy(&from, &to);
-        }
-        Ok((dir, dest))
-    }
 }
 
 impl BrowserCookieImporter for ChromiumCookieReader {
@@ -128,16 +100,32 @@ impl BrowserCookieImporter for ChromiumCookieReader {
     fn import_for(&self, domains: &[&str]) -> Result<Vec<HttpCookie>, ImportError> {
         let (local_state, cookie_db) = self.require_paths()?;
         let key = self.load_aes_key(local_state)?;
-        let (_temp, temp_db) = self.copy_cookies_db(cookie_db)?;
 
-        let conn = rusqlite::Connection::open_with_flags(
-            &temp_db,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )
-        .map_err(|e| match classify_sqlite_error(&e) {
-            Some(err) => err,
-            None => ImportError::Sqlite(e.to_string()),
-        })?;
+        // Strategy: open the live DB read-only first. SQLite uses
+        // byte-range locks rather than file-level locks, so a shared
+        // read while Chromium is running is allowed in most cases.
+        // When SQLITE_BUSY surfaces (rare, only during an active write
+        // transaction), fall back to the SQLite backup API which copies
+        // the DB into a fresh file under SQLite-supervised locking.
+        let (conn, _holder) = match open_live_read_only(cookie_db) {
+            Ok(c) => (c, None),
+            Err(LiveOpenError::Locked) => {
+                let (temp, db_path) = backup_to_temp(cookie_db, self.presence.browser)?;
+                let conn = rusqlite::Connection::open_with_flags(
+                    &db_path,
+                    rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+                        | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+                )
+                .map_err(|e| {
+                    match classify_sqlite_error(&e, self.presence.browser) {
+                        Some(err) => err,
+                        None => ImportError::Sqlite(e.to_string()),
+                    }
+                })?;
+                (conn, Some(temp))
+            }
+            Err(LiveOpenError::Other(e)) => return Err(ImportError::Sqlite(e)),
+        };
 
         let mut out = Vec::new();
         let mut v20_blocked: Vec<String> = Vec::new();
@@ -253,21 +241,114 @@ fn is_likely_printable(bytes: &[u8]) -> bool {
     bytes.iter().all(|b| (0x20..=0x7e).contains(b))
 }
 
-fn classify_sqlite_error(err: &rusqlite::Error) -> Option<ImportError> {
+fn classify_sqlite_error(err: &rusqlite::Error, browser: BrowserId) -> Option<ImportError> {
     let msg = err.to_string().to_lowercase();
-    if msg.contains("busy") || msg.contains("locked") {
-        return Some(ImportError::DbLocked(BrowserId::Chrome));
+    if msg.contains("busy") || msg.contains("locked") || msg.contains("denied") {
+        return Some(ImportError::DbLocked(browser));
     }
     None
 }
 
-fn classify_copy_error(err: &std::io::Error) -> bool {
-    matches!(
-        err.kind(),
-        std::io::ErrorKind::PermissionDenied
-            | std::io::ErrorKind::Other
-            | std::io::ErrorKind::AlreadyExists
+enum LiveOpenError {
+    Locked,
+    Other(String),
+}
+
+/// Open the live Chromium cookie DB read-only. We use the `immutable=1`
+/// URI parameter so SQLite skips the WAL/SHM sidecars and never tries
+/// to acquire any write locks — this lets us read while Chromium has
+/// the DB open exclusively in another process.
+fn open_live_read_only(cookies: &Path) -> Result<rusqlite::Connection, LiveOpenError> {
+    let uri = build_immutable_uri(cookies);
+    let conn = rusqlite::Connection::open_with_flags(
+        &uri,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+            | rusqlite::OpenFlags::SQLITE_OPEN_URI
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
+    .map_err(|e| {
+        let lower = e.to_string().to_lowercase();
+        if lower.contains("busy") || lower.contains("locked") || lower.contains("denied") {
+            LiveOpenError::Locked
+        } else {
+            LiveOpenError::Other(e.to_string())
+        }
+    })?;
+    // A trivial query that requires a shared read lock; if the lock is
+    // contested we surface `Locked` here so the caller can fall through
+    // to the backup-API copy.
+    if let Err(err) = conn.query_row("SELECT COUNT(*) FROM cookies", [], |row| {
+        row.get::<_, i64>(0)
+    }) {
+        let lower = err.to_string().to_lowercase();
+        if lower.contains("busy") || lower.contains("locked") {
+            return Err(LiveOpenError::Locked);
+        }
+        return Err(LiveOpenError::Other(err.to_string()));
+    }
+    Ok(conn)
+}
+
+/// Copy the cookie DB into a temp file via SQLite's online backup API.
+/// Unlike a raw filesystem copy, this respects SQLite's locking
+/// protocol so we never tear a write transaction in half.
+fn backup_to_temp(
+    cookies: &Path,
+    browser: BrowserId,
+) -> Result<(tempfile::TempDir, PathBuf), ImportError> {
+    let dir = tempfile::tempdir().map_err(|source| ImportError::Io {
+        path: cookies.to_path_buf(),
+        source,
+    })?;
+    let dest = dir.path().join("Cookies");
+    let uri = build_immutable_uri(cookies);
+    let src = rusqlite::Connection::open_with_flags(
+        &uri,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+            | rusqlite::OpenFlags::SQLITE_OPEN_URI
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| match classify_sqlite_error(&e, browser) {
+        Some(err) => err,
+        None => ImportError::Sqlite(e.to_string()),
+    })?;
+    src.backup(rusqlite::DatabaseName::Main, &dest, None)
+        .map_err(|e| match classify_sqlite_error(&e, browser) {
+            Some(err) => err,
+            None => ImportError::Sqlite(e.to_string()),
+        })?;
+    Ok((dir, dest))
+}
+
+/// Build a `file:` URI with `immutable=1`. SQLite is strict about
+/// reserved characters; we percent-encode anything outside the RFC 3986
+/// unreserved set.
+fn build_immutable_uri(path: &Path) -> String {
+    let mut display = path.display().to_string();
+    if cfg!(windows) {
+        display = display.replace('\\', "/");
+    }
+    let mut encoded = String::from("file:");
+    if cfg!(windows) {
+        encoded.push_str("///");
+    }
+    for ch in display.chars() {
+        match ch {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' | '/' | ':' => {
+                encoded.push(ch)
+            }
+            ' ' => encoded.push_str("%20"),
+            _ => {
+                let mut buf = [0u8; 4];
+                let bytes = ch.encode_utf8(&mut buf).as_bytes().to_vec();
+                for b in bytes {
+                    encoded.push_str(&format!("%{:02X}", b));
+                }
+            }
+        }
+    }
+    encoded.push_str("?immutable=1");
+    encoded
 }
 
 pub(crate) const _V10_PREFIX_EXPORT: &[u8] = V10_PREFIX;
