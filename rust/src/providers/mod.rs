@@ -7,6 +7,7 @@
 pub mod branding;
 pub mod claude;
 pub mod cli_config;
+pub mod codex;
 pub mod contexts;
 pub mod cookie_source;
 pub mod descriptor;
