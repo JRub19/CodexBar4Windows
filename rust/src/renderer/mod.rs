@@ -24,6 +24,7 @@ pub mod state;
 pub mod status_overlay;
 pub mod style;
 pub mod theme_detect;
+pub mod tooltip;
 pub mod twists;
 
 pub use accent::{detect_accent_color, fallback_accent};
@@ -44,6 +45,7 @@ pub use theme_detect::detect_taskbar_theme;
 /// Re export `tiny_skia::Color` so the desktop shell does not need a
 /// direct `tiny-skia` dependency to pass colors into the renderer.
 pub use tiny_skia::Color;
+pub use tooltip::TooltipInputs;
 pub use twists::paint_twist;
 
 /// Logical canvas size in points.
