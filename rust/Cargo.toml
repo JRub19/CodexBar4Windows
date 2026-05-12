@@ -1,0 +1,13 @@
+[package]
+name = "codexbar"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Shared core for CodexBar4Windows: providers, settings, secrets, refresh loop."
+
+[lib]
+name = "codexbar"
+path = "src/lib.rs"
