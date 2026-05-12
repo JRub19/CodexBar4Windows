@@ -9,6 +9,7 @@ pub mod locale;
 pub mod logging;
 pub mod providers;
 pub mod redact;
+pub mod secrets;
 pub mod settings;
 
 pub fn version() -> &'static str {
