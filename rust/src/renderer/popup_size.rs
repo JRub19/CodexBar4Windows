@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn target_width_is_within_bounds() {
-        assert!(POPUP_WIDTH_TARGET_PX >= POPUP_WIDTH_MIN_PX);
-        assert!(POPUP_WIDTH_TARGET_PX <= POPUP_WIDTH_MAX_PX);
+        const _: () = assert!(POPUP_WIDTH_TARGET_PX >= POPUP_WIDTH_MIN_PX);
+        const _: () = assert!(POPUP_WIDTH_TARGET_PX <= POPUP_WIDTH_MAX_PX);
     }
 }

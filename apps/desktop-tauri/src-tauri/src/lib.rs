@@ -9,6 +9,7 @@ pub mod commands;
 #[cfg(feature = "dev")]
 pub mod dev;
 pub mod first_run;
+pub mod perf;
 pub mod secrets_commands;
 pub mod tray_renderer;
 

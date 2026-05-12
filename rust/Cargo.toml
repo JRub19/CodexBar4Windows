@@ -48,3 +48,8 @@ winreg = "0.55"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "sync", "rt", "time"] }
+criterion = "0.5"
+
+[[bench]]
+name = "render"
+harness = false
