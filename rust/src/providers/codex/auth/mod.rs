@@ -5,5 +5,7 @@
 //! - 1.6 dpapi_mirror.rs (DPAPI sidecar at %APPDATA%)
 
 pub mod credentials;
+pub mod errors;
 pub mod identity;
 pub mod jwt;
+pub mod refresh;
