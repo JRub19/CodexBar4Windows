@@ -3,5 +3,7 @@
 //! drops the whole snapshot.
 
 pub mod fallback;
+pub mod strategy;
+pub mod transport;
 pub mod usage;
 pub mod wham_response;

@@ -121,9 +121,8 @@ impl Strategy for CodexWebStrategy {
             })
             .or_else(|| {
                 parsed
-                    .account
-                    .as_ref()
-                    .and_then(|a| a.email.clone())
+                    .email
+                    .clone()
                     .map(|e| format!("codex:{}", e.to_ascii_lowercase()))
             })
             .unwrap_or_else(|| "codex:cookie".into());
@@ -137,11 +136,11 @@ impl Strategy for CodexWebStrategy {
             account_email: account
                 .as_ref()
                 .and_then(|a| a.email.clone())
-                .or_else(|| parsed.account.as_ref().and_then(|a| a.email.clone())),
+                .or_else(|| parsed.email.clone()),
             plan_name: account
                 .as_ref()
                 .and_then(|a| a.plan_type.clone())
-                .or_else(|| parsed.account.as_ref().and_then(|a| a.plan_type.clone())),
+                .or_else(|| parsed.plan_type.clone()),
             captured_at_unix_secs: now,
         })
     }
@@ -218,9 +217,15 @@ mod tests {
             "https://chatgpt.com/backend-api/wham/usage",
             200,
             br#"{
-                "primary_window": {"used": 5.0, "allotted": 100.0},
-                "secondary_window": {"used": 50.0, "allotted": 1000.0},
-                "account": {"email": "u@example.com", "plan_type": "plus", "account_id": "abc"}
+                "user_id": "user-abc",
+                "account_id": "abc",
+                "email": "u@example.com",
+                "plan_type": "plus",
+                "rate_limit": {
+                    "allowed": true,
+                    "primary_window": {"used_percent": 5, "reset_at": 1778645804},
+                    "secondary_window": {"used_percent": 50, "reset_at": 1778773780}
+                }
             }"#,
         );
         client.put(
@@ -277,8 +282,10 @@ mod tests {
             "https://chatgpt.com/backend-api/wham/usage",
             200,
             br#"{
-                "primary_window": {"used": 1.0, "allotted": 100.0},
-                "account": {"email": "fallback@x.com"}
+                "email": "fallback@x.com",
+                "rate_limit": {
+                    "primary_window": {"used_percent": 1, "reset_at": 1778645804}
+                }
             }"#,
         );
         // /me intentionally absent → returns 404 from ScriptedClient.

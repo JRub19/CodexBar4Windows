@@ -1,6 +1,11 @@
 //! Compose the wham/usage request and fold the response into the
 //! framework `UsageSnapshot`. The HTTP transport is pluggable so tests
 //! can drive every error branch with a stub.
+//!
+//! Live-verified on 2026-05-13. The endpoint requires:
+//! - `Authorization: Bearer <access_token>` from `~/.codex/auth.json`
+//! - `User-Agent: codex_cli_rs/<version>` (other UAs return 401)
+//! - `ChatGPT-Account-Id: <tokens.account_id>` from the same file
 
 use std::time::Duration;
 
@@ -8,6 +13,7 @@ use async_trait::async_trait;
 
 use super::wham_response::{decode_tolerant, RateWindowWire, WhamResponse};
 use crate::providers::codex::auth::errors::CodexOAuthError;
+use crate::providers::models::rate_window::{NamedRateWindow, RateWindow};
 
 pub const DEFAULT_ENDPOINT: &str = "https://chatgpt.com/backend-api/wham/usage";
 pub const PER_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -55,8 +61,6 @@ pub async fn fetch_usage(
     let mut headers: Vec<(&str, &str)> = vec![
         ("Authorization", bearer.as_str()),
         ("Accept", "application/json"),
-        ("Accept-Language", "en-US,en;q=0.9"),
-        ("User-Agent", "CodexBar"),
     ];
     if let Some(id) = request.account_id {
         headers.push(("ChatGPT-Account-Id", id));
@@ -65,10 +69,14 @@ pub async fn fetch_usage(
     match response.status {
         200..=299 => {
             let (parsed, flags) = decode_tolerant(&response.body);
-            if parsed.primary_window.is_none()
-                && parsed.secondary_window.is_none()
-                && parsed.credits.is_none()
-            {
+            // The rate_limit object is the load-bearing field. If it
+            // is entirely absent the response is unusable.
+            let has_windows = parsed
+                .rate_limit
+                .as_ref()
+                .map(|rl| rl.primary_window.is_some() || rl.secondary_window.is_some())
+                .unwrap_or(false);
+            if !has_windows && parsed.credits.is_none() && parsed.email.is_none() {
                 return Err(CodexOAuthError::InvalidResponse);
             }
             Ok((parsed, flags))
@@ -78,21 +86,19 @@ pub async fn fetch_usage(
     }
 }
 
-/// Folds the wire response into framework windows. Spec 41 §3.5 maps
-/// `primary_window` to the session bar and `secondary_window` to the
-/// weekly bar.
-pub fn windows_from_response(
-    response: &WhamResponse,
-) -> Vec<crate::providers::models::rate_window::NamedRateWindow> {
-    use crate::providers::models::rate_window::NamedRateWindow;
+/// Folds the wire response into framework windows.
+pub fn windows_from_response(response: &WhamResponse) -> Vec<NamedRateWindow> {
     let mut out = Vec::new();
-    if let Some(w) = &response.primary_window {
+    let Some(rate_limit) = response.rate_limit.as_ref() else {
+        return out;
+    };
+    if let Some(w) = &rate_limit.primary_window {
         out.push(NamedRateWindow {
             key: "session".into(),
             window: window_from_wire("Session", w),
         });
     }
-    if let Some(w) = &response.secondary_window {
+    if let Some(w) = &rate_limit.secondary_window {
         out.push(NamedRateWindow {
             key: "weekly".into(),
             window: window_from_wire("Week", w),
@@ -101,15 +107,12 @@ pub fn windows_from_response(
     out
 }
 
-fn window_from_wire(
-    label: &str,
-    wire: &RateWindowWire,
-) -> crate::providers::models::rate_window::RateWindow {
-    crate::providers::models::rate_window::RateWindow {
+fn window_from_wire(label: &str, wire: &RateWindowWire) -> RateWindow {
+    RateWindow {
         label: label.into(),
-        used: wire.used.unwrap_or(0.0),
-        allotted: wire.allotted,
-        reset_at_unix_secs: wire.resets_at_epoch,
+        used: wire.used_percent,
+        allotted: Some(100.0),
+        reset_at_unix_secs: wire.reset_at,
         pace_delta_percent: None,
     }
 }
@@ -182,8 +185,13 @@ mod tests {
     #[test]
     fn happy_path_returns_response_and_emits_expected_headers() {
         let body = br#"{
-            "primary_window": {"used": 10.0, "allotted": 100.0},
-            "account": {"email": "u@x.com", "plan_type": "plus", "account_id": "acct"}
+            "email": "u@x.com",
+            "plan_type": "plus",
+            "rate_limit": {
+                "allowed": true,
+                "primary_window": {"used_percent": 12, "reset_at": 1778645804},
+                "secondary_window": {"used_percent": 5, "reset_at": 1778773780}
+            }
         }"#;
         let stub = StubHttp::new(200, body);
         let (response, flags) = rt()
@@ -199,7 +207,8 @@ mod tests {
                 .await
             })
             .unwrap();
-        assert!(response.primary_window.is_some());
+        let rate_limit = response.rate_limit.unwrap();
+        assert!(rate_limit.primary_window.is_some());
         assert!(!flags.primary_window_decode_failed);
         let captured = stub.captured.lock().unwrap();
         let (url, headers) = &captured[0];
@@ -253,8 +262,10 @@ mod tests {
     #[test]
     fn windows_from_response_emits_session_and_week() {
         let body = br#"{
-            "primary_window": {"used": 5.0, "allotted": 100.0},
-            "secondary_window": {"used": 80.0, "allotted": 1000.0}
+            "rate_limit": {
+                "primary_window": {"used_percent": 12, "reset_at": 1778645804},
+                "secondary_window": {"used_percent": 5, "reset_at": 1778773780}
+            }
         }"#;
         let (parsed, _flags) = decode_tolerant(body);
         let windows = windows_from_response(&parsed);

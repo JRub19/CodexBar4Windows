@@ -77,10 +77,14 @@ mod tests {
     }
 
     #[test]
-    fn install_wiring_yields_web_and_cli_strategies_in_order() {
+    fn install_wiring_yields_oauth_web_and_cli_strategies_in_order() {
         use crate::providers::claude::web::strategy::{CookieResolver, WebClient, WebResponse};
+        use crate::providers::codex::auth::credentials::CodexCredentials;
+        use crate::providers::codex::auth::errors::CodexOAuthError;
         use crate::providers::codex::cli::rpc_client::{RpcCallError, RpcTransport};
         use crate::providers::codex::cli::strategy::TransportFactory;
+        use crate::providers::codex::oauth::strategy::OAuthCredentialsResolver;
+        use crate::providers::codex::oauth::usage::{UsageHttp, UsageResponse};
         use crate::providers::descriptor::FetchStrategy;
         use crate::providers::errors::ProviderFetchError;
 
@@ -120,16 +124,40 @@ mod tests {
                 Ok(())
             }
         }
+        struct NoopUsage;
+        #[async_trait]
+        impl UsageHttp for NoopUsage {
+            async fn get(
+                &self,
+                _: &str,
+                _: &[(&str, &str)],
+            ) -> Result<UsageResponse, CodexOAuthError> {
+                Ok(UsageResponse {
+                    status: 404,
+                    body: b"{}".to_vec(),
+                })
+            }
+        }
+        struct NoopCreds;
+        #[async_trait]
+        impl OAuthCredentialsResolver for NoopCreds {
+            async fn resolve(&self) -> Result<CodexCredentials, CodexOAuthError> {
+                Err(CodexOAuthError::CredentialsNotFound)
+            }
+        }
 
         let provider = CodexProvider::default();
         provider.install_wiring(CodexWiring {
+            oauth_http: Arc::new(NoopUsage),
+            oauth_credentials: Arc::new(NoopCreds),
             web_client: Arc::new(NoopWeb),
             web_cookies: Arc::new(NoopCookies),
             cli_transport_factory: Arc::new(StubFactory),
         });
         let strategies = provider.strategies();
-        assert_eq!(strategies.len(), 2);
-        assert_eq!(strategies[0].strategy_id(), FetchStrategy::Web);
-        assert_eq!(strategies[1].strategy_id(), FetchStrategy::CLI);
+        assert_eq!(strategies.len(), 3);
+        assert_eq!(strategies[0].strategy_id(), FetchStrategy::OAuth);
+        assert_eq!(strategies[1].strategy_id(), FetchStrategy::Web);
+        assert_eq!(strategies[2].strategy_id(), FetchStrategy::CLI);
     }
 }

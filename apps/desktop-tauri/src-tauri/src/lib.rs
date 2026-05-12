@@ -186,6 +186,57 @@ impl CodexTransportFactory for UnavailableCodexTransport {
     }
 }
 
+/// Last-resort Codex OAuth transport when reqwest cannot build.
+struct NullCodexUsageHttp;
+
+#[async_trait::async_trait]
+impl codexbar::providers::codex::oauth::usage::UsageHttp for NullCodexUsageHttp {
+    async fn get(
+        &self,
+        _: &str,
+        _: &[(&str, &str)],
+    ) -> Result<
+        codexbar::providers::codex::oauth::usage::UsageResponse,
+        codexbar::providers::codex::auth::errors::CodexOAuthError,
+    > {
+        Err(
+            codexbar::providers::codex::auth::errors::CodexOAuthError::NetworkError(
+                "reqwest unavailable; Codex OAuth disabled".into(),
+            ),
+        )
+    }
+}
+
+/// Resolves Codex OAuth credentials from `~/.codex/auth.json` (or the
+/// `CODEX_HOME` env override).
+struct FilesystemCodexCredentials;
+
+#[async_trait::async_trait]
+impl codexbar::providers::codex::oauth::strategy::OAuthCredentialsResolver
+    for FilesystemCodexCredentials
+{
+    async fn resolve(
+        &self,
+    ) -> Result<
+        codexbar::providers::codex::auth::credentials::CodexCredentials,
+        codexbar::providers::codex::auth::errors::CodexOAuthError,
+    > {
+        let path = codexbar::providers::codex::auth::credentials::auth_path().ok_or(
+            codexbar::providers::codex::auth::errors::CodexOAuthError::CredentialsNotFound,
+        )?;
+        let bytes = std::fs::read(&path).map_err(|_| {
+            codexbar::providers::codex::auth::errors::CodexOAuthError::CredentialsNotFound
+        })?;
+        codexbar::providers::codex::auth::credentials::CodexCredentials::parse(&bytes).map_err(
+            |e| {
+                codexbar::providers::codex::auth::errors::CodexOAuthError::DecodeFailed(
+                    e.to_string(),
+                )
+            },
+        )
+    }
+}
+
 /// Locate the `claude` binary on PATH. Returns `None` when the user has
 /// not installed the CLI.
 fn claude_cli_binary() -> Option<String> {
@@ -296,12 +347,24 @@ pub fn run() {
         cli_binary: claude_cli_binary().unwrap_or_else(|| "claude".to_string()),
     });
     // Phase 5: Codex provider.
+    //   - OAuth strategy: hits chatgpt.com/wham/usage with the bearer
+    //     from `~/.codex/auth.json` and the codex_cli_rs/<version>
+    //     User-Agent the API requires (verified live 2026-05-13).
     //   - Web strategy: reuses the shared CookieImporter through the
-    //     `CodexCookieResolver` adapter so manual paste + browser
-    //     import both feed the same code path.
-    //   - CLI strategy: still wired through the unavailable transport
-    //     until the ConPTY launcher lands.
+    //     CodexCookieResolver adapter. ChatGPT.com's Cloudflare layer
+    //     blocks raw cookie requests, so this path almost always
+    //     fails for end users — kept for future fallback work.
+    //   - CLI strategy: still routed through the unavailable
+    //     transport until the ConPTY launcher lands.
     let codex_provider = Arc::new(CodexProvider::default());
+    let codex_oauth_http: Arc<dyn codexbar::providers::codex::oauth::usage::UsageHttp> =
+        match codexbar::providers::codex::oauth::transport::ReqwestUsageClient::new() {
+            Ok(c) => Arc::new(c),
+            Err(_) => Arc::new(NullCodexUsageHttp),
+        };
+    let codex_oauth_credentials: Arc<
+        dyn codexbar::providers::codex::oauth::strategy::OAuthCredentialsResolver,
+    > = Arc::new(FilesystemCodexCredentials);
     let codex_web_client: Arc<dyn WebClient> = match ReqwestWebClient::new() {
         Ok(c) => Arc::new(c),
         Err(_) => Arc::new(NullWebClient),
@@ -312,6 +375,8 @@ pub fn run() {
         ),
     );
     codex_provider.install_wiring(CodexWiring {
+        oauth_http: codex_oauth_http,
+        oauth_credentials: codex_oauth_credentials,
         web_client: codex_web_client,
         web_cookies: codex_cookie_resolver,
         cli_transport_factory: Arc::new(UnavailableCodexTransport),

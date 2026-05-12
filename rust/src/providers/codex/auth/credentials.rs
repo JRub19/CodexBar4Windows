@@ -43,9 +43,51 @@ pub enum CodexCredentials {
 }
 
 impl CodexCredentials {
-    /// Parse the on-disk credentials. Accepts both snake and camel case.
+    /// Parse the on-disk credentials. The real Codex CLI writes a
+    /// nested shape (`tokens.access_token` etc.); older test fixtures
+    /// and the macOS reference use the top-level shape. We accept
+    /// both, plus camelCase aliases.
     pub fn parse(bytes: &[u8]) -> Result<Self, CredentialsParseError> {
-        // Try the wire form (snake_case) first.
+        // Try the real Codex CLI shape first.
+        #[derive(Deserialize)]
+        struct NestedWire {
+            #[serde(default, rename = "OPENAI_API_KEY")]
+            openai_api_key: Option<String>,
+            #[serde(default)]
+            tokens: Option<TokensInner>,
+            #[serde(default)]
+            last_refresh: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct TokensInner {
+            #[serde(default)]
+            access_token: Option<String>,
+            #[serde(default)]
+            refresh_token: Option<String>,
+            #[serde(default)]
+            id_token: Option<String>,
+            #[serde(default)]
+            #[allow(dead_code)]
+            account_id: Option<String>,
+        }
+        if let Ok(nested) = serde_json::from_slice::<NestedWire>(bytes) {
+            if let Some(tokens) = nested.tokens {
+                if let (Some(a), Some(r), Some(i)) = (
+                    tokens.access_token.filter(|s| !s.is_empty()),
+                    tokens.refresh_token.filter(|s| !s.is_empty()),
+                    tokens.id_token,
+                ) {
+                    return Ok(CodexCredentials::Full(CodexCredentialsFull {
+                        access_token: a,
+                        refresh_token: r,
+                        id_token: i,
+                        last_refresh: nested.last_refresh,
+                        openai_api_key: nested.openai_api_key.filter(|s| !s.is_empty()),
+                    }));
+                }
+            }
+        }
+        // Try the snake_case top-level shape.
         if let Ok(full) = serde_json::from_slice::<CodexCredentialsFull>(bytes) {
             if !full.access_token.is_empty() && !full.refresh_token.is_empty() {
                 return Ok(CodexCredentials::Full(full));
@@ -168,6 +210,28 @@ mod tests {
     }"#;
 
     const APIKEY: &[u8] = br#"{ "OPENAI_API_KEY": "sk-abc" }"#;
+
+    const LIVE_NESTED: &[u8] = br#"{
+        "OPENAI_API_KEY": null,
+        "tokens": {
+            "id_token": "eyJ.id.token",
+            "access_token": "ek-cb1.access",
+            "refresh_token": "ek-cb1.refresh",
+            "account_id": "acct_01"
+        },
+        "last_refresh": "2026-05-13T00:00:00Z"
+    }"#;
+
+    #[test]
+    fn parses_real_codex_cli_nested_shape() {
+        let creds = CodexCredentials::parse(LIVE_NESTED).unwrap();
+        let full = creds.as_full().unwrap();
+        assert_eq!(full.access_token, "ek-cb1.access");
+        assert_eq!(full.refresh_token, "ek-cb1.refresh");
+        assert_eq!(full.id_token, "eyJ.id.token");
+        assert_eq!(full.last_refresh.as_deref(), Some("2026-05-13T00:00:00Z"));
+        assert!(full.openai_api_key.is_none());
+    }
 
     #[test]
     fn parses_snake_case_payload() {
