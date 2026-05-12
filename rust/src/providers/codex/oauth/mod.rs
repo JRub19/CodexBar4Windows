@@ -2,5 +2,6 @@
 //! per-window decode-failure flags so a single mistyped field never
 //! drops the whole snapshot.
 
+pub mod fallback;
 pub mod usage;
 pub mod wham_response;
