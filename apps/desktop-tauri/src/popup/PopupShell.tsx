@@ -16,6 +16,7 @@ import { PopupFooter } from "./footer/PopupFooter";
 import { FirstRunToast } from "./firstRun/FirstRunToast";
 import { EmptyState } from "../components/EmptyState";
 import "../styles/popup.css";
+import "../styles/focus.css";
 
 // Phase 3 D1: The top level popup layout. Holds the three card regions
 // (header, body, footer) and is responsible for the popup-wide listeners:

@@ -1,0 +1,34 @@
+/* Phase 3 E2: 2 px accent focus ring at 4 px offset on the chrome and
+   0 px offset on cards. We use :focus-visible exclusively so mouse
+   clicks do not draw the ring. The popup body uses overflow: auto, so
+   the chart canvas and other deep elements get a 1 px inset variant
+   that never gets clipped. */
+
+:focus { outline: none; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.action-row:focus-visible,
+.settings-cog:focus-visible {
+  outline-offset: 2px;
+}
+
+.switcher-tab:focus-visible,
+.chart-segmented__tab:focus-visible,
+.click-to-copy:focus-visible {
+  outline-offset: 0;
+}
+
+.first-run-toast__dismiss:focus-visible {
+  outline-offset: 2px;
+}
+
+/* Inside the popup body where overflow:auto clips outer rings, draw an
+   inset ring so it stays visible. */
+.popup-body :focus-visible {
+  outline-offset: -2px;
+}
