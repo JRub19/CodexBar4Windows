@@ -119,9 +119,12 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
 
+    type CapturedHeaders = Vec<(String, String)>;
+    type CapturedCall = (String, CapturedHeaders);
+
     struct StubHttp {
         next: Mutex<Option<(u16, Vec<u8>)>>,
-        captured: Mutex<Vec<(String, Vec<(String, String)>)>>,
+        captured: Mutex<Vec<CapturedCall>>,
     }
 
     impl StubHttp {
