@@ -1,0 +1,16 @@
+/* Phase 3 E3: a single global override so any component (including
+   third-party styles like uPlot or Tauri plugin UI) collapses transitions
+   and transforms when the user has reduced motion turned on. Per-rule
+   overrides in popup.css already disable the popup-show, copied-chip,
+   and action-icon-spin animations; this stylesheet catches everything
+   else with a low-specificity safety net. */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
