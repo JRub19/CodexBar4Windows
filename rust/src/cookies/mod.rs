@@ -14,11 +14,13 @@
 pub mod chromium;
 pub mod detect;
 pub mod errors;
+pub mod firefox;
 pub mod normalizer;
 
 pub use chromium::ChromiumCookieReader;
 pub use detect::{BrowserDetection, BrowserPresence};
 pub use errors::ImportError;
+pub use firefox::FirefoxCookieReader;
 pub use normalizer::CookieHeaderNormalizer;
 
 /// One cookie value as it appears in an HTTP `Cookie:` header.
