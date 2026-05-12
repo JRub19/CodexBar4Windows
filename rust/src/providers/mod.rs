@@ -18,6 +18,8 @@ pub mod implementation;
 pub mod models;
 pub mod presentation;
 pub mod registry;
+pub mod settings_descriptor;
+pub mod settings_snapshot;
 
 pub use branding::ProviderBranding;
 pub use cli_config::ProviderCLIConfig;
@@ -35,3 +37,5 @@ pub use models::{
 };
 pub use presentation::{PresentationMetric, ProviderPresentation};
 pub use registry::{ProviderCatalog, ProviderRegistration, REGISTRY};
+pub use settings_descriptor::{PickerOption, SettingsAction, SettingsDescriptor};
+pub use settings_snapshot::{ProviderSettingsContribution, ProviderSettingsSnapshot};
