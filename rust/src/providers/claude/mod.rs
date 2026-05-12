@@ -4,6 +4,7 @@
 //! PTY strategy, P4-18 source consolidation, P4-19 settings, P4-20
 //! tray and popup wiring.
 
+pub mod cli;
 pub mod descriptor;
 pub mod errors;
 pub mod models;
