@@ -6,6 +6,8 @@
 //! points. Phase 3 onward layers the popup window and dynamic icon on top.
 
 pub mod commands;
+#[cfg(feature = "dev")]
+pub mod dev;
 pub mod first_run;
 pub mod secrets_commands;
 pub mod tray_renderer;
