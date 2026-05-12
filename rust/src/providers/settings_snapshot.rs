@@ -31,7 +31,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn add(mut self, contribution: ProviderSettingsContribution) -> Self {
+    pub fn with_section(mut self, contribution: ProviderSettingsContribution) -> Self {
         self.sections.push(contribution);
         self
     }
@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn builder_collects_contributions_in_order() {
         let snap = ProviderSettingsSnapshot::builder()
-            .add(ProviderSettingsContribution {
+            .with_section(ProviderSettingsContribution {
                 provider_id: "claude".into(),
                 section_title: "Claude".into(),
                 rows: vec![SettingsDescriptor::Picker {
@@ -65,7 +65,7 @@ mod tests {
                     default: "auto".into(),
                 }],
             })
-            .add(ProviderSettingsContribution {
+            .with_section(ProviderSettingsContribution {
                 provider_id: "codex".into(),
                 section_title: "Codex".into(),
                 rows: vec![],
