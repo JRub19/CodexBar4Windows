@@ -53,6 +53,10 @@ jobs:
           cargo clippy --workspace -- -D warnings -D clippy::unwrap_used
           cargo clippy --workspace --tests -- -D warnings
 
+      - name: Secret leak heuristic
+        shell: pwsh
+        run: ./scripts/check-no-secrets.ps1
+
       - name: Cargo test
         run: cargo test --workspace --all-features
 
