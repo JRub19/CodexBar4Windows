@@ -13,6 +13,7 @@ pub mod errors;
 pub mod fetch_context;
 pub mod fetch_outcome;
 pub mod fetch_plan_runtime;
+pub mod hello;
 pub mod identity;
 pub mod implementation;
 pub mod models;

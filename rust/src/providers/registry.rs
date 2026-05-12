@@ -24,20 +24,33 @@ pub struct ProviderCatalog {
 
 impl ProviderCatalog {
     /// Build the catalog from any iterator of `ProviderRegistration`. Panics
-    /// if two registrations share the same `ProviderId`.
+    /// if two registrations share the same `ProviderId`. Used at boot when
+    /// a duplicate id is a programming error worth halting on.
     pub fn build<'a>(registrations: impl IntoIterator<Item = &'a ProviderRegistration>) -> Self {
+        match Self::build_validated(registrations) {
+            Ok(c) => c,
+            Err(e) => panic!("{e}"),
+        }
+    }
+
+    /// Same as `build`, but returns the duplicate-id error instead of
+    /// panicking. Phase 4 P4-08 uses this from tests so it can assert on
+    /// the error message without unwinding.
+    pub fn build_validated<'a>(
+        registrations: impl IntoIterator<Item = &'a ProviderRegistration>,
+    ) -> Result<Self, super::errors::ProviderError> {
         let mut by_id = HashMap::new();
         let mut order = Vec::new();
         for reg in registrations {
             let descriptor = (reg.descriptor)();
             let key = descriptor.id.as_str();
             if by_id.contains_key(key) {
-                panic!("duplicate provider id registered: {key}");
+                return Err(super::errors::ProviderError::DuplicateId(key));
             }
             order.push(key);
             by_id.insert(key, descriptor);
         }
-        Self { by_id, order }
+        Ok(Self { by_id, order })
     }
 
     pub fn descriptors(&self) -> impl Iterator<Item = &ProviderDescriptor> {
