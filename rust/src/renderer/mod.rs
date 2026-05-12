@@ -11,11 +11,13 @@
 
 pub mod bars;
 pub mod canvas;
+pub mod layout;
 pub mod pixel_grid;
 pub mod style;
 
 pub use bars::{draw_bar, BarAlphas, BarRect};
 pub use canvas::IconRenderer;
+pub use layout::{select as select_layout, BarSlot, Layout, LayoutInput};
 pub use pixel_grid::PixelGrid;
 pub use style::IconStyle;
 
