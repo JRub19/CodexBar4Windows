@@ -14,11 +14,17 @@ pub struct ReqwestClient {
     client: Client,
 }
 
+/// User-Agent prefix Anthropic's OAuth endpoints require. Verified
+/// live on 2026-05-13: any UA that does not start with `claude-code/`
+/// returns 429 with an empty body. We pin the prefix so the popup's
+/// refresh loop always presents a UA the API recognizes.
+pub const OAUTH_USER_AGENT: &str = concat!("claude-code/", env!("CARGO_PKG_VERSION"));
+
 impl ReqwestClient {
     pub fn new() -> Result<Self, ProviderFetchError> {
         let client = Client::builder()
             .timeout(PER_REQUEST_TIMEOUT)
-            .user_agent(concat!("codexbar4windows/", env!("CARGO_PKG_VERSION")))
+            .user_agent(OAUTH_USER_AGENT)
             .build()
             .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
         Ok(Self { client })

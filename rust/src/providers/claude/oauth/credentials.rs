@@ -50,10 +50,13 @@ pub struct ResolvedCredentials {
     pub source: CredentialSource,
 }
 
-/// Parse the on-disk `~/.claude/.credentials.json` file.
+/// Parse the on-disk `~/.claude/.credentials.json` file. The real
+/// Claude Code file is nested under `claudeAiOauth`; older test
+/// fixtures and the macOS reference put the fields at the top level.
+/// We accept both.
 pub fn parse_file(bytes: &[u8]) -> Result<OAuthCredentials, CredentialError> {
     #[derive(Deserialize)]
-    struct Wire {
+    struct Inner {
         #[serde(rename = "accessToken")]
         access_token: Option<String>,
         #[serde(rename = "refreshToken")]
@@ -63,16 +66,24 @@ pub fn parse_file(bytes: &[u8]) -> Result<OAuthCredentials, CredentialError> {
         #[serde(default)]
         scopes: Vec<String>,
     }
+    #[derive(Deserialize)]
+    struct Wire {
+        #[serde(rename = "claudeAiOauth")]
+        claude_ai_oauth: Option<Inner>,
+        #[serde(flatten)]
+        flat: Inner,
+    }
     let parsed: Wire =
         serde_json::from_slice(bytes).map_err(|e| CredentialError::DecodeFailed(e.to_string()))?;
-    let access_token = parsed
+    let inner = parsed.claude_ai_oauth.unwrap_or(parsed.flat);
+    let access_token = inner
         .access_token
         .ok_or_else(|| CredentialError::DecodeFailed("missing accessToken".into()))?;
     Ok(OAuthCredentials {
         access_token,
-        refresh_token: parsed.refresh_token,
-        expires_at_unix_secs: parsed.expires_at_unix_secs,
-        scopes: parsed.scopes,
+        refresh_token: inner.refresh_token,
+        expires_at_unix_secs: inner.expires_at_unix_secs,
+        scopes: inner.scopes,
     })
 }
 
@@ -151,6 +162,25 @@ mod tests {
         let mut f = tempfile::NamedTempFile::new().unwrap();
         f.write_all(json.as_bytes()).unwrap();
         f
+    }
+
+    #[test]
+    fn parses_real_claude_code_nested_payload() {
+        let json = r#"{
+            "claudeAiOauth": {
+                "accessToken": "sk-ant-oat01-xyz",
+                "refreshToken": "ref",
+                "expiresAt": 1700000000,
+                "scopes": ["user:profile", "user:inference"],
+                "subscriptionType": "max",
+                "rateLimitTier": "pro"
+            },
+            "mcpOAuth": {}
+        }"#;
+        let creds = parse_file(json.as_bytes()).unwrap();
+        assert_eq!(creds.access_token, "sk-ant-oat01-xyz");
+        assert_eq!(creds.refresh_token.as_deref(), Some("ref"));
+        assert!(creds.has_required_scope());
     }
 
     #[test]

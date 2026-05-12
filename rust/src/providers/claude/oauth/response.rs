@@ -1,8 +1,12 @@
-//! Wire shapes for `GET /api/oauth/usage`. The Anthropic response is
-//! mapped one to one with spec 40 section 2.6. We deserialize into
-//! `OAuthUsageResponse`, then fold into the framework's
-//! `UsageSnapshot` in `strategy.rs`.
+//! Wire shape for `GET /api/oauth/usage` on `api.anthropic.com`.
+//!
+//! Validated against the live API on 2026-05-13 with `User-Agent:
+//! claude-code/<version>`. Each window is `{utilization: percent,
+//! resets_at: ISO-8601}`; missing windows decode to `None`. Account
+//! metadata lives at a different endpoint (`/api/oauth/account`); the
+//! strategy layer composes them.
 
+use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -11,91 +15,113 @@ pub struct OAuthUsageResponse {
     pub five_hour: Option<RateBucket>,
     #[serde(default)]
     pub seven_day: Option<RateBucket>,
-    #[serde(default, rename = "seven_day_sonnet")]
+    #[serde(default)]
     pub seven_day_sonnet: Option<RateBucket>,
-    #[serde(default, rename = "seven_day_opus")]
+    #[serde(default)]
     pub seven_day_opus: Option<RateBucket>,
     #[serde(default)]
-    pub extra_usage: Option<ExtraUsage>,
+    pub seven_day_oauth_apps: Option<RateBucket>,
     #[serde(default)]
-    pub account: Option<AccountInfo>,
+    pub seven_day_cowork: Option<RateBucket>,
+    #[serde(default)]
+    pub seven_day_omelette: Option<RateBucket>,
+    #[serde(default)]
+    pub extra_usage: Option<ExtraUsage>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct RateBucket {
+    /// Percent of the quota window consumed (0..=100). The Anthropic
+    /// payload calls this `utilization`; it is NOT a raw token count.
     #[serde(default)]
-    pub used: f64,
+    pub utilization: f64,
+    /// ISO-8601 reset timestamp. Convert to unix seconds via
+    /// `resets_at_unix_secs()`.
     #[serde(default)]
-    pub allotted: Option<f64>,
-    /// Unix epoch seconds; the Anthropic API returns ISO-8601 in some
-    /// endpoints and epoch in others. The `resets_at_epoch` field is the
-    /// canonical channel; we accept either via a custom deserializer in
-    /// future work.
-    #[serde(default)]
-    pub resets_at_epoch: Option<i64>,
-    #[serde(default)]
-    pub pace_delta_percent: Option<f32>,
+    pub resets_at: Option<String>,
+}
+
+impl RateBucket {
+    pub fn resets_at_unix_secs(&self) -> Option<i64> {
+        let raw = self.resets_at.as_deref()?;
+        DateTime::parse_from_rfc3339(raw)
+            .ok()
+            .map(|d| d.timestamp())
+    }
+
+    /// Convenience: returns `100 - utilization`, clamped to `[0, 100]`.
+    pub fn remaining_percent(&self) -> f64 {
+        (100.0 - self.utilization).clamp(0.0, 100.0)
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct ExtraUsage {
-    /// Cost in cents. We divide by 100 when surfacing dollar values.
     #[serde(default)]
-    pub spend_cents: Option<i64>,
+    pub is_enabled: bool,
     #[serde(default)]
-    pub overage_cents: Option<i64>,
-}
-
-impl ExtraUsage {
-    pub fn spend_dollars(&self) -> Option<f64> {
-        self.spend_cents.map(|c| c as f64 / 100.0)
-    }
-
-    pub fn overage_dollars(&self) -> Option<f64> {
-        self.overage_cents.map(|c| c as f64 / 100.0)
-    }
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
-pub struct AccountInfo {
+    pub monthly_limit: Option<f64>,
     #[serde(default)]
-    pub email: Option<String>,
+    pub used_credits: Option<f64>,
     #[serde(default)]
-    pub display_name: Option<String>,
+    pub utilization: Option<f64>,
     #[serde(default)]
-    pub plan: Option<String>,
+    pub currency: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Captured verbatim from a live call on 2026-05-13.
+    const LIVE_PAYLOAD: &str = r#"{
+        "five_hour":{"utilization":25.0,"resets_at":"2026-05-12T23:20:00.915200+00:00"},
+        "seven_day":{"utilization":32.0,"resets_at":"2026-05-18T10:00:00.915220+00:00"},
+        "seven_day_oauth_apps":null,
+        "seven_day_opus":null,
+        "seven_day_sonnet":{"utilization":0.0,"resets_at":null},
+        "seven_day_cowork":null,
+        "seven_day_omelette":{"utilization":0.0,"resets_at":null},
+        "extra_usage":{"is_enabled":false,"monthly_limit":null,"used_credits":null,"utilization":null,"currency":null}
+    }"#;
+
     #[test]
-    fn parses_full_payload() {
-        let raw = r#"{
-            "five_hour": {"used": 12.5, "allotted": 100.0, "resets_at_epoch": 1700000000},
-            "seven_day": {"used": 250.0, "allotted": 1000.0},
-            "seven_day_sonnet": {"used": 200.0, "allotted": 800.0},
-            "seven_day_opus": {"used": 30.0, "allotted": 100.0},
-            "extra_usage": {"spend_cents": 1234, "overage_cents": 0},
-            "account": {"email": "jonas@skrylabs.com", "display_name": "Jonas", "plan": "Max"}
-        }"#;
-        let parsed: OAuthUsageResponse = serde_json::from_str(raw).unwrap();
-        assert_eq!(parsed.five_hour.as_ref().unwrap().used, 12.5);
-        assert_eq!(parsed.seven_day.as_ref().unwrap().allotted, Some(1000.0));
-        assert_eq!(parsed.seven_day_sonnet.as_ref().unwrap().used, 200.0);
-        assert_eq!(
-            parsed.seven_day_opus.as_ref().unwrap().allotted,
-            Some(100.0)
-        );
-        assert_eq!(
-            parsed.extra_usage.as_ref().unwrap().spend_dollars(),
-            Some(12.34)
-        );
-        assert_eq!(
-            parsed.account.as_ref().unwrap().email.as_deref(),
-            Some("jonas@skrylabs.com")
-        );
+    fn parses_live_payload_into_five_known_windows() {
+        let parsed: OAuthUsageResponse = serde_json::from_str(LIVE_PAYLOAD).unwrap();
+        let five_hour = parsed.five_hour.as_ref().unwrap();
+        assert_eq!(five_hour.utilization, 25.0);
+        assert!(five_hour.resets_at.is_some());
+        let seven_day = parsed.seven_day.as_ref().unwrap();
+        assert_eq!(seven_day.utilization, 32.0);
+        assert!(parsed.seven_day_opus.is_none());
+        assert!(parsed.seven_day_oauth_apps.is_none());
+        // sonnet is present but with null reset.
+        let sonnet = parsed.seven_day_sonnet.as_ref().unwrap();
+        assert_eq!(sonnet.utilization, 0.0);
+        assert!(sonnet.resets_at.is_none());
+        // extra_usage is structurally present but disabled.
+        let extra = parsed.extra_usage.as_ref().unwrap();
+        assert!(!extra.is_enabled);
+    }
+
+    #[test]
+    fn resets_at_unix_secs_converts_iso8601_to_epoch() {
+        let bucket = RateBucket {
+            utilization: 5.0,
+            resets_at: Some("2026-05-12T23:20:00.915200+00:00".into()),
+        };
+        let epoch = bucket.resets_at_unix_secs().unwrap();
+        // 2026-05-12T23:20:00Z is well after 2026-01-01.
+        assert!(epoch > 1_767_225_600);
+    }
+
+    #[test]
+    fn remaining_percent_complements_utilization() {
+        let bucket = RateBucket {
+            utilization: 25.0,
+            resets_at: None,
+        };
+        assert_eq!(bucket.remaining_percent(), 75.0);
     }
 
     #[test]
