@@ -1,0 +1,24 @@
+{
+  "popup": {
+    "title": "CodexBar",
+    "empty_state": "No providers configured. Open Preferences to enable."
+  },
+  "tray": {
+    "menu": {
+      "refresh_now": "Refresh now",
+      "pause_refresh": "Pause refresh",
+      "resume_refresh": "Resume refresh",
+      "preferences": "Preferences...",
+      "quit": "Quit CodexBar"
+    }
+  },
+  "error": {
+    "settings": {
+      "read_failed": "Could not read settings. Using defaults.",
+      "write_failed": "Could not save settings. Changes were not persisted."
+    },
+    "refresh": {
+      "tick_failed": "Refresh tick failed. See logs."
+    }
+  }
+}
