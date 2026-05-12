@@ -10,6 +10,7 @@ import type {
 } from "../bindings";
 import { useUsageStore } from "./state/usageStore";
 import { PopupHeader } from "./header/PopupHeader";
+import { CardStack } from "./cards/CardStack";
 import { EmptyState } from "../components/EmptyState";
 import "../styles/popup.css";
 
@@ -20,7 +21,6 @@ import "../styles/popup.css";
 
 export function PopupShell() {
   const descriptors = useUsageStore((s) => s.descriptors);
-  const lastUsageEvent = useUsageStore((s) => s.lastUsageEvent);
   const setDescriptors = useUsageStore((s) => s.setDescriptors);
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
@@ -62,17 +62,7 @@ export function PopupShell() {
     <div className="popup-root">
       <PopupHeader />
       <main className="popup-body">
-        {descriptors.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <p>
-            {descriptors.length} provider
-            {descriptors.length === 1 ? "" : "s"} configured.
-            {lastUsageEvent
-              ? ` Last update: ${lastUsageEvent.provider}`
-              : ""}
-          </p>
-        )}
+        {descriptors.length === 0 ? <EmptyState /> : <CardStack />}
       </main>
       <footer className="popup-footer">
         <button
