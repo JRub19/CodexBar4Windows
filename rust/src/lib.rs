@@ -5,6 +5,7 @@
 //! here; we keep it as a sanity-check seam for the desktop shell.
 
 pub mod core;
+pub mod logging;
 
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
