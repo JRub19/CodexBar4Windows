@@ -100,12 +100,30 @@ pub fn run() {
             let sep1 = PredefinedMenuItem::separator(app)?;
             let prefs_i =
                 MenuItem::with_id(app, "preferences", "Preferences...", true, None::<&str>)?;
+            let about_i =
+                MenuItem::with_id(app, "about", "About CodexBar4Windows", true, None::<&str>)?;
+            let check_updates_i = MenuItem::with_id(
+                app,
+                "check_updates",
+                "Check for updates",
+                true,
+                None::<&str>,
+            )?;
             let sep2 = PredefinedMenuItem::separator(app)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, Some("CmdOrCtrl+Q"))?;
 
             let menu = Menu::with_items(
                 app,
-                &[&refresh_i, &pause_i, &sep1, &prefs_i, &sep2, &quit_i],
+                &[
+                    &refresh_i,
+                    &pause_i,
+                    &sep1,
+                    &prefs_i,
+                    &about_i,
+                    &check_updates_i,
+                    &sep2,
+                    &quit_i,
+                ],
             )?;
 
             let icon = app
@@ -124,6 +142,12 @@ pub fn run() {
                     }
                     "preferences" => {
                         info!(target: "codexbar::tray", "menu.preferences");
+                    }
+                    "about" => {
+                        info!(target: "codexbar::tray", "menu.about");
+                    }
+                    "check_updates" => {
+                        info!(target: "codexbar::tray", "menu.check_updates");
                     }
                     "pause" => {
                         info!(target: "codexbar::tray", "menu.pause_toggle");
