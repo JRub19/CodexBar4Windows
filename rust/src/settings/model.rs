@@ -39,21 +39,16 @@ impl Default for Settings {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RefreshFrequency {
     Manual,
     OneMinute,
     TwoMinutes,
+    #[default]
     FiveMinutes,
     FifteenMinutes,
     ThirtyMinutes,
-}
-
-impl Default for RefreshFrequency {
-    fn default() -> Self {
-        Self::FiveMinutes
-    }
 }
 
 impl RefreshFrequency {
@@ -179,8 +174,10 @@ mod tests {
 
     #[test]
     fn patch_can_clear_app_language() {
-        let mut s = Settings::default();
-        s.app_language = Some("pt-BR".into());
+        let s = Settings {
+            app_language: Some("pt-BR".into()),
+            ..Default::default()
+        };
         let cleared = s.apply_patch(SettingsPatch {
             app_language: Some(None),
             ..Default::default()
