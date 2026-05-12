@@ -1,9 +1,10 @@
 import type { Metric } from "./snapshot";
+import { UsageProgressBar } from "../components/UsageProgressBar";
 
 // Phase 3 D5: a single metric row inside a card. Per spec 15 section 4.1
 // the row is title, then bar, then two captions: percent + reset on top,
-// detail left + detail right below. D6 will replace the temporary `<div
-// className="metric-row__bar-fallback">` with the real UsageProgressBar.
+// detail left + detail right below. The real `UsageProgressBar` replaces
+// the temporary fallback in phase 3 D6.
 
 interface Props {
   metric: Metric;
@@ -15,15 +16,7 @@ export function MetricRow({ metric, brandAccent }: Props) {
   return (
     <div className="metric-row">
       <span className="metric-row__title">{metric.title}</span>
-      <div
-        className="metric-row__bar-fallback"
-        style={
-          {
-            "--metric-fill": brandAccent,
-            "--metric-percent": pct == null ? "0%" : `${Math.max(0, Math.min(100, pct))}%`,
-          } as React.CSSProperties
-        }
-      />
+      <UsageProgressBar percent={pct ?? 0} brandColor={brandAccent} />
       <div className="metric-row__captions">
         <span className="metric-row__percent">
           {pct == null ? "—" : `${Math.round(pct)}%`}

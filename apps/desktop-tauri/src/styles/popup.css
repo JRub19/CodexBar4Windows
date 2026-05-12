@@ -345,22 +345,84 @@ html, body, #root {
   font-weight: 500;
 }
 
-.metric-row__bar-fallback {
+.usage-bar {
   position: relative;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
-.metric-row__bar-fallback::after {
-  content: "";
+.usage-bar__track {
   position: absolute;
   inset: 0;
-  width: var(--metric-percent);
-  background: var(--metric-fill);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
-  transition: width 200ms ease-out;
+}
+
+.usage-bar__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--usage-percent);
+  background: var(--usage-fill);
+  border-radius: 3px;
+  transition: width var(--usage-transition, 200ms) ease-out;
+}
+
+.usage-bar__marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.30);
+  transform: translateX(-1px);
+  pointer-events: none;
+}
+
+.usage-bar__pace-tip {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 6px;
+  margin-left: -3px;
+  background:
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent 2px,
+      currentColor 2px,
+      currentColor 4px,
+      transparent 4px
+    );
+  color: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+
+.usage-bar--highlighted .usage-bar__track {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.usage-bar--highlighted .usage-bar__fill {
+  background: white;
+}
+
+@media (prefers-color-scheme: light) {
+  .usage-bar__track {
+    background: rgba(0, 0, 0, 0.08);
+  }
+  .usage-bar__marker {
+    background: rgba(0, 0, 0, 0.30);
+  }
+  .usage-bar__pace-tip {
+    color: rgba(0, 0, 0, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .usage-bar__fill {
+    transition: none;
+  }
 }
 
 .metric-row__captions,
