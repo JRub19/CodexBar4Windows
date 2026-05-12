@@ -1,50 +1,45 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { EmptyState } from "./components/EmptyState";
+import { useSettings } from "./hooks/useSettings";
+import { useUsageEvents } from "./hooks/useUsageEvents";
+import "./styles/popup.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const settings = useSettings();
+  const { descriptors, lastUpdate } = useUsageEvents();
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    <div className="popup-root">
+      <header className="popup-header">CodexBar</header>
+      <main className="popup-body">
+        {descriptors.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <p>
+            {descriptors.length} provider
+            {descriptors.length === 1 ? "" : "s"} configured.
+            {lastUpdate ? ` Last update: ${lastUpdate.provider}` : ""}
+          </p>
+        )}
+      </main>
+      <footer className="popup-footer">
+        <button
+          type="button"
+          onClick={() => {
+            void invoke("refresh_now");
+          }}
+        >
+          Refresh now
+        </button>
+        <span>
+          {settings
+            ? settings.pause_refresh
+              ? "Refresh paused"
+              : `Cadence: ${settings.refresh_frequency}`
+            : "Loading..."}
+        </span>
+      </footer>
+    </div>
   );
 }
 

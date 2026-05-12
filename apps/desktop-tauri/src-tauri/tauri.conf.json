@@ -12,9 +12,17 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "CodexBar4Windows",
-        "width": 800,
-        "height": 600
+        "width": 360,
+        "height": 520,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "shadow": true
       }
     ],
     "security": {

@@ -1,0 +1,120 @@
+/* Phase 1 popup baseline. Phase 3 adds Mica/Acrylic backdrop, animations,
+   and the polish from docs/windows/spec/15-popover-menu-card-ui.md. */
+
+:root {
+  color-scheme: light dark;
+  --surface-popup: rgba(32, 32, 32, 0.92);
+  --surface-popup-light: rgba(249, 249, 249, 0.92);
+  --text-primary: #e6e6e6;
+  --text-secondary: #a0a0a0;
+  --accent: #6e5aff;
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.popup-root {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-popup);
+  -webkit-app-region: drag;
+}
+
+@media (prefers-color-scheme: light) {
+  .popup-root {
+    background: var(--surface-popup-light);
+    color: #1f1f1f;
+  }
+}
+
+.popup-header {
+  padding: 16px 18px 8px;
+  font-size: 16px;
+  font-weight: 600;
+  -webkit-app-region: drag;
+}
+
+.popup-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 24px;
+  text-align: center;
+  -webkit-app-region: no-drag;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+.empty-state button {
+  -webkit-app-region: no-drag;
+  background: var(--accent);
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.empty-state button:hover {
+  filter: brightness(1.1);
+}
+
+.popup-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  -webkit-app-region: no-drag;
+}
+
+.popup-footer button {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.popup-footer button:hover {
+  color: var(--text-primary);
+}
