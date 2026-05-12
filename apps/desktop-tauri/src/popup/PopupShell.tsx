@@ -12,6 +12,7 @@ import { useUsageStore } from "./state/usageStore";
 import { PopupHeader } from "./header/PopupHeader";
 import { CardStack } from "./cards/CardStack";
 import { PopupFooter } from "./footer/PopupFooter";
+import { FirstRunToast } from "./firstRun/FirstRunToast";
 import { EmptyState } from "../components/EmptyState";
 import "../styles/popup.css";
 
@@ -66,6 +67,7 @@ export function PopupShell() {
         {descriptors.length === 0 ? <EmptyState /> : <CardStack />}
       </main>
       <PopupFooter />
+      <FirstRunToast />
     </div>
   );
 }

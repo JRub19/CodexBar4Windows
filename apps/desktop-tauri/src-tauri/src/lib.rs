@@ -6,6 +6,7 @@
 //! points. Phase 3 onward layers the popup window and dynamic icon on top.
 
 pub mod commands;
+pub mod first_run;
 pub mod secrets_commands;
 pub mod tray_renderer;
 
@@ -23,7 +24,8 @@ use tauri::{
 use tokio::runtime::Runtime;
 use tracing::info;
 
-use crate::commands::{RefreshHandle, UsageHandle};
+use crate::commands::{FirstRunHandle, RefreshHandle, UsageHandle};
+use crate::first_run::FirstRunStore;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -77,12 +79,15 @@ pub fn run() {
         refresh_for_spawn.spawn().await.ok();
     });
 
+    let first_run_store = FirstRunStore::new(env.roaming.clone());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(settings.clone())
         .manage(RefreshHandle(refresh))
         .manage(UsageHandle(usage))
+        .manage(FirstRunHandle(first_run_store))
         .manage(secrets_commands::TokenAccountHandle(token_store))
         .manage(secrets_commands::CookieImporterHandle(cookie_importer))
         .setup(move |app| {
@@ -214,6 +219,9 @@ pub fn run() {
             commands::toggle_pause,
             commands::open_preferences,
             commands::quit_app,
+            commands::first_run_state,
+            commands::first_run_mark_tray_hint_shown,
+            commands::first_run_reset,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,

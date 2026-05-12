@@ -11,6 +11,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tracing::info;
 
+use crate::first_run::{FirstRunState, FirstRunStore};
+
 pub const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 
 #[derive(serde::Serialize, Clone)]
@@ -126,6 +128,28 @@ pub async fn open_preferences() -> Result<(), String> {
 pub async fn quit_app(app: AppHandle) {
     info!(target: "codexbar::commands", "quit.invoked");
     app.exit(0);
+}
+
+pub struct FirstRunHandle(pub FirstRunStore);
+
+#[tauri::command]
+pub async fn first_run_state(store: State<'_, FirstRunHandle>) -> Result<FirstRunState, String> {
+    Ok(store.0.read())
+}
+
+#[tauri::command]
+pub async fn first_run_mark_tray_hint_shown(
+    store: State<'_, FirstRunHandle>,
+) -> Result<(), String> {
+    store
+        .0
+        .mark_tray_pinned_hint_shown()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn first_run_reset(store: State<'_, FirstRunHandle>) -> Result<(), String> {
+    store.0.clear().map_err(|e| e.to_string())
 }
 
 /// Helper for the Tauri builder to register the State once paths are known.

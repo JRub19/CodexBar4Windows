@@ -15,6 +15,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+[dev-dependencies]
+tempfile = "3"
+
 [dependencies]
 codexbar = { path = "../../../rust" }
 tauri = { version = "2", features = ["tray-icon"] }
