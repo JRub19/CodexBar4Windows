@@ -9,6 +9,7 @@
 //! into an ICO atlas. We mirror that contract exactly so the geometry
 //! tables in `docs/windows/spec/10-tray-icon-system.md` apply unchanged.
 
+pub mod atlas;
 pub mod bars;
 pub mod cache;
 pub mod canvas;
@@ -21,6 +22,7 @@ pub mod status_overlay;
 pub mod style;
 pub mod twists;
 
+pub use atlas::{encode_ico, AtlasError, ATLAS_SIZES_PX};
 pub use bars::{draw_bar, BarAlphas, BarRect};
 pub use cache::{IconCache, IconCacheKey, Theme};
 pub use canvas::IconRenderer;
