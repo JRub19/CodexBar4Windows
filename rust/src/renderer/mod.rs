@@ -10,6 +10,7 @@
 //! tables in `docs/windows/spec/10-tray-icon-system.md` apply unchanged.
 
 pub mod bars;
+pub mod cache;
 pub mod canvas;
 pub mod layout;
 pub mod morph;
@@ -21,6 +22,7 @@ pub mod style;
 pub mod twists;
 
 pub use bars::{draw_bar, BarAlphas, BarRect};
+pub use cache::{IconCache, IconCacheKey, Theme};
 pub use canvas::IconRenderer;
 pub use layout::{select as select_layout, BarSlot, Layout, LayoutInput};
 pub use morph::{cache_key as morph_cache_key, progress_bucket, ribbon_alphas, MorphCache};
