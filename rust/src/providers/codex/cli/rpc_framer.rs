@@ -91,25 +91,26 @@ impl LineDecoder {
         self.buffer.extend_from_slice(chunk);
     }
 
-    pub fn next(&mut self) -> Option<Result<Incoming, FramerError>> {
-        let newline = self.buffer.iter().position(|b| *b == b'\n')?;
-        let line: Vec<u8> = self.buffer.drain(..=newline).collect();
-        // Strip trailing LF and any CR before it (Windows pipes).
-        let mut trimmed = line.as_slice();
-        if trimmed.last() == Some(&b'\n') {
-            trimmed = &trimmed[..trimmed.len() - 1];
+    pub fn poll(&mut self) -> Option<Result<Incoming, FramerError>> {
+        loop {
+            let newline = self.buffer.iter().position(|b| *b == b'\n')?;
+            let line: Vec<u8> = self.buffer.drain(..=newline).collect();
+            let mut trimmed = line.as_slice();
+            if trimmed.last() == Some(&b'\n') {
+                trimmed = &trimmed[..trimmed.len() - 1];
+            }
+            if trimmed.last() == Some(&b'\r') {
+                trimmed = &trimmed[..trimmed.len() - 1];
+            }
+            if trimmed.is_empty() {
+                continue;
+            }
+            let text = match std::str::from_utf8(trimmed) {
+                Ok(t) => t,
+                Err(_) => return Some(Err(FramerError::Utf8)),
+            };
+            return Some(decode_line(text));
         }
-        if trimmed.last() == Some(&b'\r') {
-            trimmed = &trimmed[..trimmed.len() - 1];
-        }
-        if trimmed.is_empty() {
-            return self.next();
-        }
-        let text = match std::str::from_utf8(trimmed) {
-            Ok(t) => t,
-            Err(_) => return Some(Err(FramerError::Utf8)),
-        };
-        Some(decode_line(text))
     }
 }
 
@@ -149,14 +150,14 @@ mod tests {
         let mut decoder = LineDecoder::default();
         let line = b"{\"jsonrpc\":\"2.0\",\"id\":7,\"result\":{\"ok\":true}}\n";
         decoder.feed(line);
-        match decoder.next().unwrap().unwrap() {
+        match decoder.poll().unwrap().unwrap() {
             Incoming::Response(resp) => {
                 assert_eq!(resp.id, 7);
                 assert_eq!(resp.result, Some(json!({"ok": true})));
             }
             other => panic!("expected response, got {other:?}"),
         }
-        assert!(decoder.next().is_none());
+        assert!(decoder.poll().is_none());
     }
 
     #[test]
@@ -165,10 +166,10 @@ mod tests {
         let full = b"{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":42}\n";
         let mid = full.len() / 2;
         decoder.feed(&full[..mid]);
-        assert!(decoder.next().is_none());
+        assert!(decoder.poll().is_none());
         decoder.feed(&full[mid..]);
         assert!(matches!(
-            decoder.next().unwrap().unwrap(),
+            decoder.poll().unwrap().unwrap(),
             Incoming::Response(_)
         ));
     }
@@ -177,7 +178,7 @@ mod tests {
     fn decoder_handles_notification_lines() {
         let mut decoder = LineDecoder::default();
         decoder.feed(b"{\"jsonrpc\":\"2.0\",\"method\":\"log\",\"params\":{\"m\":1}}\n");
-        match decoder.next().unwrap().unwrap() {
+        match decoder.poll().unwrap().unwrap() {
             Incoming::Notification(n) => assert_eq!(n.method, "log"),
             other => panic!("expected notification, got {other:?}"),
         }
@@ -188,7 +189,7 @@ mod tests {
         let mut decoder = LineDecoder::default();
         decoder.feed(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":1}\r\n");
         assert!(matches!(
-            decoder.next().unwrap().unwrap(),
+            decoder.poll().unwrap().unwrap(),
             Incoming::Response(_)
         ));
     }
@@ -197,7 +198,7 @@ mod tests {
     fn decoder_emits_unknown_for_unrecognized_shape() {
         let mut decoder = LineDecoder::default();
         decoder.feed(b"{\"hello\":\"world\"}\n");
-        match decoder.next().unwrap().unwrap() {
+        match decoder.poll().unwrap().unwrap() {
             Incoming::Unknown(v) => assert_eq!(v, json!({"hello": "world"})),
             other => panic!("expected unknown, got {other:?}"),
         }
@@ -207,7 +208,7 @@ mod tests {
     fn decoder_returns_json_error_for_malformed_line() {
         let mut decoder = LineDecoder::default();
         decoder.feed(b"not-json\n");
-        let err = decoder.next().unwrap().unwrap_err();
+        let err = decoder.poll().unwrap().unwrap_err();
         assert!(matches!(err, FramerError::Json(_)));
     }
 
@@ -215,6 +216,6 @@ mod tests {
     fn decoder_skips_empty_lines() {
         let mut decoder = LineDecoder::default();
         decoder.feed(b"\n\n");
-        assert!(decoder.next().is_none());
+        assert!(decoder.poll().is_none());
     }
 }
