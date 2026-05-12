@@ -1,0 +1,26 @@
+//! Dynamic tray icon renderer.
+//!
+//! Phase 3 Group A. The renderer composes a per refresh RGBA buffer at the
+//! requested pixel size; later groups (B) wrap it in the Windows tray host,
+//! and the popup UI (groups C, D) renders the React popover on top.
+//!
+//! Canvas math: the Mac source renders at logical 18 by 18 pt with a 2x
+//! output scale, producing a 36 by 36 px buffer that is then resampled
+//! into an ICO atlas. We mirror that contract exactly so the geometry
+//! tables in `docs/windows/spec/10-tray-icon-system.md` apply unchanged.
+
+pub mod canvas;
+pub mod pixel_grid;
+
+pub use canvas::IconRenderer;
+pub use pixel_grid::PixelGrid;
+
+/// Logical canvas size in points.
+pub const CANVAS_PT: u32 = 18;
+
+/// Output scale factor. The Mac source renders at 2x; we keep that for
+/// per pixel parity with the reference geometry tables.
+pub const OUTPUT_SCALE: u32 = 2;
+
+/// Output buffer size in physical pixels. `CANVAS_PT * OUTPUT_SCALE`.
+pub const CANVAS_PX: u32 = CANVAS_PT * OUTPUT_SCALE;
