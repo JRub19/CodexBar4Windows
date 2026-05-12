@@ -15,14 +15,18 @@
         "label": "main",
         "title": "CodexBar4Windows",
         "width": 360,
-        "height": 520,
+        "height": 480,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": false,
         "skipTaskbar": true,
         "visible": false,
         "resizable": false,
-        "shadow": true
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["mica", "acrylic"],
+          "state": "active"
+        }
       }
     ],
     "security": {
