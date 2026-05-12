@@ -9,6 +9,7 @@ import type {
   UsageEventPayload,
 } from "../bindings";
 import { useUsageStore } from "./state/usageStore";
+import { useKeyboardNav } from "./a11y/useKeyboardNav";
 import { PopupHeader } from "./header/PopupHeader";
 import { CardStack } from "./cards/CardStack";
 import { PopupFooter } from "./footer/PopupFooter";
@@ -26,6 +27,7 @@ export function PopupShell() {
   const setDescriptors = useUsageStore((s) => s.setDescriptors);
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
+  useKeyboardNav();
 
   useEffect(() => {
     let cancelled = false;

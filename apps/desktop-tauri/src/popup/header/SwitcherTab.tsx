@@ -24,6 +24,7 @@ export function SwitcherTab({
       type="button"
       role="tab"
       aria-selected={selected}
+      tabIndex={selected ? 0 : -1}
       className={
         selected ? "switcher-tab switcher-tab--selected" : "switcher-tab"
       }
