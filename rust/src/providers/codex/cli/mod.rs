@@ -8,3 +8,4 @@
 //! supervision here.
 
 pub mod binary_locator;
+pub mod rpc_framer;
