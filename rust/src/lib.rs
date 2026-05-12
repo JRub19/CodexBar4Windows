@@ -4,6 +4,7 @@
 //! refresh loop, and IPC layer. Phase 0 left a single `version()` function
 //! here; we keep it as a sanity-check seam for the desktop shell.
 
+pub mod cookies;
 pub mod core;
 pub mod locale;
 pub mod logging;
