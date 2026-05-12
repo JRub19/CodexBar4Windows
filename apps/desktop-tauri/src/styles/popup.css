@@ -9,6 +9,26 @@
   --text-secondary: #a0a0a0;
   --accent: #6e5aff;
   --radius: 12px;
+  /* Spacing scale used throughout the popover. Multiples of 4 keep
+     elements aligned to the 4 px grid the icon renderer also uses. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  /* Hairline border around the card and dividers between sections.
+     Both adapt to light mode via the prefers-color-scheme block. */
+  --border-card: rgba(255, 255, 255, 0.08);
+  --divider: rgba(255, 255, 255, 0.06);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --text-primary: #1f1f1f;
+    --text-secondary: #5c5c5c;
+    --border-card: rgba(0, 0, 0, 0.10);
+    --divider: rgba(0, 0, 0, 0.08);
+  }
 }
 
 * {
@@ -33,6 +53,7 @@ html, body, #root {
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--surface-popup);
+  border: 1px solid var(--border-card);
   -webkit-app-region: drag;
   animation: popup-show 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -73,15 +94,15 @@ html, body, #root {
 @media (prefers-color-scheme: light) {
   .popup-root {
     background: var(--surface-popup-light);
-    color: #1f1f1f;
   }
 }
 
 .popup-header {
-  padding: 16px 18px 8px;
+  padding: var(--space-4) 18px var(--space-2);
   font-size: 16px;
   font-weight: 600;
   -webkit-app-region: drag;
+  border-bottom: 1px solid var(--divider);
 }
 
 .popup-body {
@@ -134,9 +155,10 @@ html, body, #root {
 .popup-footer {
   display: flex;
   justify-content: space-between;
-  padding: 8px 16px 12px;
+  padding: var(--space-2) var(--space-4) var(--space-3);
   font-size: 11px;
   color: var(--text-secondary);
+  border-top: 1px solid var(--divider);
   -webkit-app-region: no-drag;
 }
 
