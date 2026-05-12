@@ -25,6 +25,12 @@ use codexbar::providers::claude::planner::ClaudeWiring;
 use codexbar::providers::claude::web::strategy::{CookieResolver, WebClient, WebResponse};
 use codexbar::providers::claude::web::transport::ReqwestWebClient;
 use codexbar::providers::claude::ClaudeProvider;
+use codexbar::providers::codex::cli::rpc_client::{
+    RpcCallError as CodexRpcCallError, RpcTransport as CodexRpcTransport,
+};
+use codexbar::providers::codex::cli::strategy::TransportFactory as CodexTransportFactory;
+use codexbar::providers::codex::planner::CodexWiring;
+use codexbar::providers::codex::CodexProvider;
 use codexbar::providers::errors::ProviderFetchError;
 use codexbar::providers::ProviderImplementation;
 use codexbar::secrets::token_account::TokenAccountStore;
@@ -151,6 +157,35 @@ async fn bridge_usage_events(
     }
 }
 
+/// Placeholder Codex transport. Real ConPTY plumbing for the codex
+/// binary lands in a follow-up; until then the strategy is wired but
+/// reports `PluginUnavailable` so the framework falls through cleanly.
+struct UnavailableCodexTransport;
+
+#[async_trait::async_trait]
+impl CodexRpcTransport for UnavailableCodexTransport {
+    async fn send(&self, _: Vec<u8>) -> Result<(), CodexRpcCallError> {
+        Err(CodexRpcCallError::Transport(
+            "codex transport not yet wired".into(),
+        ))
+    }
+    async fn recv(&self) -> Result<Vec<u8>, CodexRpcCallError> {
+        Err(CodexRpcCallError::Closed)
+    }
+}
+
+impl CodexTransportFactory for UnavailableCodexTransport {
+    fn open(
+        &self,
+    ) -> Result<Arc<dyn CodexRpcTransport>, codexbar::providers::errors::ProviderFetchError> {
+        Err(
+            codexbar::providers::errors::ProviderFetchError::PluginUnavailable(
+                "codex binary not configured".into(),
+            ),
+        )
+    }
+}
+
 /// Locate the `claude` binary on PATH. Returns `None` when the user has
 /// not installed the CLI.
 fn claude_cli_binary() -> Option<String> {
@@ -260,7 +295,15 @@ pub fn run() {
         cli_runner,
         cli_binary: claude_cli_binary().unwrap_or_else(|| "claude".to_string()),
     });
-    let providers: Vec<Arc<dyn ProviderImplementation>> = vec![claude_provider.clone()];
+    // Phase 5: Codex provider. CLI transport stays unavailable until a
+    // user installs the codex binary; the strategy reports
+    // `PluginUnavailable` and the refresh loop moves on without us.
+    let codex_provider = Arc::new(CodexProvider::default());
+    codex_provider.install_wiring(CodexWiring {
+        cli_transport_factory: Arc::new(UnavailableCodexTransport),
+    });
+    let providers: Vec<Arc<dyn ProviderImplementation>> =
+        vec![claude_provider.clone(), codex_provider.clone()];
     refresh.install_providers(providers, usage.clone(), token_store.clone());
 
     tauri::Builder::default()

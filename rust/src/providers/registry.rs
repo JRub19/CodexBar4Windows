@@ -133,4 +133,10 @@ mod tests {
         // future provider lands as one more entry in this catalog.
         assert!(REGISTRY.get(ProviderId("claude")).is_some());
     }
+
+    #[test]
+    fn global_registry_includes_codex_after_phase_5() {
+        // Phase 5 registers Codex via `inventory::submit!`.
+        assert!(REGISTRY.get(ProviderId("codex")).is_some());
+    }
 }
