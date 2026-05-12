@@ -1,14 +1,20 @@
 //! CodexBar4Windows desktop Tauri shell.
 //!
-//! Phase 0 baseline: builds a tray icon with a native context menu, toggles
-//! the main window on left click, exits on Quit. Phase 1 onward replaces the
-//! mock body with real config, settings, refresh loop, and IPC contract.
+//! Phase 1 wires the path environment, file logging, and the settings store
+//! Tauri command surface. The tray icon plus native context menu carry over
+//! from phase 0. Phase 3 onward layers the popup window, dynamic icon, and
+//! real provider data on top of these seams.
 
+pub mod commands;
+
+use codexbar::core::PathEnvironment;
+use codexbar::settings::SettingsHandle;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tracing::info;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -17,8 +23,27 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let env = match PathEnvironment::discover() {
+        Ok(env) => {
+            if let Err(err) = env.ensure() {
+                eprintln!("[codexbar] failed to ensure path environment: {err}");
+            }
+            env
+        }
+        Err(err) => {
+            eprintln!("[codexbar] failed to discover path environment: {err}");
+            return;
+        }
+    };
+
+    let _log_guard = codexbar::logging::init(&env.logs_dir).ok();
+    info!(target: "codexbar::app", version = codexbar::version(), "app.boot");
+
+    let settings: SettingsHandle = commands::build_settings_handle(env.config_file.clone());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(settings)
         .setup(|app| {
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh now", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Show window", true, None::<&str>)?;
@@ -38,24 +63,24 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
-                        println!("[tray] menu: quit");
+                        info!(target: "codexbar::tray", "menu.quit");
                         app.exit(0);
                     }
                     "show" => {
-                        println!("[tray] menu: show");
+                        info!(target: "codexbar::tray", "menu.show");
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.show();
                             let _ = w.set_focus();
                         }
                     }
                     "refresh" => {
-                        println!("[tray] menu: refresh (stub, phase 1)");
+                        info!(target: "codexbar::tray", "menu.refresh");
                     }
                     "about" => {
-                        println!("[tray] menu: about (stub, phase 1)");
+                        info!(target: "codexbar::tray", "menu.about");
                     }
                     other => {
-                        println!("[tray] menu: unknown id {}", other);
+                        info!(target: "codexbar::tray", id = other, "menu.unknown");
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -65,7 +90,7 @@ pub fn run() {
                         ..
                     } = event
                     {
-                        println!("[tray] left click");
+                        info!(target: "codexbar::tray", "icon.left_click");
                         let app = tray.app_handle();
                         if let Some(w) = app.get_webview_window("main") {
                             if w.is_visible().unwrap_or(false) {
@@ -79,11 +104,15 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            println!("[tray] icon registered with id 'main'");
-            println!("[core] codexbar version: {}", codexbar::version());
+            info!(target: "codexbar::tray", "icon.registered");
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            commands::get_settings,
+            commands::update_settings,
+            commands::reset_settings
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

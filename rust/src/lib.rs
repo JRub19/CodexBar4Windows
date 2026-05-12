@@ -7,6 +7,7 @@
 pub mod core;
 pub mod locale;
 pub mod logging;
+pub mod settings;
 
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
