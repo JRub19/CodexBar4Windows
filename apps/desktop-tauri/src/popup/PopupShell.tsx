@@ -29,6 +29,7 @@ import "../styles/reduced-motion.css";
 export function PopupShell() {
   const descriptors = useUsageStore((s) => s.descriptors);
   const setDescriptors = useUsageStore((s) => s.setDescriptors);
+  const setSnapshots = useUsageStore((s) => s.setSnapshots);
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -41,9 +42,19 @@ export function PopupShell() {
         if (!cancelled) setDescriptors(next);
       },
     );
+    const refetchSnapshots = () =>
+      invoke<Record<string, import("./state/usageStore").ProviderSlot>>(
+        "provider_snapshots",
+      ).then((next) => {
+        if (!cancelled) setSnapshots(next);
+      });
+    void refetchSnapshots();
     const unlistenUsage = listen<UsageEventPayload>(
       EVENTS.USAGE_UPDATED,
-      (event) => applyUsageEvent(event.payload),
+      (event) => {
+        applyUsageEvent(event.payload);
+        void refetchSnapshots();
+      },
     );
     const unlistenStatus = listen<StatusEventPayload>(
       EVENTS.STATUS_UPDATED,
@@ -54,7 +65,7 @@ export function PopupShell() {
       void unlistenUsage.then((f) => f());
       void unlistenStatus.then((f) => f());
     };
-  }, [setDescriptors, applyUsageEvent, applyStatusEvent]);
+  }, [setDescriptors, setSnapshots, applyUsageEvent, applyStatusEvent]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

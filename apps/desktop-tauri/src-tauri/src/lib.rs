@@ -17,12 +17,22 @@ use std::sync::Arc;
 
 use codexbar::cookies::{CookieAccessGate, CookieHeaderCache, CookieImporter};
 use codexbar::core::{PathEnvironment, RefreshLoop, UsageStore};
+use codexbar::providers::claude::cli::pty_actor::{CliRunner, RecordedRunner};
+use codexbar::providers::claude::oauth::credentials::{resolve, OAuthCredentials};
+use codexbar::providers::claude::oauth::strategy::{CredentialsResolver, HttpClient, HttpResponse};
+use codexbar::providers::claude::oauth::transport::ReqwestClient;
+use codexbar::providers::claude::planner::ClaudeWiring;
+use codexbar::providers::claude::web::strategy::{CookieResolver, WebClient, WebResponse};
+use codexbar::providers::claude::web::transport::ReqwestWebClient;
+use codexbar::providers::claude::ClaudeProvider;
+use codexbar::providers::errors::ProviderFetchError;
+use codexbar::providers::ProviderImplementation;
 use codexbar::secrets::token_account::TokenAccountStore;
 use codexbar::settings::SettingsHandle;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
 use tokio::runtime::Runtime;
 use tracing::info;
@@ -33,6 +43,130 @@ use crate::first_run::FirstRunStore;
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You have been greeted from Rust.", name)
+}
+
+/// Resolver that walks the canonical credential chain on disk plus the
+/// `CODEXBAR_CLAUDE_OAUTH_TOKEN` env var.
+struct FilesystemCredentialsResolver;
+
+#[async_trait::async_trait]
+impl CredentialsResolver for FilesystemCredentialsResolver {
+    async fn resolve(
+        &self,
+    ) -> Result<OAuthCredentials, codexbar::providers::claude::errors::CredentialError> {
+        let env_value =
+            std::env::var(codexbar::providers::claude::oauth::credentials::ENV_TOKEN).ok();
+        let file_path = codexbar::providers::claude::oauth::credentials::default_file_path();
+        let resolved = resolve(env_value, None, file_path.as_deref())?;
+        Ok(resolved.credentials)
+    }
+}
+
+/// Pulls a Claude cookie header from the shared cookie cache.
+struct CookieCacheResolver {
+    cache: Arc<CookieHeaderCache>,
+}
+
+impl CookieCacheResolver {
+    fn new(cache: Arc<CookieHeaderCache>) -> Self {
+        Self { cache }
+    }
+}
+
+#[async_trait::async_trait]
+impl CookieResolver for CookieCacheResolver {
+    async fn cookie(&self) -> Result<Option<String>, ProviderFetchError> {
+        let cache = self.cache.clone();
+        let result = tokio::task::spawn_blocking(move || cache.read("claude"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        match result {
+            Ok(Some(cached)) => Ok(Some(cached.header)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(ProviderFetchError::Network(e.to_string())),
+        }
+    }
+
+    async fn invalidate(&self) -> Result<(), ProviderFetchError> {
+        let cache = self.cache.clone();
+        tokio::task::spawn_blocking(move || cache.invalidate("claude"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))
+    }
+}
+
+/// Last-resort HTTP transports used when reqwest fails to build (eg. a
+/// missing TLS root store). They always report `Network` so the runtime
+/// falls back to the next strategy in the plan.
+struct NullHttpClient;
+
+#[async_trait::async_trait]
+impl HttpClient for NullHttpClient {
+    async fn get_json(&self, _: &str, _: &str) -> Result<HttpResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; OAuth disabled".into(),
+        ))
+    }
+}
+
+struct NullWebClient;
+
+#[async_trait::async_trait]
+impl WebClient for NullWebClient {
+    async fn get_json(&self, _: &str, _: &str) -> Result<WebResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; Web disabled".into(),
+        ))
+    }
+}
+
+/// Rebroadcast `UsageStore` updates to the Tauri event bus. The popup
+/// listens to `usage:updated` and re-fetches `provider_snapshots`.
+async fn bridge_usage_events(
+    mut rx: tokio::sync::broadcast::Receiver<codexbar::core::UsageEvent>,
+    handle: Arc<parking_lot::Mutex<Option<tauri::AppHandle>>>,
+) {
+    loop {
+        match rx.recv().await {
+            Ok(codexbar::core::UsageEvent::Updated(update)) => {
+                if let Some(app) = handle.lock().clone() {
+                    let payload = serde_json::json!({
+                        "provider": update.provider.as_str(),
+                        "menu_rev": update.menu_rev,
+                        "icon_rev": update.icon_rev,
+                    });
+                    let _ = app.emit("usage:updated", payload);
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                info!(
+                    target: "codexbar::app",
+                    skipped,
+                    "usage event channel lagged",
+                );
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+        }
+    }
+}
+
+/// Locate the `claude` binary on PATH. Returns `None` when the user has
+/// not installed the CLI.
+fn claude_cli_binary() -> Option<String> {
+    let path = std::env::var_os("PATH")?;
+    let exe = if cfg!(windows) {
+        "claude.cmd"
+    } else {
+        "claude"
+    };
+    for dir in std::env::split_paths(&path) {
+        let candidate = dir.join(exe);
+        if candidate.exists() {
+            return candidate.to_str().map(|s| s.to_string());
+        }
+    }
+    None
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -82,7 +216,52 @@ pub fn run() {
         refresh_for_spawn.spawn().await.ok();
     });
 
+    // Phase 4 P4-20: pipe core UsageStore events to the Tauri event bus
+    // so the popup can listen for `usage:updated`. The Tauri setup
+    // closure later fills `app_handle_holder` with the live AppHandle.
+    let app_handle_holder: Arc<parking_lot::Mutex<Option<tauri::AppHandle>>> =
+        Arc::new(parking_lot::Mutex::new(None));
+    let app_handle_for_setup = app_handle_holder.clone();
+    let app_handle_for_bridge = app_handle_holder.clone();
+    let usage_rx = usage.subscribe();
+    runtime.spawn(async move {
+        bridge_usage_events(usage_rx, app_handle_for_bridge).await;
+    });
+
     let first_run_store = FirstRunStore::new(env.roaming.clone());
+
+    // Phase 4 P4-20: build the Claude provider with real reqwest + cookie
+    // wiring and install it into the refresh loop. The Claude CLI fetch
+    // path falls back to a recorded runner when the CLI binary is not on
+    // PATH; this keeps the popup populated even on a fresh install.
+    let claude_provider = Arc::new(ClaudeProvider::default());
+    let oauth_http: Arc<dyn HttpClient> = match ReqwestClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullHttpClient),
+    };
+    let oauth_credentials: Arc<dyn CredentialsResolver> = Arc::new(FilesystemCredentialsResolver);
+    let web_client: Arc<dyn WebClient> = match ReqwestWebClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullWebClient),
+    };
+    let web_cookies: Arc<dyn CookieResolver> =
+        Arc::new(CookieCacheResolver::new(cookie_cache.clone()));
+    let cli_runner: Arc<dyn CliRunner> = match claude_cli_binary() {
+        Some(_) => codexbar::providers::claude::planner::default_cli_runner(),
+        None => Arc::new(RecordedRunner {
+            output: String::new(),
+        }),
+    };
+    claude_provider.install_wiring(ClaudeWiring {
+        oauth_http,
+        oauth_credentials,
+        web_client,
+        web_cookies,
+        cli_runner,
+        cli_binary: claude_cli_binary().unwrap_or_else(|| "claude".to_string()),
+    });
+    let providers: Vec<Arc<dyn ProviderImplementation>> = vec![claude_provider.clone()];
+    refresh.install_providers(providers, usage.clone(), token_store.clone());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -94,6 +273,8 @@ pub fn run() {
         .manage(secrets_commands::TokenAccountHandle(token_store))
         .manage(secrets_commands::CookieImporterHandle(cookie_importer))
         .setup(move |app| {
+            // Hand the live AppHandle to the usage-event bridge.
+            *app_handle_for_setup.lock() = Some(app.handle().clone());
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh now", true, None::<&str>)?;
             let pause_i = MenuItem::with_id(
                 app,

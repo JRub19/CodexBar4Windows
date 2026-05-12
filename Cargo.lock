@@ -854,7 +854,9 @@ dependencies = [
 name = "codexbar4windows-desktop"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "codexbar",
+ "parking_lot",
  "serde",
  "serde_json",
  "tauri",

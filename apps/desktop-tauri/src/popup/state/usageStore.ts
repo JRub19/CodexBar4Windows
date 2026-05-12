@@ -13,13 +13,48 @@ import type {
 
 export type Theme = "dark" | "light";
 
+// Mirrors `providers::models::UsageSnapshot` from the Rust core.
+export interface NamedRateWindow {
+  key: string;
+  window: {
+    label: string;
+    used: number;
+    allotted: number | null;
+    reset_at_unix_secs: number | null;
+    pace_delta_percent: number | null;
+  };
+}
+
+export interface UsageSnapshot {
+  identity: { provider_id: string; account_token: string };
+  windows: NamedRateWindow[];
+  credits: unknown | null;
+  cost: unknown | null;
+  account_display_name: string | null;
+  account_email: string | null;
+  plan_name: string | null;
+  captured_at_unix_secs: number;
+}
+
+export interface ProviderSlot {
+  snapshot: UsageSnapshot;
+  attempts: Array<{
+    strategy: string;
+    duration_ms: number;
+    error_kind: string | null;
+    error_detail: string | null;
+  }>;
+}
+
 interface UsageStoreState {
   descriptors: ProviderDescriptorDto[];
   lastUsageEvent: UsageEventPayload | null;
   lastStatusEvent: StatusEventPayload | null;
+  snapshots: Record<string, ProviderSlot>;
   theme: Theme;
   selectedProviderId: string | null;
   setDescriptors: (next: ProviderDescriptorDto[]) => void;
+  setSnapshots: (next: Record<string, ProviderSlot>) => void;
   applyUsageEvent: (event: UsageEventPayload) => void;
   applyStatusEvent: (event: StatusEventPayload) => void;
   setTheme: (theme: Theme) => void;
@@ -30,6 +65,7 @@ export const useUsageStore = create<UsageStoreState>((set) => ({
   descriptors: [],
   lastUsageEvent: null,
   lastStatusEvent: null,
+  snapshots: {},
   theme: "dark",
   selectedProviderId: null,
   setDescriptors: (next) =>
@@ -43,6 +79,7 @@ export const useUsageStore = create<UsageStoreState>((set) => ({
           ? s.selectedProviderId
           : (next[0]?.id ?? null),
     })),
+  setSnapshots: (next) => set({ snapshots: next }),
   applyUsageEvent: (event) => set({ lastUsageEvent: event }),
   applyStatusEvent: (event) => set({ lastStatusEvent: event }),
   setTheme: (theme) => set({ theme }),

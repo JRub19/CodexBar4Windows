@@ -141,11 +141,21 @@ fn catalog_to_dtos(catalog: &ProviderCatalog) -> Vec<ProviderDescriptorDto> {
 pub async fn provider_snapshots(
     usage: State<'_, UsageHandle>,
 ) -> Result<serde_json::Value, String> {
-    // Phase 4 P4-09: read every slot from UsageStore. Phase 4 P4-20 wires
-    // the refresh loop to actually populate slots; until then the map is
-    // empty.
-    let _ = usage;
-    Ok(serde_json::json!({}))
+    // Phase 4 P4-20: read every slot from UsageStore and return as a
+    // map keyed by provider id. The popup uses this to populate the
+    // initial state on mount and as a fallback when an event was
+    // missed.
+    let mut out = serde_json::Map::new();
+    for descriptor in REGISTRY.descriptors() {
+        if let Some(slot) = usage.0.slot(descriptor.id) {
+            let value = serde_json::json!({
+                "snapshot": slot.snapshot,
+                "attempts": slot.attempts,
+            });
+            out.insert(descriptor.id.as_str().to_string(), value);
+        }
+    }
+    Ok(serde_json::Value::Object(out))
 }
 
 #[tauri::command]

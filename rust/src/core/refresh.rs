@@ -18,11 +18,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use parking_lot::Mutex;
 use thiserror::Error;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 
+use crate::core::usage_store::UsageStore;
+use crate::providers::fetch_context::{ProviderFetchContext, Runtime, SourceMode};
+use crate::providers::ProviderImplementation;
+use crate::secrets::token_account::TokenAccountStore;
 use crate::settings::SettingsHandle;
 
 pub const PER_STRATEGY_TIMEOUT: Duration = Duration::from_secs(45);
@@ -39,6 +44,9 @@ pub struct RefreshLoop {
     settings: SettingsHandle,
     in_flight: AtomicBool,
     manual_trigger: Notify,
+    providers: Mutex<Vec<Arc<dyn ProviderImplementation>>>,
+    usage_store: Mutex<Option<Arc<UsageStore>>>,
+    token_store: Mutex<Option<Arc<TokenAccountStore>>>,
 }
 
 impl RefreshLoop {
@@ -47,7 +55,23 @@ impl RefreshLoop {
             settings,
             in_flight: AtomicBool::new(false),
             manual_trigger: Notify::new(),
+            providers: Mutex::new(Vec::new()),
+            usage_store: Mutex::new(None),
+            token_store: Mutex::new(None),
         })
+    }
+
+    /// Install the live provider list. Called once at boot by the Tauri
+    /// shell; the loop will dispatch each one on every tick.
+    pub fn install_providers(
+        &self,
+        providers: Vec<Arc<dyn ProviderImplementation>>,
+        usage_store: Arc<UsageStore>,
+        token_store: Arc<TokenAccountStore>,
+    ) {
+        *self.providers.lock() = providers;
+        *self.usage_store.lock() = Some(usage_store);
+        *self.token_store.lock() = Some(token_store);
     }
 
     /// Run a single tick. Returns:
@@ -69,18 +93,63 @@ impl RefreshLoop {
         let tick_id = uuid_lite();
         info!(target: "codexbar::core::refresh", tick_id = %tick_id, "refresh.tick.start");
 
-        // Phase 1: zero providers. Phase 4 fills this in.
-        let providers: Vec<&'static str> = snapshot
+        let providers = self.providers.lock().clone();
+        let usage_store = self.usage_store.lock().clone();
+        let token_store = self.token_store.lock().clone();
+        let enabled: std::collections::HashSet<String> = snapshot
             .providers
             .iter()
             .filter(|p| p.enabled)
-            .map(|_| "")
+            .map(|p| p.id.clone())
             .collect();
-        for _ in providers {
-            // For each enabled provider we would dispatch strategies wrapped
-            // in `tokio::time::timeout(PER_STRATEGY_TIMEOUT, ...)` and fold
-            // the result into the usage store. There are zero providers in
-            // phase 1, so this loop never runs.
+        // Default: when settings.providers is empty (Phase 1 ship state),
+        // treat every registered provider as enabled.
+        let treat_all_enabled = enabled.is_empty();
+
+        if let (Some(usage_store), Some(token_store)) = (usage_store, token_store) {
+            for provider in providers {
+                let provider_id = provider.descriptor().id;
+                if !treat_all_enabled && !enabled.contains(provider_id.as_str()) {
+                    continue;
+                }
+                let context = ProviderFetchContext {
+                    provider_id,
+                    mode: SourceMode::Auto,
+                    runtime: Runtime {
+                        tokens: token_store.clone(),
+                    },
+                };
+                let outcome = provider.refresh(&context).await;
+                if let Some(snapshot) = outcome.snapshot.clone() {
+                    if let Err(err) = usage_store.replace_snapshot(
+                        provider_id,
+                        snapshot,
+                        outcome.attempts.clone(),
+                    ) {
+                        warn!(
+                            target: "codexbar::core::refresh",
+                            provider = provider_id.as_str(),
+                            error = %err,
+                            "refresh.store_rejected"
+                        );
+                    } else {
+                        info!(
+                            target: "codexbar::core::refresh",
+                            provider = provider_id.as_str(),
+                            winning = ?outcome.winning_strategy,
+                            attempts = outcome.attempts.len(),
+                            "refresh.applied"
+                        );
+                    }
+                } else {
+                    warn!(
+                        target: "codexbar::core::refresh",
+                        provider = provider_id.as_str(),
+                        attempts = outcome.attempts.len(),
+                        "refresh.no_snapshot"
+                    );
+                }
+            }
         }
 
         info!(target: "codexbar::core::refresh", tick_id = %tick_id, "refresh.tick.end");
