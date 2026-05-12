@@ -52,13 +52,15 @@ pub fn init(logs_dir: &Path) -> Result<WorkerGuard, LoggingError> {
 
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
+    let redacting = crate::redact::tracing_layer::RedactingMakeWriter::new(non_blocking);
+
     let file_layer = tracing_subscriber::fmt::layer()
         .json()
         .with_current_span(true)
         .with_span_list(false)
         .with_target(true)
         .with_thread_ids(false)
-        .with_writer(non_blocking);
+        .with_writer(redacting);
 
     let console_layer = std::env::var_os("RUST_LOG").map(|_| {
         tracing_subscriber::fmt::layer()
