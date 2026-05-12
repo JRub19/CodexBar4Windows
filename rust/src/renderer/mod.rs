@@ -21,6 +21,7 @@ pub mod pixel_grid;
 pub mod state;
 pub mod status_overlay;
 pub mod style;
+pub mod theme_detect;
 pub mod twists;
 
 pub use atlas::{encode_ico, AtlasError, ATLAS_SIZES_PX};
@@ -35,6 +36,7 @@ pub use pixel_grid::PixelGrid;
 pub use state::{bar_alphas_for, STALE_ALPHAS};
 pub use status_overlay::{paint_overlay, IncidentSeverity};
 pub use style::IconStyle;
+pub use theme_detect::detect_taskbar_theme;
 pub use twists::paint_twist;
 
 /// Logical canvas size in points.
