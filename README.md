@@ -45,7 +45,7 @@ cd apps\desktop-tauri
 npm run tauri build
 ```
 
-The release EXE lands at `apps\desktop-tauri\src-tauri\target\release\codexbar4windows-desktop.exe`.
+The release EXE lands at `target\release\codexbar4windows-desktop.exe` (cargo workspace puts all member binaries in the workspace target dir).
 
 ## Project layout
 
