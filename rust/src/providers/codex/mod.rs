@@ -10,6 +10,7 @@ pub mod descriptor;
 pub mod history;
 pub mod oauth;
 pub mod planner;
+pub mod settings;
 
 use std::sync::Arc;
 
