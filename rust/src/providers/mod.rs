@@ -6,6 +6,7 @@
 
 pub mod branding;
 pub mod cli_config;
+pub mod contexts;
 pub mod cookie_source;
 pub mod descriptor;
 pub mod errors;
@@ -13,7 +14,9 @@ pub mod fetch_context;
 pub mod fetch_outcome;
 pub mod fetch_plan_runtime;
 pub mod identity;
+pub mod implementation;
 pub mod models;
+pub mod presentation;
 pub mod registry;
 
 pub use branding::ProviderBranding;
@@ -25,8 +28,10 @@ pub use fetch_context::{ProviderFetchContext, Runtime, SourceMode};
 pub use fetch_outcome::{ProviderFetchAttempt, ProviderFetchOutcome};
 pub use fetch_plan_runtime::{run_pipeline, Strategy, PER_STRATEGY_TIMEOUT};
 pub use identity::ProviderIdentitySnapshot;
+pub use implementation::{Availability, ProviderImplementation};
 pub use models::{
     CreditEvent, CreditUnit, CreditsSnapshot, NamedRateWindow, ProviderCostSnapshot,
     ProviderStorageFootprint, RateWindow, ServiceCost, UsageSnapshot,
 };
+pub use presentation::{PresentationMetric, ProviderPresentation};
 pub use registry::{ProviderCatalog, ProviderRegistration, REGISTRY};
