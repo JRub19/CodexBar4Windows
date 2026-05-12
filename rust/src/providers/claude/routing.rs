@@ -69,7 +69,11 @@ mod tests {
 
     #[test]
     fn strips_bearer_prefix_case_insensitive() {
-        for variant in ["Bearer sk-ant-oat-x", "bearer sk-ant-oat-x", "BEARER sk-ant-oat-x"] {
+        for variant in [
+            "Bearer sk-ant-oat-x",
+            "bearer sk-ant-oat-x",
+            "BEARER sk-ant-oat-x",
+        ] {
             match route(variant).unwrap() {
                 RoutedToken::OAuth { access_token } => assert_eq!(access_token, "sk-ant-oat-x"),
                 other => panic!("expected oauth for '{variant}', got {other:?}"),

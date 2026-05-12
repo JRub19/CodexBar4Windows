@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "rust",
     "apps/desktop-tauri/src-tauri",
+    "rust/crates/codexbar4windows-claude-watchdog",
 ]
 
 [workspace.package]
