@@ -1,42 +1,48 @@
-# Xcode user/session
-xcuserdata/
-.swiftpm/xcode/xcshareddata/
-.codexbar/config.json
-*.env
+# Rust
+target/
+**/target/
+*.rs.bk
+*.pdb
+
+# Node
+node_modules/
+dist/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Tauri
+apps/desktop-tauri/src-tauri/gen/
+apps/desktop-tauri/dist/
+apps/desktop-tauri/.tauri/
+
+# Packaging artifacts
+bundle/
+installer/*.exe
+installer/*.msi
+*.app/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Local env and overrides
+.env
+.env.*
+!.env.example
 *.local
 
-# Build products
-.build/
-DerivedData
-
-# Bundles / artifacts
-# Main app bundle (any variation)
-CodexBar.app/
-CodexBar *.app/
-CodexBar_*.app/
-Codexbar.app/
-# Release artifacts
-*.ipa
-*.dSYM*
-*.zip
-*.delta
-*.dmg
-*.pkg
-*.tar.gz
-*.tgz
-Icon.iconset
-debug_*.swift
-
-# Misc
-.DS_Store
+# Editors
 .vscode/
-.codex/environments/
-.swiftpm-cache/
+.idea/
+*.iml
+*.swp
+*.swo
 
-# Debug/analysis docs
+# Logs and analysis
 docs/*-analysis.md
 docs/.astro/
-
-# Swift Package Manager metadata (leave sources tracked)
-# Packages/
-# Package.resolved
