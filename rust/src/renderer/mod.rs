@@ -11,6 +11,7 @@
 
 pub mod atlas;
 pub mod bars;
+pub mod brand;
 pub mod cache;
 pub mod canvas;
 pub mod layout;
@@ -24,6 +25,7 @@ pub mod twists;
 
 pub use atlas::{encode_ico, AtlasError, ATLAS_SIZES_PX};
 pub use bars::{draw_bar, BarAlphas, BarRect};
+pub use brand::{paint_brand, BrandIconParams};
 pub use cache::{IconCache, IconCacheKey, Theme};
 pub use canvas::IconRenderer;
 pub use layout::{select as select_layout, BarSlot, Layout, LayoutInput};
