@@ -8,6 +8,8 @@ pub mod descriptor;
 pub mod errors;
 pub mod models;
 pub mod oauth;
+pub mod routing;
+pub mod tokens;
 pub mod web;
 
 use std::sync::Arc;
