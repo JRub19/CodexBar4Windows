@@ -139,4 +139,22 @@ mod tests {
         // Phase 5 registers Codex via `inventory::submit!`.
         assert!(REGISTRY.get(ProviderId("codex")).is_some());
     }
+
+    #[test]
+    fn global_registry_includes_all_tier_1_providers_after_phase_6() {
+        for id in [
+            "claude",
+            "codex",
+            "cursor",
+            "copilot",
+            "gemini",
+            "openrouter",
+            "factory",
+        ] {
+            assert!(
+                REGISTRY.get(ProviderId(id)).is_some(),
+                "expected tier-1 provider {id} to be registered",
+            );
+        }
+    }
 }
