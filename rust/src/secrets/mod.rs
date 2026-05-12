@@ -6,6 +6,8 @@
 
 pub mod dpapi;
 pub mod errors;
+pub mod secure_file;
 
 pub use dpapi::{dpapi_protect, dpapi_unprotect, unwrap_string, wrap_string};
 pub use errors::SecretsError;
+pub use secure_file::SecureFile;
