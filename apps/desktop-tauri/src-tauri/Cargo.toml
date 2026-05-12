@@ -1,0 +1,23 @@
+[package]
+name = "codexbar4windows-desktop"
+version = "0.1.0"
+description = "CodexBar4Windows Tauri desktop shell."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lib]
+name = "codexbar4windows_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+codexbar = { path = "../../../rust" }
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
