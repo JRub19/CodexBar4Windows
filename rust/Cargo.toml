@@ -11,3 +11,9 @@ description = "Shared core for CodexBar4Windows: providers, settings, secrets, r
 [lib]
 name = "codexbar"
 path = "src/lib.rs"
+
+[dependencies]
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"

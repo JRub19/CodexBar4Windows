@@ -1,7 +1,10 @@
 //! CodexBar4Windows shared core crate.
 //!
-//! Placeholder for Phase 0. Phase 1 grows this into the providers, settings,
-//! secrets, refresh loop, and IPC layer.
+//! Phase 1 onward grows this crate into the providers, settings, secrets,
+//! refresh loop, and IPC layer. Phase 0 left a single `version()` function
+//! here; we keep it as a sanity-check seam for the desktop shell.
+
+pub mod core;
 
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
