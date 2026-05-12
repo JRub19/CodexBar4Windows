@@ -15,14 +15,18 @@ pub mod chromium;
 pub mod detect;
 pub mod errors;
 pub mod firefox;
+pub mod gate;
 pub mod header_cache;
+pub mod importer;
 pub mod normalizer;
 
 pub use chromium::ChromiumCookieReader;
 pub use detect::{BrowserDetection, BrowserPresence};
 pub use errors::ImportError;
 pub use firefox::FirefoxCookieReader;
+pub use gate::CookieAccessGate;
 pub use header_cache::{CachedHeader, CookieHeaderCache};
+pub use importer::{CookieImporter, CookieSource, ImportSuccess};
 pub use normalizer::CookieHeaderNormalizer;
 
 /// One cookie value as it appears in an HTTP `Cookie:` header.
