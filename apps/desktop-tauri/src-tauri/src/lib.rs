@@ -6,10 +6,13 @@
 //! points. Phase 3 onward layers the popup window and dynamic icon on top.
 
 pub mod commands;
+pub mod secrets_commands;
 
 use std::sync::Arc;
 
+use codexbar::cookies::{CookieAccessGate, CookieHeaderCache, CookieImporter};
 use codexbar::core::{PathEnvironment, RefreshLoop, UsageStore};
+use codexbar::secrets::token_account::TokenAccountStore;
 use codexbar::settings::SettingsHandle;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -48,6 +51,15 @@ pub fn run() {
     let usage = Arc::new(UsageStore::new());
     let refresh = RefreshLoop::new(settings.clone());
 
+    let token_store = Arc::new(TokenAccountStore::new(env.secrets_dir.clone()));
+    let cookie_cache = Arc::new(CookieHeaderCache::new(env.cache_dir.join("cookie-cache")));
+    let cookie_gate = Arc::new(CookieAccessGate::new());
+    let cookie_importer = Arc::new(CookieImporter::new(
+        cookie_cache.clone(),
+        cookie_gate,
+        token_store.clone(),
+    ));
+
     // Spawn the refresh loop on a tokio runtime owned by the main thread.
     // We leak the runtime intentionally so it lives for the app lifetime;
     // the OS reclaims on exit and tokio handles will be cancelled.
@@ -69,6 +81,8 @@ pub fn run() {
         .manage(settings.clone())
         .manage(RefreshHandle(refresh))
         .manage(UsageHandle(usage))
+        .manage(secrets_commands::TokenAccountHandle(token_store))
+        .manage(secrets_commands::CookieImporterHandle(cookie_importer))
         .setup(move |app| {
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh now", true, None::<&str>)?;
             let pause_i = MenuItem::with_id(
@@ -173,6 +187,14 @@ pub fn run() {
             commands::refresh_now,
             commands::toggle_pause,
             commands::open_preferences,
+            secrets_commands::list_token_accounts,
+            secrets_commands::add_token_account,
+            secrets_commands::edit_token_account,
+            secrets_commands::remove_token_account,
+            secrets_commands::set_active_token_account,
+            secrets_commands::set_manual_cookie,
+            secrets_commands::import_cookies_for,
+            secrets_commands::clear_cookie_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
