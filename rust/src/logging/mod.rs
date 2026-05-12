@@ -4,9 +4,9 @@
 //! until shutdown. Dropping the guard flushes pending log lines, which is
 //! critical for the final `app.shutdown.complete` record per phase 1 plan.
 
-pub mod redact;
-
-pub use redact::SensitiveString;
+// `SensitiveString` lives in the top level `redact` module from phase 2
+// onwards. Logging re exports for backwards compatibility.
+pub use crate::redact::SensitiveString;
 
 use std::path::Path;
 
