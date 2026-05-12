@@ -11,6 +11,7 @@ pub mod history;
 pub mod oauth;
 pub mod planner;
 pub mod settings;
+pub mod web;
 
 use std::sync::Arc;
 
@@ -74,7 +75,8 @@ mod tests {
     }
 
     #[test]
-    fn install_wiring_yields_cli_strategy() {
+    fn install_wiring_yields_web_and_cli_strategies_in_order() {
+        use crate::providers::claude::web::strategy::{CookieResolver, WebClient, WebResponse};
         use crate::providers::codex::cli::rpc_client::{RpcCallError, RpcTransport};
         use crate::providers::codex::cli::strategy::TransportFactory;
         use crate::providers::descriptor::FetchStrategy;
@@ -96,13 +98,36 @@ mod tests {
                 Ok(Arc::new(StaleTransport) as Arc<dyn RpcTransport>)
             }
         }
+        struct NoopWeb;
+        #[async_trait]
+        impl WebClient for NoopWeb {
+            async fn get_json(&self, _: &str, _: &str) -> Result<WebResponse, ProviderFetchError> {
+                Ok(WebResponse {
+                    status: 200,
+                    body: b"{}".to_vec(),
+                })
+            }
+        }
+        struct NoopCookies;
+        #[async_trait]
+        impl CookieResolver for NoopCookies {
+            async fn cookie(&self) -> Result<Option<String>, ProviderFetchError> {
+                Ok(None)
+            }
+            async fn invalidate(&self) -> Result<(), ProviderFetchError> {
+                Ok(())
+            }
+        }
 
         let provider = CodexProvider::default();
         provider.install_wiring(CodexWiring {
+            web_client: Arc::new(NoopWeb),
+            web_cookies: Arc::new(NoopCookies),
             cli_transport_factory: Arc::new(StubFactory),
         });
         let strategies = provider.strategies();
-        assert_eq!(strategies.len(), 1);
-        assert_eq!(strategies[0].strategy_id(), FetchStrategy::CLI);
+        assert_eq!(strategies.len(), 2);
+        assert_eq!(strategies[0].strategy_id(), FetchStrategy::Web);
+        assert_eq!(strategies[1].strategy_id(), FetchStrategy::CLI);
     }
 }

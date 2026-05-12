@@ -295,11 +295,25 @@ pub fn run() {
         cli_runner,
         cli_binary: claude_cli_binary().unwrap_or_else(|| "claude".to_string()),
     });
-    // Phase 5: Codex provider. CLI transport stays unavailable until a
-    // user installs the codex binary; the strategy reports
-    // `PluginUnavailable` and the refresh loop moves on without us.
+    // Phase 5: Codex provider.
+    //   - Web strategy: reuses the shared CookieImporter through the
+    //     `CodexCookieResolver` adapter so manual paste + browser
+    //     import both feed the same code path.
+    //   - CLI strategy: still wired through the unavailable transport
+    //     until the ConPTY launcher lands.
     let codex_provider = Arc::new(CodexProvider::default());
+    let codex_web_client: Arc<dyn WebClient> = match ReqwestWebClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullWebClient),
+    };
+    let codex_cookie_resolver: Arc<dyn CookieResolver> = Arc::new(
+        codexbar::providers::codex::web::cookie_resolver::CodexCookieResolver::new(
+            cookie_importer.clone(),
+        ),
+    );
     codex_provider.install_wiring(CodexWiring {
+        web_client: codex_web_client,
+        web_cookies: codex_cookie_resolver,
         cli_transport_factory: Arc::new(UnavailableCodexTransport),
     });
     let providers: Vec<Arc<dyn ProviderImplementation>> =

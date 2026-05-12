@@ -1,24 +1,30 @@
-//! Consolidate the Codex OAuth and CLI strategies into the ordered list
+//! Consolidate the Codex Web and CLI strategies into the ordered list
 //! the framework runtime walks. The Tauri shell hands a `CodexWiring`
 //! to `CodexProvider::install_wiring` once at boot; the same instances
 //! are reused for every refresh tick.
 
 use std::sync::Arc;
 
+use crate::providers::claude::web::strategy::{CookieResolver, WebClient};
 use crate::providers::codex::cli::strategy::{CodexCliStrategy, TransportFactory};
+use crate::providers::codex::web::strategy::CodexWebStrategy;
 use crate::providers::fetch_plan_runtime::Strategy;
 
 #[derive(Clone)]
 pub struct CodexWiring {
+    /// HTTP transport for the Web strategy (chatgpt.com).
+    pub web_client: Arc<dyn WebClient>,
+    /// Cookie resolver (cookie cache → manual paste → browser import).
+    pub web_cookies: Arc<dyn CookieResolver>,
+    /// JSON-RPC transport factory for the CLI strategy.
     pub cli_transport_factory: Arc<dyn TransportFactory>,
-    // OAuth strategy wiring lives behind a follow-up commit because the
-    // refresh-aware UsageHttp adapter wants the live secrets path. For
-    // now the planner exposes the CLI strategy only; that is enough to
-    // serve a logged-in user with the codex binary on PATH.
 }
 
 impl CodexWiring {
     pub fn into_strategies(self) -> Vec<Arc<dyn Strategy>> {
-        vec![Arc::new(CodexCliStrategy::new(self.cli_transport_factory))]
+        vec![
+            Arc::new(CodexWebStrategy::new(self.web_client, self.web_cookies)) as Arc<dyn Strategy>,
+            Arc::new(CodexCliStrategy::new(self.cli_transport_factory)),
+        ]
     }
 }

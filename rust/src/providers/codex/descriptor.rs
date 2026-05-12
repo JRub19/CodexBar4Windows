@@ -1,7 +1,6 @@
 //! Static descriptor for the Codex provider. Spec 41 section 2 fixes
-//! every field; the OAuth API path is the primary strategy, with the
-//! local CLI as the fallback. The Web scraping path is reserved for a
-//! follow-up phase.
+//! every field. Strategy order: OAuth API → Web (chatgpt.com cookies)
+//! → CLI binary fallback.
 
 use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
@@ -38,9 +37,8 @@ pub fn codex_descriptor() -> ProviderDescriptor {
             min_version: Some("0.1.0"),
         }),
         fetch_plan: ProviderFetchPlan {
-            // OAuth API is primary; CLI is the fallback. Web scraping
-            // ships in a follow-up so we leave it out for now.
-            strategies: vec![FetchStrategy::OAuth, FetchStrategy::CLI],
+            // OAuth API → Web (chatgpt.com cookies) → CLI fallback.
+            strategies: vec![FetchStrategy::OAuth, FetchStrategy::Web, FetchStrategy::CLI],
         },
     }
 }
@@ -50,11 +48,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn descriptor_advertises_oauth_and_cli_plan() {
+    fn descriptor_advertises_oauth_web_cli_plan_in_order() {
         let d = codex_descriptor();
         assert_eq!(
             d.fetch_plan.strategies,
-            vec![FetchStrategy::OAuth, FetchStrategy::CLI]
+            vec![FetchStrategy::OAuth, FetchStrategy::Web, FetchStrategy::CLI]
         );
     }
 
