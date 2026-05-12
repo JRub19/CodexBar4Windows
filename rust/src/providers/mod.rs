@@ -5,6 +5,7 @@
 //! Strategy trait, and the real provider implementations.
 
 pub mod branding;
+pub mod claude;
 pub mod cli_config;
 pub mod contexts;
 pub mod cookie_source;

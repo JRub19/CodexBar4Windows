@@ -128,9 +128,9 @@ mod tests {
     }
 
     #[test]
-    fn global_registry_is_empty_in_phase_1() {
-        // Phase 1 has zero `inventory::submit!` calls. This invariant moves
-        // when phase 4 lands Claude. Update the constant then.
-        assert_eq!(REGISTRY.len(), 0);
+    fn global_registry_includes_claude_after_phase_4() {
+        // Phase 4 P4-10 registers Claude via `inventory::submit!`. Any
+        // future provider lands as one more entry in this catalog.
+        assert!(REGISTRY.get(ProviderId("claude")).is_some());
     }
 }
