@@ -9,6 +9,7 @@ import type {
   UsageEventPayload,
 } from "../bindings";
 import { useUsageStore } from "./state/usageStore";
+import { PopupHeader } from "./header/PopupHeader";
 import { EmptyState } from "../components/EmptyState";
 import "../styles/popup.css";
 
@@ -59,7 +60,7 @@ export function PopupShell() {
 
   return (
     <div className="popup-root">
-      <header className="popup-header">CodexBar</header>
+      <PopupHeader />
       <main className="popup-body">
         {descriptors.length === 0 ? (
           <EmptyState />

@@ -108,13 +108,46 @@ html, body, #root {
 }
 
 .popup-header {
-  padding: var(--space-4) 18px var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) 18px var(--space-2);
+  -webkit-app-region: drag;
+  border-bottom: 1px solid var(--divider);
+}
+
+.popup-header__title {
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.005em;
-  -webkit-app-region: drag;
-  border-bottom: 1px solid var(--divider);
+}
+
+.settings-cog {
+  -webkit-app-region: no-drag;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 80ms ease-out, color 80ms ease-out;
+}
+
+.settings-cog:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+@media (prefers-color-scheme: light) {
+  .settings-cog:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
 }
 
 .popup-body {
