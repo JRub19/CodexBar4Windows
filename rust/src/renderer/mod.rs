@@ -13,6 +13,7 @@ pub mod bars;
 pub mod canvas;
 pub mod layout;
 pub mod pixel_grid;
+pub mod status_overlay;
 pub mod style;
 pub mod twists;
 
@@ -20,6 +21,7 @@ pub use bars::{draw_bar, BarAlphas, BarRect};
 pub use canvas::IconRenderer;
 pub use layout::{select as select_layout, BarSlot, Layout, LayoutInput};
 pub use pixel_grid::PixelGrid;
+pub use status_overlay::{paint_overlay, IncidentSeverity};
 pub use style::IconStyle;
 pub use twists::paint_twist;
 
