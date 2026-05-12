@@ -11,10 +11,12 @@
 //! Phase 2.6 lands the trait, the error taxonomy, and the browser
 //! detection probe. Phase 2.7 onwards fills in the implementations.
 
+pub mod chromium;
 pub mod detect;
 pub mod errors;
 pub mod normalizer;
 
+pub use chromium::ChromiumCookieReader;
 pub use detect::{BrowserDetection, BrowserPresence};
 pub use errors::ImportError;
 pub use normalizer::CookieHeaderNormalizer;
