@@ -109,12 +109,18 @@ html, body, #root {
 
 .popup-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3) 18px var(--space-2);
   -webkit-app-region: drag;
   border-bottom: 1px solid var(--divider);
+}
+
+.popup-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .popup-header__title {
@@ -147,6 +153,95 @@ html, body, #root {
 @media (prefers-color-scheme: light) {
   .settings-cog:hover {
     background: rgba(0, 0, 0, 0.05);
+  }
+}
+
+.switcher {
+  -webkit-app-region: no-drag;
+  display: flex;
+  width: 100%;
+}
+
+.switcher--inline {
+  flex-direction: row;
+  gap: 2px;
+}
+
+.switcher--inline .switcher-tab {
+  height: 30px;
+  flex: 1 1 0;
+}
+
+.switcher--stacked,
+.switcher--4rows {
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.switcher--stacked .switcher-tab {
+  height: 36px;
+  flex: 1 1 calc(50% - var(--space-1));
+}
+
+.switcher--4rows .switcher-tab {
+  height: 40px;
+  flex: 1 1 calc(25% - var(--space-1));
+}
+
+.switcher-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background-color 80ms ease-out, color 80ms ease-out;
+}
+
+.switcher-tab:hover {
+  background: color-mix(in srgb, var(--tab-accent) 12%, transparent);
+  color: var(--text-primary);
+}
+
+.switcher-tab--selected {
+  background: var(--tab-accent);
+  color: white;
+}
+
+.switcher-tab--selected:hover {
+  background: var(--tab-accent);
+}
+
+.switcher-tab__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.weekly-indicator {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 1px;
+  height: 4px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: light) {
+  .switcher {
+    background: rgba(0, 0, 0, 0.035);
+    border-radius: 8px;
+    padding: 2px;
   }
 }
 

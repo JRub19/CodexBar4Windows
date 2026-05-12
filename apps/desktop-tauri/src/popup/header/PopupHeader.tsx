@@ -1,9 +1,11 @@
 import { useUsageStore } from "../state/usageStore";
+import { ProviderSwitcherButtons } from "./ProviderSwitcherButtons";
 import { SettingsCog } from "./SettingsCog";
 
-// Phase 3 D2: top region of the popup. Switcher tabs slot in here in D3.
-// The header sits directly on the Mica backdrop with no blur of its own,
-// which is why it has no background-color of its own.
+// Phase 3 D2: top region of the popup. Sits directly on the Mica
+// backdrop with no blur of its own. Phase 3 D3 adds the switcher
+// tab row underneath the title when more than one provider is
+// configured.
 
 export function PopupHeader() {
   const descriptors = useUsageStore((s) => s.descriptors);
@@ -16,8 +18,11 @@ export function PopupHeader() {
 
   return (
     <header className="popup-header">
-      <span className="popup-header__title">{title}</span>
-      <SettingsCog />
+      <div className="popup-header__row">
+        <span className="popup-header__title">{title}</span>
+        <SettingsCog />
+      </div>
+      <ProviderSwitcherButtons />
     </header>
   );
 }
