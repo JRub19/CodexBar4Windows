@@ -4,6 +4,7 @@ members = [
     "rust",
     "apps/desktop-tauri/src-tauri",
     "rust/crates/codexbar4windows-claude-watchdog",
+    "rust/crates/codexbar4windows-claude-webprobe",
 ]
 
 [workspace.package]

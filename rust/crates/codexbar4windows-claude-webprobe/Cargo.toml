@@ -1,0 +1,21 @@
+[package]
+name = "codexbar4windows-claude-webprobe"
+version = "0.1.0"
+description = "Diagnostic binary that exercises the Claude.ai endpoints CodexBar4Windows depends on."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "codexbar4windows-claude-webprobe"
+path = "src/main.rs"
+
+[dependencies]
+codexbar = { path = "../../" }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
+tokio = { version = "1", features = ["rt-multi-thread", "rt"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde_json = "1"
