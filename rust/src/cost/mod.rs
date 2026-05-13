@@ -18,9 +18,11 @@
 //!   sidechain / pathRole tie-breaker.
 //! - `aggregator` — turns parsed rows into a daily / cycle USD
 //!   totals + per-model breakdown the popup renders.
+//! - `walker` — filesystem walker that resolves Codex / Claude / pi
+//!   roots from env vars + standard fallback paths, walks them with
+//!   mtime prefiltering, and skips hidden components.
 //!
-//! Still pending: recursive filesystem walker, projection algorithm,
-//! on-disk row cache.
+//! Still pending: projection algorithm, on-disk row cache.
 
 pub mod aggregator;
 pub mod claude_parser;
@@ -28,6 +30,7 @@ pub mod codex_parser;
 pub mod dedup;
 pub mod pi_parser;
 pub mod pricing;
+pub mod walker;
 
 pub use aggregator::{aggregate_rows, AggregatedCost};
 pub use claude_parser::{
@@ -39,3 +42,4 @@ pub use codex_parser::{
 pub use dedup::{canonical_row_key, dedup_in_file, RowWinsOver};
 pub use pi_parser::{PiFileScanner, PiModelContext, PiUsageRow};
 pub use pricing::{cost_for_row, PricingTable, RatePerMTok};
+pub use walker::{discover, resolve_roots, DiscoveredFile, JsonlFamily};
