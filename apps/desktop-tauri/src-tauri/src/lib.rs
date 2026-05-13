@@ -923,30 +923,27 @@ pub fn run() {
             cookie_importer.clone(),
         ),
     );
-    // Codex CLI: when a `codex` binary is locatable on the host, wire
-    // the real ConPTY-backed transport so the JSON-RPC strategy can
-    // talk to it. Otherwise fall back to the unavailable stub so the
-    // rest of the plan still runs.
-    let codex_cli_factory: Arc<dyn CodexTransportFactory> =
-        match codexbar::providers::codex::cli::binary_locator::locate() {
-            Ok(path) => {
-                let binary = path.to_string_lossy().to_string();
-                info!(target: "codexbar::app", binary = %binary, "codex.cli.conpty.installed");
-                Arc::new(
-                    codexbar::providers::codex::cli::conpty_transport::ConPtyTransportFactory::new(
-                        binary,
-                    ),
-                )
-            }
-            Err(_) => Arc::new(UnavailableCodexTransport),
-        };
-    codex_provider.install_wiring(CodexWiring {
+    // Codex CLI: real `codex` is an interactive TUI, not JSON-RPC.
+    // When the binary is on disk we prefer the TUI scraper; the
+    // JSON-RPC factory is kept as a stub for the (currently
+    // hypothetical) future `--proto` mode.
+    let codex_wiring = CodexWiring {
         oauth_http: codex_oauth_http,
         oauth_credentials: codex_oauth_credentials,
         web_client: codex_web_client,
         web_cookies: codex_cookie_resolver,
-        cli_transport_factory: codex_cli_factory,
-    });
+        cli_transport_factory: Arc::new(UnavailableCodexTransport),
+    };
+    match codexbar::providers::codex::cli::binary_locator::locate() {
+        Ok(path) => {
+            let binary = path.to_string_lossy().to_string();
+            info!(target: "codexbar::app", binary = %binary, "codex.cli.tui.installed");
+            let runner: Arc<dyn codexbar::providers::codex::cli::tui_strategy::CodexTuiRunner> =
+                Arc::new(codexbar::providers::codex::cli::tui_strategy::RealCodexTuiRunner);
+            codex_provider.install_wiring_with_tui(codex_wiring, runner, binary);
+        }
+        Err(_) => codex_provider.install_wiring(codex_wiring),
+    }
 
     // Phase 6.5: Tier-1 providers ported from the macOS Swift source.
     // Each gets its own reqwest transport plus an env-driven credential

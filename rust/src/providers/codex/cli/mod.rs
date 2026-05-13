@@ -12,3 +12,5 @@ pub mod conpty_transport;
 pub mod rpc_client;
 pub mod rpc_framer;
 pub mod strategy;
+pub mod tui_parser;
+pub mod tui_strategy;

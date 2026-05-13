@@ -46,6 +46,18 @@ impl CodexProvider {
     pub fn install_wiring(&self, wiring: CodexWiring) {
         *self.wiring.lock() = Some(wiring.into_strategies());
     }
+
+    /// Install strategies with a TUI scraper instead of the JSON-RPC
+    /// CLI strategy. Use this when a real `codex` binary is on disk —
+    /// real codex emits an interactive TUI, not JSON-RPC.
+    pub fn install_wiring_with_tui(
+        &self,
+        wiring: CodexWiring,
+        tui_runner: std::sync::Arc<dyn self::cli::tui_strategy::CodexTuiRunner>,
+        binary: String,
+    ) {
+        *self.wiring.lock() = Some(wiring.into_strategies_with_tui(tui_runner, binary));
+    }
 }
 
 #[async_trait]

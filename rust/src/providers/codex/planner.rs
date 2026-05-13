@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use crate::providers::claude::web::strategy::{CookieResolver, WebClient};
 use crate::providers::codex::cli::strategy::{CodexCliStrategy, TransportFactory};
+use crate::providers::codex::cli::tui_strategy::{CodexTuiRunner, CodexTuiStrategy};
 use crate::providers::codex::oauth::strategy::{CodexOAuthStrategy, OAuthCredentialsResolver};
 use crate::providers::codex::oauth::usage::UsageHttp;
 use crate::providers::codex::web::strategy::CodexWebStrategy;
@@ -35,6 +36,24 @@ impl CodexWiring {
             )) as Arc<dyn Strategy>,
             Arc::new(CodexWebStrategy::new(self.web_client, self.web_cookies)),
             Arc::new(CodexCliStrategy::new(self.cli_transport_factory)),
+        ]
+    }
+
+    /// Same as `into_strategies` but replaces the JSON-RPC CLI
+    /// strategy with the TUI scraper. Use this when a real `codex`
+    /// binary is on disk — real codex does not speak JSON-RPC.
+    pub fn into_strategies_with_tui(
+        self,
+        tui_runner: Arc<dyn CodexTuiRunner>,
+        binary: String,
+    ) -> Vec<Arc<dyn Strategy>> {
+        vec![
+            Arc::new(CodexOAuthStrategy::new(
+                self.oauth_http,
+                self.oauth_credentials,
+            )) as Arc<dyn Strategy>,
+            Arc::new(CodexWebStrategy::new(self.web_client, self.web_cookies)),
+            Arc::new(CodexTuiStrategy::new(tui_runner, binary)),
         ]
     }
 }
