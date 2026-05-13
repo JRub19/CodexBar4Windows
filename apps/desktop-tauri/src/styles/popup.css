@@ -1069,3 +1069,110 @@ html, body, #root {
 .update-banner__button--primary:hover {
   background: rgba(0, 100, 195, 1);
 }
+
+/* Phase 8: onboarding wizard */
+.onboarding-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px;
+  min-height: 360px;
+}
+.onboarding-progress {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.onboarding-progress__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(120, 120, 120, 0.3);
+  transition: background-color 120ms ease;
+}
+.onboarding-progress__dot--filled {
+  background: rgba(0, 120, 215, 0.95);
+}
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+.onboarding-step__title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+.onboarding-step__body {
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  color: rgba(60, 60, 60, 0.95);
+}
+.onboarding-step__bullets {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(60, 60, 60, 0.95);
+}
+.onboarding-step__bullets li {
+  margin-bottom: 4px;
+}
+.onboarding-step__hint {
+  font-size: 12.5px;
+  color: rgba(100, 100, 100, 0.85);
+  font-style: italic;
+}
+.onboarding-step__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.onboarding-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.onboarding-provider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.onboarding-provider-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.onboarding-provider-row__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.onboarding-provider-row__name {
+  font-size: 13px;
+}
+.onboarding-signin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.onboarding-signin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+}
+.onboarding-signin-row__name {
+  flex: 1;
+  font-size: 13px;
+}

@@ -15,6 +15,7 @@ import { UpdateBanner } from "./header/UpdateBanner";
 import { CardStack } from "./cards/CardStack";
 import { PopupFooter } from "./footer/PopupFooter";
 import { FirstRunToast } from "./firstRun/FirstRunToast";
+import { OnboardingShell, type OnboardingStateDto } from "./onboarding/OnboardingShell";
 import { ProviderSettingsPanel } from "./settings/ProviderSettingsPanel";
 import { EmptyState } from "../components/EmptyState";
 import "../styles/popup.css";
@@ -34,7 +35,24 @@ export function PopupShell() {
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [onboardingActive, setOnboardingActive] = useState<boolean | null>(null);
   useKeyboardNav();
+
+  useEffect(() => {
+    let cancelled = false;
+    void invoke<OnboardingStateDto>("first_run_state").then((s) => {
+      if (!cancelled) setOnboardingActive(!s.onboarding_completed);
+    });
+    const unlisten = listen<OnboardingStateDto>("onboarding:state", (event) => {
+      // Re-show the wizard whenever the back-end resets the flag,
+      // e.g. from the About-pane "Run onboarding again" button.
+      setOnboardingActive(!event.payload.onboarding_completed);
+    });
+    return () => {
+      cancelled = true;
+      void unlisten.then((f) => f());
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +106,9 @@ export function PopupShell() {
       <UpdateBanner />
       <PopupHeader onOpenSettings={() => setSettingsOpen(true)} />
       <main className="popup-body">
-        {settingsOpen ? (
+        {onboardingActive ? (
+          <OnboardingShell onFinish={() => setOnboardingActive(false)} />
+        ) : settingsOpen ? (
           <ProviderSettingsPanel onClose={() => setSettingsOpen(false)} />
         ) : descriptors.length === 0 ? (
           <EmptyState />

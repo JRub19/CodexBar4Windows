@@ -354,6 +354,59 @@ pub async fn first_run_reset(store: State<'_, FirstRunHandle>) -> Result<(), Str
     store.0.clear().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn onboarding_advance(
+    store: State<'_, FirstRunHandle>,
+    app: AppHandle,
+) -> Result<FirstRunState, String> {
+    let state = store.0.advance_onboarding().map_err(|e| e.to_string())?;
+    let _ = app.emit("onboarding:state", state.clone());
+    info!(
+        target: "codexbar::onboarding",
+        step = ?state.onboarding_step,
+        completed = state.onboarding_completed,
+        "onboarding.advance",
+    );
+    Ok(state)
+}
+
+#[tauri::command]
+pub async fn onboarding_rewind(
+    store: State<'_, FirstRunHandle>,
+    app: AppHandle,
+) -> Result<FirstRunState, String> {
+    let state = store.0.rewind_onboarding().map_err(|e| e.to_string())?;
+    let _ = app.emit("onboarding:state", state.clone());
+    info!(
+        target: "codexbar::onboarding",
+        step = ?state.onboarding_step,
+        "onboarding.rewind",
+    );
+    Ok(state)
+}
+
+#[tauri::command]
+pub async fn onboarding_complete(
+    store: State<'_, FirstRunHandle>,
+    app: AppHandle,
+) -> Result<FirstRunState, String> {
+    let state = store.0.complete_onboarding().map_err(|e| e.to_string())?;
+    let _ = app.emit("onboarding:state", state.clone());
+    info!(target: "codexbar::onboarding", "onboarding.complete");
+    Ok(state)
+}
+
+#[tauri::command]
+pub async fn onboarding_reset(
+    store: State<'_, FirstRunHandle>,
+    app: AppHandle,
+) -> Result<FirstRunState, String> {
+    let state = store.0.reset_onboarding().map_err(|e| e.to_string())?;
+    let _ = app.emit("onboarding:state", state.clone());
+    info!(target: "codexbar::onboarding", "onboarding.reset");
+    Ok(state)
+}
+
 /// Helper for the Tauri builder to register the State once paths are known.
 pub fn build_settings_handle(config_path: std::path::PathBuf) -> SettingsHandle {
     Arc::new(codexbar::settings::SettingsStore::load(config_path))

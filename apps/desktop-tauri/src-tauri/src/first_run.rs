@@ -1,15 +1,64 @@
-//! Phase 3 D12: persist a single "first run hint shown" flag so we only
-//! surface the tray pin balloon once per install. State lives next to
-//! `settings.json` in `%APPDATA%\CodexBar4Windows\state.json`.
+//! Phase 3 D12 + Phase 8 onboarding: persist the "first run hint
+//! shown" flag (tray-pin balloon) plus the multi-step onboarding
+//! wizard state (which step the user reached, whether the flow
+//! finished). State lives next to `settings.json` in
+//! `%APPDATA%\CodexBar4Windows\state.json`.
+//!
+//! Onboarding steps mirror `docs/windows/plan/phase-8` Task 21:
+//!
+//! - `Welcome` — initial hello.
+//! - `Providers` — provider picker.
+//! - `SignIn` — per-provider sign-in.
+//! - `Done` — terminal step, sets `onboarding_completed = true`.
+//!
+//! When `onboarding_completed` is true, the popup hides the wizard
+//! shell. The About-pane "Run onboarding again" button calls
+//! `onboarding_reset` which sets `onboarding_completed = false` and
+//! rewinds `onboarding_step` to `Welcome`. Provider settings are
+//! preserved across resets.
 
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OnboardingStep {
+    #[default]
+    Welcome,
+    Providers,
+    SignIn,
+    Done,
+}
+
+impl OnboardingStep {
+    pub fn advance(self) -> Self {
+        match self {
+            OnboardingStep::Welcome => OnboardingStep::Providers,
+            OnboardingStep::Providers => OnboardingStep::SignIn,
+            OnboardingStep::SignIn => OnboardingStep::Done,
+            OnboardingStep::Done => OnboardingStep::Done,
+        }
+    }
+
+    pub fn rewind(self) -> Self {
+        match self {
+            OnboardingStep::Welcome => OnboardingStep::Welcome,
+            OnboardingStep::Providers => OnboardingStep::Welcome,
+            OnboardingStep::SignIn => OnboardingStep::Providers,
+            OnboardingStep::Done => OnboardingStep::SignIn,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct FirstRunState {
     #[serde(default)]
     pub tray_pinned_hint_shown: bool,
+    #[serde(default)]
+    pub onboarding_completed: bool,
+    #[serde(default)]
+    pub onboarding_step: OnboardingStep,
 }
 
 #[derive(Clone)]
@@ -50,6 +99,41 @@ impl FirstRunStore {
         self.write(&s)
     }
 
+    pub fn advance_onboarding(&self) -> std::io::Result<FirstRunState> {
+        let mut s = self.read();
+        s.onboarding_step = s.onboarding_step.advance();
+        if matches!(s.onboarding_step, OnboardingStep::Done) {
+            s.onboarding_completed = true;
+        }
+        self.write(&s)?;
+        Ok(s)
+    }
+
+    pub fn rewind_onboarding(&self) -> std::io::Result<FirstRunState> {
+        let mut s = self.read();
+        s.onboarding_step = s.onboarding_step.rewind();
+        // Backing up out of Done un-completes the flow.
+        s.onboarding_completed = false;
+        self.write(&s)?;
+        Ok(s)
+    }
+
+    pub fn complete_onboarding(&self) -> std::io::Result<FirstRunState> {
+        let mut s = self.read();
+        s.onboarding_completed = true;
+        s.onboarding_step = OnboardingStep::Done;
+        self.write(&s)?;
+        Ok(s)
+    }
+
+    pub fn reset_onboarding(&self) -> std::io::Result<FirstRunState> {
+        let mut s = self.read();
+        s.onboarding_completed = false;
+        s.onboarding_step = OnboardingStep::Welcome;
+        self.write(&s)?;
+        Ok(s)
+    }
+
     pub fn clear(&self) -> std::io::Result<()> {
         self.write(&FirstRunState::default())
     }
@@ -68,5 +152,64 @@ mod tests {
         assert!(store.read().tray_pinned_hint_shown);
         store.clear().unwrap();
         assert!(!store.read().tray_pinned_hint_shown);
+    }
+
+    #[test]
+    fn onboarding_advances_through_all_four_steps() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FirstRunStore::new(dir.path());
+
+        let s0 = store.read();
+        assert_eq!(s0.onboarding_step, OnboardingStep::Welcome);
+        assert!(!s0.onboarding_completed);
+
+        let s1 = store.advance_onboarding().unwrap();
+        assert_eq!(s1.onboarding_step, OnboardingStep::Providers);
+        assert!(!s1.onboarding_completed);
+
+        let s2 = store.advance_onboarding().unwrap();
+        assert_eq!(s2.onboarding_step, OnboardingStep::SignIn);
+        assert!(!s2.onboarding_completed);
+
+        // Landing on Done flips onboarding_completed.
+        let s3 = store.advance_onboarding().unwrap();
+        assert_eq!(s3.onboarding_step, OnboardingStep::Done);
+        assert!(s3.onboarding_completed);
+
+        // Re-advancing past Done is a no-op.
+        let s4 = store.advance_onboarding().unwrap();
+        assert_eq!(s4.onboarding_step, OnboardingStep::Done);
+        assert!(s4.onboarding_completed);
+    }
+
+    #[test]
+    fn onboarding_rewind_un_completes_the_flow() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FirstRunStore::new(dir.path());
+
+        store.complete_onboarding().unwrap();
+        assert!(store.read().onboarding_completed);
+
+        let s = store.rewind_onboarding().unwrap();
+        assert_eq!(s.onboarding_step, OnboardingStep::SignIn);
+        assert!(!s.onboarding_completed);
+
+        // Rewinding off the front clamps at Welcome.
+        let _ = store.rewind_onboarding().unwrap();
+        let _ = store.rewind_onboarding().unwrap();
+        let s = store.rewind_onboarding().unwrap();
+        assert_eq!(s.onboarding_step, OnboardingStep::Welcome);
+    }
+
+    #[test]
+    fn onboarding_reset_preserves_other_flags() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FirstRunStore::new(dir.path());
+        store.mark_tray_pinned_hint_shown().unwrap();
+        store.complete_onboarding().unwrap();
+        let s = store.reset_onboarding().unwrap();
+        assert!(s.tray_pinned_hint_shown); // preserved
+        assert!(!s.onboarding_completed);
+        assert_eq!(s.onboarding_step, OnboardingStep::Welcome);
     }
 }
