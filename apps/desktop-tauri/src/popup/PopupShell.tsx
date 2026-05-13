@@ -95,6 +95,22 @@ export function PopupShell() {
         } else {
           void getCurrentWindow().hide();
         }
+        return;
+      }
+      // Phase 9 §B-6: Ctrl+R refreshes the popup without closing it.
+      // The default browser refresh would reload the WebView and
+      // remount everything, dropping in-flight state; explicit
+      // refresh_now invoke keeps the popup mounted and just kicks the
+      // backend refresh loop. Browser F5 / Ctrl+F5 are also caught
+      // (WebView2 honours them otherwise).
+      if (
+        (event.ctrlKey && (event.key === "r" || event.key === "R")) ||
+        event.key === "F5"
+      ) {
+        event.preventDefault();
+        void invoke("refresh_now").catch(() => {
+          // Best-effort; the refresh loop swallows errors internally.
+        });
       }
     };
     window.addEventListener("keydown", onKeyDown);
