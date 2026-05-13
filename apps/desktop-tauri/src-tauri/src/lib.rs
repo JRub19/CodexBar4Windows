@@ -6,6 +6,7 @@
 //! points. Phase 3 onward layers the popup window and dynamic icon on top.
 
 pub mod commands;
+pub mod credentials_detect;
 #[cfg(feature = "dev")]
 pub mod dev;
 pub mod first_run;
@@ -1397,6 +1398,7 @@ pub fn run() {
             commands::onboarding_rewind,
             commands::onboarding_complete,
             commands::onboarding_reset,
+            credentials_detect::detect_provider_credentials,
             commands::save_settings_window_geometry,
             commands::save_last_settings_pane,
             commands::storage_footprint_scan,

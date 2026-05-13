@@ -87,44 +87,87 @@ export function PopupShell() {
     };
   }, [setEnabledProviderIds]);
 
-  // Boot auto-import: kick off the browser-cookie auto-import for the
-  // providers that support it (Cursor, Factory). The Tauri command
-  // walks Edge/Chrome/Brave/Firefox DPAPI-decoded cookie jars, finds
-  // the provider's session cookie, and stores it in the DPAPI-wrapped
-  // TokenAccountStore so the next refresh tick can fetch usage data
-  // without the user pasting anything. Errors are logged but never
-  // shown — auto-import is opportunistic, not required.
-  //
-  // After auto-import settles we trigger a manual refresh so the
-  // cards populate immediately instead of waiting for the 5-minute
-  // cadence tick.
+  // Boot bootstrap:
+  //   1. Fire browser-cookie auto-import for cookie-based providers
+  //      so the user doesn't have to paste anything.
+  //   2. Detect which providers actually have credentials on disk.
+  //   3. If the user has never configured providers (empty list),
+  //      seed `settings.providers[]` with only the detected ones
+  //      enabled — that way the popup doesn't show 11 useless tabs
+  //      on a fresh install when only Claude + Codex have keys.
+  //   4. Trigger an immediate refresh so cards populate without
+  //      waiting for the 5-min cadence tick.
   useEffect(() => {
     let cancelled = false;
     const AUTO_IMPORT_PROVIDERS = ["cursor", "factory"];
 
     async function bootstrap() {
+      // Step 1: Auto-import cookies for browser-auth providers
+      // (gated by the user's allow_browser_cookie_import setting).
       try {
-        const s = await invoke<{ allow_browser_cookie_import: boolean }>(
-          "get_settings",
-        );
-        if (!s.allow_browser_cookie_import || cancelled) return;
+        const s = await invoke<{
+          allow_browser_cookie_import: boolean;
+          providers: ProviderToggle[];
+        }>("get_settings");
+        if (s.allow_browser_cookie_import && !cancelled) {
+          await Promise.allSettled(
+            AUTO_IMPORT_PROVIDERS.map((id) =>
+              invoke("auto_import_cookies", { providerId: id }),
+            ),
+          );
+        }
+        if (cancelled) return;
+
+        // Step 2 + 3: Auto-seed `settings.providers[]` from disk
+        // presence. We only do this when the list is currently
+        // empty — meaning the user has never explicitly enabled or
+        // disabled anything. Once they touch a toggle the list is
+        // populated and we never auto-overwrite their choices.
+        if (s.providers.length === 0) {
+          try {
+            const presence = await invoke<
+              Array<{ provider_id: string; present: boolean }>
+            >("detect_provider_credentials");
+            if (cancelled) return;
+            // Map descriptor IDs to detected presence; default true
+            // for any provider not in the detection map (defensive).
+            const presenceMap = new Map(
+              presence.map((p) => [p.provider_id, p.present]),
+            );
+            // Fetch the full descriptor list to know what to seed.
+            const allDescriptors = await invoke<
+              Array<{ id: string }>
+            >("provider_descriptors");
+            if (cancelled) return;
+            const toggles: ProviderToggle[] = allDescriptors.map(
+              (d, idx) => ({
+                id: d.id,
+                enabled: presenceMap.get(d.id) ?? true,
+                order: idx,
+              }),
+            );
+            // Only persist if at least ONE provider has credentials;
+            // otherwise leave the list empty so the user sees every
+            // provider and can manually configure one.
+            if (toggles.some((t) => t.enabled)) {
+              await invoke("update_settings", {
+                patch: { providers: toggles },
+              });
+            }
+          } catch {
+            /* detection failure is non-fatal — fall back to all-enabled */
+          }
+        }
       } catch {
-        // If get_settings fails we still attempt the refresh — the
-        // backend gates auto-import internally per provider anyway.
+        // get_settings failed — fall back to a plain refresh.
       }
-      // Fire each provider's auto-import in parallel.
-      await Promise.allSettled(
-        AUTO_IMPORT_PROVIDERS.map((id) =>
-          invoke("auto_import_cookies", { providerId: id }),
-        ),
-      );
       if (cancelled) return;
-      // Trigger an immediate refresh so the cards aren't stuck in
-      // the loading skeleton waiting for the cadence tick.
+
+      // Step 4: Manual refresh so cards populate immediately.
       try {
         await invoke("refresh_now");
       } catch {
-        /* swallow — refresh errors surface via refresh_error events */
+        /* swallow */
       }
     }
 

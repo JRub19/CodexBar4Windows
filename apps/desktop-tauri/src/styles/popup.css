@@ -189,33 +189,27 @@ kbd {
 /* ============================================================ */
 
 .popup-root {
-  /* The popup is INTRINSICALLY sized: it grows to whatever its
-     children need, and `useAutoResize` then resizes the Tauri window
-     to match. Body is flex:0 0 auto (natural size, no scroll) so
-     scrollHeight === sum of child natural heights. Horizontal
-     overflow is hidden defensively — we never want a horizontal
-     scrollbar. Vertical overflow is `visible` here so a misbehaving
-     child can't be clipped by us; the auto-resize hook will catch
-     it on the next animation frame and grow the window. */
-  min-height: 100vh;
+  /* Popup fills the Tauri window. The window itself is auto-resized
+     to the natural content height via `useAutoResize` (which sums
+     the three top-level region scrollHeights). overflow:hidden on
+     the root prevents OS-level scrollbars from flickering during
+     a resize-frame race; the body has its own gated overflow for
+     the rare case where content exceeds the screen-height cap. */
+  height: 100vh;
   width: 100vw;
   display: flex;
   flex-direction: column;
   background: var(--bg-popup);
   border-radius: var(--r-popup);
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-popup);
   -webkit-app-region: drag;
   animation: popup-in var(--d-popup-in) var(--ease-out) both;
 }
 
-/* `html, body` only constrain horizontal — vertical is owned by the
-   popup-root + auto-resize hook. */
 html, body {
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow: hidden;
 }
 
 @supports not (backdrop-filter: blur(20px)) {
@@ -258,14 +252,26 @@ html, body {
 /* ============================================================ */
 
 .popup-body {
-  /* Intrinsic size — grow to whatever the active card / wizard /
-     empty-state needs. The auto-resize hook reads the natural
-     height and grows the window to match, so internal scrolling
-     is never needed in practice. */
-  flex: 0 0 auto;
-  overflow: visible;
+  /* Body is the scrollable flex region between switcher + footer.
+     `flex: 1` lets it fill whatever vertical space the window has;
+     `min-height: 0` is required for the flex child to actually
+     shrink below its content size, otherwise overflow:auto can't
+     kick in. The auto-resize hook normally grows the window so
+     body's content fits without ever needing the internal scroll;
+     scroll only appears for the rare case where content exceeds
+     screen height. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-app-region: no-drag;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-hover) transparent;
 }
+
+.popup-body::-webkit-scrollbar { width: 0; }
+.popup-body:hover::-webkit-scrollbar { width: 6px; }
+.popup-body::-webkit-scrollbar-thumb { background: var(--bg-hover); border-radius: 999px; }
 
 /* ============================================================ */
 /* 6. SWITCHER (pill-segmented control)                         */
