@@ -279,17 +279,19 @@ mod tests {
     fn provider_filter_vertex_only_keeps_vertex_rows() {
         let vertex_body = br#"{"type":"assistant","timestamp":"2026-05-13T14:33:21Z","message":{"id":"msg_vrtx_x","model":"claude-sonnet","usage":{"input_tokens":1}}}"#;
         let plain_body = SAMPLE_LINE;
-        assert!(
-            parse_claude_line(vertex_body, "/x.jsonl", ProviderFilter::VertexAIOnly).is_some()
-        );
+        assert!(parse_claude_line(vertex_body, "/x.jsonl", ProviderFilter::VertexAIOnly).is_some());
         assert!(parse_claude_line(plain_body, "/x.jsonl", ProviderFilter::VertexAIOnly).is_none());
     }
 
     #[test]
     fn provider_filter_exclude_vertex_drops_vertex_rows() {
         let vertex_body = br#"{"type":"assistant","timestamp":"2026-05-13T14:33:21Z","message":{"id":"msg_vrtx_x","model":"claude-sonnet","usage":{"input_tokens":1}}}"#;
-        assert!(parse_claude_line(vertex_body, "/x.jsonl", ProviderFilter::ExcludeVertexAI).is_none());
-        assert!(parse_claude_line(SAMPLE_LINE, "/x.jsonl", ProviderFilter::ExcludeVertexAI).is_some());
+        assert!(
+            parse_claude_line(vertex_body, "/x.jsonl", ProviderFilter::ExcludeVertexAI).is_none()
+        );
+        assert!(
+            parse_claude_line(SAMPLE_LINE, "/x.jsonl", ProviderFilter::ExcludeVertexAI).is_some()
+        );
     }
 
     #[test]

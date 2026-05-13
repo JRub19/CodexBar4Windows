@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use reqwest::Client;
 
-use super::strategy::{PER_REQUEST_TIMEOUT, ZaiHttp, ZaiResponse};
+use super::strategy::{ZaiHttp, ZaiResponse, PER_REQUEST_TIMEOUT};
 use crate::providers::errors::ProviderFetchError;
 
 pub struct ReqwestZaiClient {

@@ -79,8 +79,12 @@ impl Strategy for CopilotOAuthStrategy {
             .ok_or(ProviderFetchError::NoToken("copilot"))?;
         let bearer = format!("token {}", creds.access_token);
 
-        let usage = fetch_copilot_usage(self.http.as_ref(), &bearer, creds.enterprise_host.as_deref())
-            .await?;
+        let usage = fetch_copilot_usage(
+            self.http.as_ref(),
+            &bearer,
+            creds.enterprise_host.as_deref(),
+        )
+        .await?;
 
         let identity = fetch_identity(self.http.as_ref(), &bearer).await.ok();
 
@@ -354,7 +358,11 @@ mod tests {
                 }
             }"#,
         );
-        http.put("https://api.github.com/user", 200, br#"{"login": "ent-user"}"#);
+        http.put(
+            "https://api.github.com/user",
+            200,
+            br#"{"login": "ent-user"}"#,
+        );
         let resolver = Arc::new(StubResolver(Some(CopilotCredentials {
             access_token: "tok".into(),
             enterprise_host: Some("corp.example.com".into()),

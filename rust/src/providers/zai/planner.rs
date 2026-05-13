@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use crate::providers::fetch_plan_runtime::Strategy;
-use crate::providers::zai::api::strategy::{
-    ZaiApiStrategy, ZaiCredentialsResolver, ZaiHttp,
-};
+use crate::providers::zai::api::strategy::{ZaiApiStrategy, ZaiCredentialsResolver, ZaiHttp};
 
 #[derive(Clone)]
 pub struct ZaiWiring {

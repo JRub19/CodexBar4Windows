@@ -290,8 +290,7 @@ mod tests {
     }
     impl Filesystem for FakeFs {
         fn exists(&self, path: &Path) -> bool {
-            self.files.contains_key(path)
-                || self.dirs.lock().unwrap().iter().any(|d| d == path)
+            self.files.contains_key(path) || self.dirs.lock().unwrap().iter().any(|d| d == path)
         }
         fn read_to_string(&self, path: &Path) -> Option<String> {
             self.files.get(path).cloned()

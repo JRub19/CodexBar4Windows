@@ -160,9 +160,7 @@ fn classify(response: &WorkOSResponse) -> Outcome {
             "WorkOS HTTP {} for this client id",
             response.status
         ))),
-        other => Outcome::Terminal(ProviderFetchError::Network(format!(
-            "WorkOS HTTP {other}"
-        ))),
+        other => Outcome::Terminal(ProviderFetchError::Network(format!("WorkOS HTTP {other}"))),
     }
 }
 
@@ -302,9 +300,7 @@ mod tests {
         let http = StubHttp::new();
         http.enqueue(200, br#"{"access_token":"at","refresh_token":"rt"}"#);
         let _ = rt()
-            .block_on(async {
-                exchange_cookie(&http, "wos-session=abc; other=1", None).await
-            })
+            .block_on(async { exchange_cookie(&http, "wos-session=abc; other=1", None).await })
             .unwrap();
         let captured = http.captured.lock().unwrap();
         assert!(captured[0].0.contains("\"useCookie\":true"));

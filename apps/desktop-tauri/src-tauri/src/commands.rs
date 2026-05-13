@@ -342,10 +342,7 @@ pub async fn open_preferences(
 
 fn apply_geometry<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, g: WindowGeometry) {
     use tauri::{LogicalPosition, LogicalSize};
-    let _ = window.set_position(LogicalPosition::new(
-        g.x.max(0) as f64,
-        g.y.max(0) as f64,
-    ));
+    let _ = window.set_position(LogicalPosition::new(g.x.max(0) as f64, g.y.max(0) as f64));
     let _ = window.set_size(LogicalSize::new(g.width as f64, g.height as f64));
 }
 
@@ -440,7 +437,12 @@ pub async fn save_settings_window_geometry(
 ) -> Result<(), String> {
     store
         .0
-        .save_settings_window(WindowGeometry { x, y, width, height })
+        .save_settings_window(WindowGeometry {
+            x,
+            y,
+            width,
+            height,
+        })
         .map_err(|e| e.to_string())
 }
 

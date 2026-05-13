@@ -37,7 +37,8 @@ pub const RETRY_TIMEOUT: Duration = Duration::from_secs(4);
 /// transcripts instead of launching codex. The real impl spawns the
 /// binary and drains the PTY master.
 pub trait CodexTuiRunner: Send + Sync {
-    fn capture_status(&self, binary: &str, timeout: Duration) -> Result<String, ProviderFetchError>;
+    fn capture_status(&self, binary: &str, timeout: Duration)
+        -> Result<String, ProviderFetchError>;
 }
 
 pub struct RealCodexTuiRunner;

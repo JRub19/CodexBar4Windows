@@ -197,7 +197,11 @@ fn fold_balance(parsed: &BalanceResponse) -> (f64, String, Option<f64>, CreditUn
 
 fn short_key_token(api_key: &str) -> String {
     let trimmed = api_key.trim();
-    trimmed.chars().take(4).collect::<String>().to_ascii_lowercase()
+    trimmed
+        .chars()
+        .take(4)
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]

@@ -22,11 +22,7 @@ pub const PER_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[async_trait]
 pub trait DeepSeekHttp: Send + Sync {
-    async fn get(
-        &self,
-        url: &str,
-        bearer: &str,
-    ) -> Result<DeepSeekResponse, ProviderFetchError>;
+    async fn get(&self, url: &str, bearer: &str) -> Result<DeepSeekResponse, ProviderFetchError>;
 }
 
 pub struct DeepSeekResponse {
@@ -165,7 +161,11 @@ fn format_plan_label(balance: &super::response::ParsedBalance, available: bool) 
 fn short_key_token(api_key: &str) -> String {
     let trimmed = api_key.trim();
     let suffix = trimmed.strip_prefix("sk-").unwrap_or(trimmed);
-    suffix.chars().take(4).collect::<String>().to_ascii_lowercase()
+    suffix
+        .chars()
+        .take(4)
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]
@@ -180,11 +180,7 @@ mod tests {
 
     #[async_trait]
     impl DeepSeekHttp for ScriptedHttp {
-        async fn get(
-            &self,
-            _: &str,
-            _: &str,
-        ) -> Result<DeepSeekResponse, ProviderFetchError> {
+        async fn get(&self, _: &str, _: &str) -> Result<DeepSeekResponse, ProviderFetchError> {
             let (status, body) = self
                 .reply
                 .lock()

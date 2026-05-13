@@ -17,9 +17,9 @@ pub struct CursorWiring {
 
 impl CursorWiring {
     pub fn into_strategies(self) -> Vec<Arc<dyn Strategy>> {
-        vec![Arc::new(CursorWebStrategy::new(
-            self.web_client,
-            self.web_cookies,
-        )) as Arc<dyn Strategy>]
+        vec![
+            Arc::new(CursorWebStrategy::new(self.web_client, self.web_cookies))
+                as Arc<dyn Strategy>,
+        ]
     }
 }

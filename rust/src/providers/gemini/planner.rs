@@ -17,20 +17,16 @@ pub struct GeminiWiring {
 
 impl GeminiWiring {
     pub fn into_strategies(self) -> Vec<Arc<dyn Strategy>> {
-        vec![
-            Arc::new(GeminiOAuthStrategy::new(self.http, self.credentials)) as Arc<dyn Strategy>
-        ]
+        vec![Arc::new(GeminiOAuthStrategy::new(self.http, self.credentials)) as Arc<dyn Strategy>]
     }
 
     /// Same as `into_strategies` but installs a token-refresh hook so
     /// expired access_tokens are refreshed inline instead of surfacing
     /// `Unauthorized`.
-    pub fn into_strategies_with_refresh(
-        self,
-        refresh: RefreshHook,
-    ) -> Vec<Arc<dyn Strategy>> {
-        vec![Arc::new(
-            GeminiOAuthStrategy::new(self.http, self.credentials).with_refresh(refresh),
-        ) as Arc<dyn Strategy>]
+    pub fn into_strategies_with_refresh(self, refresh: RefreshHook) -> Vec<Arc<dyn Strategy>> {
+        vec![
+            Arc::new(GeminiOAuthStrategy::new(self.http, self.credentials).with_refresh(refresh))
+                as Arc<dyn Strategy>,
+        ]
     }
 }

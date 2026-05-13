@@ -204,11 +204,7 @@ pub fn resolve_provider_roots(
                 candidates.push(PathBuf::from(&profile).join(".config").join("claude"));
             }
             if let Some(appdata) = env.var("APPDATA") {
-                candidates.push(
-                    PathBuf::from(&appdata)
-                        .join("CodexBar")
-                        .join("ClaudeProbe"),
-                );
+                candidates.push(PathBuf::from(&appdata).join("CodexBar").join("ClaudeProbe"));
             }
         }
         StorageProvider::Gemini => {
@@ -225,7 +221,9 @@ pub fn resolve_provider_roots(
         StorageProvider::Copilot => {
             if let Some(profile) = env.var("USERPROFILE") {
                 candidates.push(
-                    PathBuf::from(&profile).join(".config").join("github-copilot"),
+                    PathBuf::from(&profile)
+                        .join(".config")
+                        .join("github-copilot"),
                 );
             }
         }
@@ -460,7 +458,10 @@ mod tests {
         let mut fs = FakeFs::new();
         fs.put_dir("/codex-home");
         fs.put_dir("/users/jonas/.codex");
-        let env = env(&[("CODEX_HOME", "/codex-home"), ("USERPROFILE", "/users/jonas")]);
+        let env = env(&[
+            ("CODEX_HOME", "/codex-home"),
+            ("USERPROFILE", "/users/jonas"),
+        ]);
         let (existing, missing) = resolve_provider_roots(StorageProvider::Codex, &env, &fs);
         assert_eq!(existing.len(), 2);
         assert_eq!(missing.len(), 0);
@@ -474,10 +475,7 @@ mod tests {
         fs.put_dir("/users/jonas/.claude");
         fs.put_dir("/users/jonas/.config/claude");
         fs.put_dir("/appdata/CodexBar/ClaudeProbe");
-        let env = env(&[
-            ("USERPROFILE", "/users/jonas"),
-            ("APPDATA", "/appdata"),
-        ]);
+        let env = env(&[("USERPROFILE", "/users/jonas"), ("APPDATA", "/appdata")]);
         let (existing, missing) = resolve_provider_roots(StorageProvider::Claude, &env, &fs);
         assert_eq!(existing.len(), 3);
         assert!(existing.contains(&PathBuf::from("/appdata/CodexBar/ClaudeProbe")));

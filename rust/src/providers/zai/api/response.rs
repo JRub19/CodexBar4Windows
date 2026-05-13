@@ -101,15 +101,14 @@ impl LimitRaw {
     pub fn to_entry(&self) -> Option<LimitEntry> {
         let kind = LimitType::from_raw(&self.kind)?;
         let window_minutes = match self.unit {
-            1 => Some(self.number * 24 * 60), // days
-            3 => Some(self.number * 60),       // hours
-            5 => Some(self.number),            // minutes
+            1 => Some(self.number * 24 * 60),     // days
+            3 => Some(self.number * 60),          // hours
+            5 => Some(self.number),               // minutes
             6 => Some(self.number * 7 * 24 * 60), // weeks
             _ => None,
         };
-        let used_percent = computed_used_percent(self).unwrap_or_else(|| {
-            self.percentage.map(|p| p as f64).unwrap_or(0.0)
-        });
+        let used_percent = computed_used_percent(self)
+            .unwrap_or_else(|| self.percentage.map(|p| p as f64).unwrap_or(0.0));
         let reset_at_unix_secs = self.next_reset_time_ms.map(|ms| ms / 1000);
         Some(LimitEntry {
             kind,

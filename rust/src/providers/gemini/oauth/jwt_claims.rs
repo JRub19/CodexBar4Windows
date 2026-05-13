@@ -58,8 +58,7 @@ mod tests {
     use base64::Engine;
 
     fn jwt_with_payload(payload: &str) -> String {
-        let encoded =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
+        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
         format!("header.{encoded}.sig")
     }
 
@@ -78,7 +77,10 @@ mod tests {
 
     #[test]
     fn malformed_token_returns_empty_claims() {
-        assert_eq!(extract_claims(Some("no-dots")), GoogleTokenClaims::default());
+        assert_eq!(
+            extract_claims(Some("no-dots")),
+            GoogleTokenClaims::default()
+        );
         assert_eq!(extract_claims(Some("a.b")), {
             // Two parts is fine for our purposes, but garbage base64 → empty.
             GoogleTokenClaims::default()

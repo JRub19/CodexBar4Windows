@@ -267,7 +267,8 @@ mod tests {
     #[test]
     fn provider_kv_patch_inserts_and_removes_entries() {
         let mut s = Settings::default();
-        s.provider_kv.insert("moonshot.region".into(), "china".into());
+        s.provider_kv
+            .insert("moonshot.region".into(), "china".into());
         // Patch sets one key, clears another (empty value).
         let patched = s.apply_patch(SettingsPatch {
             provider_kv: Some(

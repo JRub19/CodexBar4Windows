@@ -62,9 +62,7 @@ pub fn parse(bytes: &[u8], product_id: &str) -> Result<ParsedStatus, String> {
     let active: Vec<&Incident> = payload
         .0
         .iter()
-        .filter(|incident| {
-            incident.end.is_none() && touches_product(incident, product_id)
-        })
+        .filter(|incident| incident.end.is_none() && touches_product(incident, product_id))
         .collect();
     if active.is_empty() {
         return Ok(ParsedStatus {
@@ -110,9 +108,7 @@ fn severity_for(incident: &Incident) -> StatusSeverity {
         Some("SERVICE_INFORMATION") => StatusSeverity::Minor,
         Some("SERVICE_DISRUPTION") => StatusSeverity::Major,
         Some("SERVICE_OUTAGE") => StatusSeverity::Critical,
-        Some("SERVICE_MAINTENANCE") | Some("SCHEDULED_MAINTENANCE") => {
-            StatusSeverity::Maintenance
-        }
+        Some("SERVICE_MAINTENANCE") | Some("SCHEDULED_MAINTENANCE") => StatusSeverity::Maintenance,
         _ => match incident.severity.as_deref() {
             Some("low") => StatusSeverity::Minor,
             Some("medium") => StatusSeverity::Major,
@@ -159,7 +155,9 @@ fn updated_at_for(incident: &Incident) -> Option<i64> {
 }
 
 fn parse_iso(raw: &str) -> Option<i64> {
-    DateTime::parse_from_rfc3339(raw).ok().map(|d| d.timestamp())
+    DateTime::parse_from_rfc3339(raw)
+        .ok()
+        .map(|d| d.timestamp())
 }
 
 /// Light markdown stripper. GWS updates frequently embed `**bold**`,
@@ -316,9 +314,6 @@ mod tests {
     #[test]
     fn strips_markdown_link_and_bold_markers() {
         let raw = "**Issue:** see [our blog](https://example.com) for details.";
-        assert_eq!(
-            strip_markdown(raw),
-            "Issue: see our blog for details."
-        );
+        assert_eq!(strip_markdown(raw), "Issue: see our blog for details.");
     }
 }

@@ -4,8 +4,7 @@ use crate::providers::settings_descriptor::SettingsDescriptor;
 use crate::providers::settings_snapshot::ProviderSettingsContribution;
 
 pub const TOKEN_ACCOUNT_TITLE: &str = "OpenRouter API key";
-pub const TOKEN_ACCOUNT_HELP: &str =
-    "Paste your `sk-or-v1-...` API key from openrouter.ai/keys. \
+pub const TOKEN_ACCOUNT_HELP: &str = "Paste your `sk-or-v1-...` API key from openrouter.ai/keys. \
      Stored DPAPI-wrapped on disk.";
 
 pub fn contribution() -> ProviderSettingsContribution {

@@ -204,7 +204,9 @@ impl FactoryApiStrategy {
             200..=299 => serde_json::from_slice::<AuthResponse>(&response.body)
                 .map_err(|e| ProviderFetchError::ParseError(format!("auth/me: {e}"))),
             401 => Err(ProviderFetchError::Unauthorized),
-            403 => Err(ProviderFetchError::PermissionDenied("factory auth/me 403".into())),
+            403 => Err(ProviderFetchError::PermissionDenied(
+                "factory auth/me 403".into(),
+            )),
             other => Err(ProviderFetchError::Network(format!(
                 "factory auth/me returned {other}"
             ))),
@@ -243,7 +245,11 @@ impl FactoryApiStrategy {
         cookie: Option<&str>,
     ) -> Option<BillingLimitsResponse> {
         let url = format!("{API_BASE}{BILLING_LIMITS_PATH}");
-        let response = self.http.get(&url, &build_headers(bearer, cookie)).await.ok()?;
+        let response = self
+            .http
+            .get(&url, &build_headers(bearer, cookie))
+            .await
+            .ok()?;
         if !(200..=299).contains(&response.status) {
             return None;
         }
@@ -273,11 +279,7 @@ impl FactoryApiStrategy {
             .filter(|t| !t.is_empty())
         {
             exchange_refresh_token(hook.http.as_ref(), rt, org).await?
-        } else if let Some(cookie) = creds
-            .cookie
-            .as_deref()
-            .filter(|c| !c.is_empty())
-        {
+        } else if let Some(cookie) = creds.cookie.as_deref().filter(|c| !c.is_empty()) {
             exchange_cookie(hook.http.as_ref(), cookie, org).await?
         } else {
             return Err(ProviderFetchError::Unauthorized);
@@ -402,10 +404,7 @@ pub fn build_snapshot(
         windows,
         credits: None,
         cost,
-        account_display_name: auth
-            .organization
-            .as_ref()
-            .and_then(|o| o.name.clone()),
+        account_display_name: auth.organization.as_ref().and_then(|o| o.name.clone()),
         account_email: auth.user_profile.as_ref().and_then(|p| p.email.clone()),
         plan_name,
         captured_at_unix_secs: now_unix_secs,
@@ -414,8 +413,18 @@ pub fn build_snapshot(
 
 fn build_token_rate_windows(limits: &TokenRateLimits, now_unix_secs: i64) -> Vec<NamedRateWindow> {
     vec![
-        window_from_billing("factory_5h", "5h", &limits.standard.five_hour, now_unix_secs),
-        window_from_billing("factory_7d", "7-day", &limits.standard.weekly, now_unix_secs),
+        window_from_billing(
+            "factory_5h",
+            "5h",
+            &limits.standard.five_hour,
+            now_unix_secs,
+        ),
+        window_from_billing(
+            "factory_7d",
+            "7-day",
+            &limits.standard.weekly,
+            now_unix_secs,
+        ),
         window_from_billing(
             "factory_monthly",
             "Monthly",
@@ -444,7 +453,11 @@ fn window_from_billing(
 }
 
 fn build_legacy_token_windows(usage: &UsageResponse) -> Vec<NamedRateWindow> {
-    let period_end = usage.usage.as_ref().and_then(|u| u.end_date_ms).map(ms_to_secs);
+    let period_end = usage
+        .usage
+        .as_ref()
+        .and_then(|u| u.end_date_ms)
+        .map(ms_to_secs);
     let mut out = Vec::new();
     if let Some(standard) = usage.usage.as_ref().and_then(|u| u.standard.as_ref()) {
         out.push(NamedRateWindow {
@@ -517,9 +530,15 @@ fn percent_from_api_ratio(ratio: f64, allowance: i64) -> Option<f64> {
     None
 }
 
-fn build_login_label(auth: &AuthResponse, billing: Option<&BillingLimitsResponse>) -> Option<String> {
+fn build_login_label(
+    auth: &AuthResponse,
+    billing: Option<&BillingLimitsResponse>,
+) -> Option<String> {
     let mut parts: Vec<String> = Vec::new();
-    let subscription = auth.organization.as_ref().and_then(|o| o.subscription.as_ref());
+    let subscription = auth
+        .organization
+        .as_ref()
+        .and_then(|o| o.subscription.as_ref());
     if let Some(tier) = subscription
         .and_then(|s| s.factory_tier.as_deref())
         .filter(|t| !t.trim().is_empty())
@@ -647,11 +666,7 @@ mod tests {
                 }
             }"#,
         );
-        http.put(
-            "https://api.factory.ai/api/billing/limits",
-            404,
-            b"{}",
-        );
+        http.put("https://api.factory.ai/api/billing/limits", 404, b"{}");
         http.put(
             "https://app.factory.ai/api/organization/subscription/usage?useCache=true&userId=user-1",
             200,
@@ -679,7 +694,10 @@ mod tests {
         assert_eq!(snap.windows[1].window.label, "Premium");
         assert_eq!(snap.windows[1].window.used, 25.0);
         assert_eq!(snap.account_email.as_deref(), Some("u@example.com"));
-        assert_eq!(snap.plan_name.as_deref(), Some("Factory Enterprise - Team Pro"));
+        assert_eq!(
+            snap.plan_name.as_deref(),
+            Some("Factory Enterprise - Team Pro")
+        );
         assert_eq!(snap.identity.account_token, "factory:user-1");
     }
 
@@ -777,8 +795,7 @@ mod tests {
             ..FactoryCredentials::default()
         }));
         let strategy = FactoryApiStrategy::new(http.clone(), resolver);
-        rt()
-            .block_on(async { strategy.fetch(&ctx()).await })
+        rt().block_on(async { strategy.fetch(&ctx()).await })
             .unwrap();
         let captured = http.captured.lock().unwrap();
         let auth_call = captured
@@ -789,9 +806,15 @@ mod tests {
         assert!(headers
             .iter()
             .any(|(k, v)| k == "x-factory-client" && v == "web-app"));
-        assert!(headers.iter().any(|(k, v)| k == "Origin" && v == REQUIRED_ORIGIN));
-        assert!(headers.iter().any(|(k, v)| k == "Authorization" && v == "Bearer t"));
-        assert!(headers.iter().any(|(k, v)| k == "Cookie" && v == "session=abc"));
+        assert!(headers
+            .iter()
+            .any(|(k, v)| k == "Origin" && v == REQUIRED_ORIGIN));
+        assert!(headers
+            .iter()
+            .any(|(k, v)| k == "Authorization" && v == "Bearer t"));
+        assert!(headers
+            .iter()
+            .any(|(k, v)| k == "Cookie" && v == "session=abc"));
     }
 
     #[test]
@@ -929,8 +952,8 @@ mod tests {
             }),
             persisted: Mutex::new(Vec::new()),
         });
-        let strategy = FactoryApiStrategy::new(http, resolver.clone())
-            .with_refresh(FactoryRefreshHook {
+        let strategy =
+            FactoryApiStrategy::new(http, resolver.clone()).with_refresh(FactoryRefreshHook {
                 http: workos_http.clone(),
             });
         let snap = rt()
@@ -965,8 +988,8 @@ mod tests {
             }),
             persisted: Mutex::new(Vec::new()),
         });
-        let strategy = FactoryApiStrategy::new(http, resolver.clone())
-            .with_refresh(FactoryRefreshHook {
+        let strategy =
+            FactoryApiStrategy::new(http, resolver.clone()).with_refresh(FactoryRefreshHook {
                 http: workos_http.clone(),
             });
         let _ = rt()
@@ -998,8 +1021,8 @@ mod tests {
             }),
             persisted: Mutex::new(Vec::new()),
         });
-        let strategy = FactoryApiStrategy::new(http, resolver.clone())
-            .with_refresh(FactoryRefreshHook {
+        let strategy =
+            FactoryApiStrategy::new(http, resolver.clone()).with_refresh(FactoryRefreshHook {
                 http: workos_http.clone(),
             });
         let _ = rt().block_on(async { strategy.fetch(&ctx()).await });

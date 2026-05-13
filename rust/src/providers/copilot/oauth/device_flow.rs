@@ -220,10 +220,7 @@ pub async fn poll_for_token(
     let body = form_encode(&[
         ("client_id", &config.client_id),
         ("device_code", device_code),
-        (
-            "grant_type",
-            "urn:ietf:params:oauth:grant-type:device_code",
-        ),
+        ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
     ]);
     let url = config.access_token_url();
     let mut interval = Duration::from_secs(initial_interval_secs.max(1));

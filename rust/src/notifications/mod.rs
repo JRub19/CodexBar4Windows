@@ -22,8 +22,6 @@ pub mod toast;
 pub mod transition;
 
 pub use state::{NotificationKey, NotificationStateStore};
-pub use thresholds::{
-    crossed_threshold, sanitize_thresholds, ThresholdEvent, DEFAULT_THRESHOLDS,
-};
+pub use thresholds::{crossed_threshold, sanitize_thresholds, ThresholdEvent, DEFAULT_THRESHOLDS};
 pub use toast::{copy_for_threshold, copy_for_transition, NotificationToast};
 pub use transition::{transition_for, SessionTransition};

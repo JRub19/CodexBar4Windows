@@ -110,7 +110,9 @@ fn is_pro(model_id: &str) -> bool {
 }
 
 fn parse_reset_unix_secs(value: &str) -> Option<i64> {
-    DateTime::parse_from_rfc3339(value).ok().map(|d| d.timestamp())
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|d| d.timestamp())
 }
 
 #[cfg(test)]
@@ -127,7 +129,10 @@ mod tests {
         ]}"#;
         let response: QuotaResponse = serde_json::from_slice(body).unwrap();
         let quotas = fold_buckets(&response);
-        let pro = quotas.iter().find(|q| q.model_id == "gemini-2.5-pro").unwrap();
+        let pro = quotas
+            .iter()
+            .find(|q| q.model_id == "gemini-2.5-pro")
+            .unwrap();
         // Lowest fraction wins → 0.2 → 20%
         assert_eq!(pro.percent_left, 20.0);
         let flash = quotas

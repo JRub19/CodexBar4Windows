@@ -5,7 +5,8 @@
 
 use serde::Deserialize;
 
-pub const LOAD_CODE_ASSIST_URL: &str = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
+pub const LOAD_CODE_ASSIST_URL: &str =
+    "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 pub const LOAD_CODE_ASSIST_BODY: &[u8] =
     br#"{"metadata":{"ideType":"GEMINI_CLI","pluginType":"GEMINI"}}"#;
 
@@ -69,7 +70,11 @@ fn extract_project_id(value: &serde_json::Value) -> Option<String> {
     }
     if let Some(obj) = value.as_object() {
         for key in &["id", "projectId"] {
-            if let Some(id) = obj.get(*key).and_then(|v| v.as_str()).and_then(non_empty_trim) {
+            if let Some(id) = obj
+                .get(*key)
+                .and_then(|v| v.as_str())
+                .and_then(non_empty_trim)
+            {
                 return Some(id);
             }
         }
@@ -166,13 +171,22 @@ mod tests {
 
     #[test]
     fn plan_label_matrix_matches_macos_source() {
-        assert_eq!(plan_label(Some(&GeminiTier::Standard), None), Some("Paid".into()));
+        assert_eq!(
+            plan_label(Some(&GeminiTier::Standard), None),
+            Some("Paid".into())
+        );
         assert_eq!(
             plan_label(Some(&GeminiTier::Free), Some("example.com")),
             Some("Workspace".into())
         );
-        assert_eq!(plan_label(Some(&GeminiTier::Free), None), Some("Free".into()));
-        assert_eq!(plan_label(Some(&GeminiTier::Legacy), None), Some("Legacy".into()));
+        assert_eq!(
+            plan_label(Some(&GeminiTier::Free), None),
+            Some("Free".into())
+        );
+        assert_eq!(
+            plan_label(Some(&GeminiTier::Legacy), None),
+            Some("Legacy".into())
+        );
         assert_eq!(plan_label(None, None), None);
     }
 }

@@ -64,7 +64,9 @@ pub fn parse(bytes: &[u8]) -> Result<ParsedStatus, String> {
 }
 
 fn parse_iso_to_unix_secs(value: &str) -> Option<i64> {
-    DateTime::parse_from_rfc3339(value).ok().map(|d| d.timestamp())
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|d| d.timestamp())
 }
 
 #[cfg(test)]

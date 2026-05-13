@@ -16,10 +16,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use serde::Deserialize;
 
+use super::client_locator::OAuthClientCredentials;
 use super::code_assist::{
     parse_status, plan_label, CodeAssistStatus, LOAD_CODE_ASSIST_BODY, LOAD_CODE_ASSIST_URL,
 };
-use super::client_locator::OAuthClientCredentials;
 use super::credentials::{GeminiAuthType, GeminiOAuthCredentials};
 use super::jwt_claims::extract_claims;
 use super::response::{classify_models, fold_buckets, QuotaResponse};
@@ -102,10 +102,7 @@ pub struct GeminiOAuthStrategy {
 }
 
 impl GeminiOAuthStrategy {
-    pub fn new(
-        http: Arc<dyn GoogleHttp>,
-        resolver: Arc<dyn GeminiCredentialsResolver>,
-    ) -> Self {
+    pub fn new(http: Arc<dyn GoogleHttp>, resolver: Arc<dyn GeminiCredentialsResolver>) -> Self {
         Self {
             http,
             resolver,
@@ -188,7 +185,12 @@ impl Strategy for GeminiOAuthStrategy {
 
         let mut windows = Vec::new();
         if let Some(pro) = tiers.pro.as_ref() {
-            windows.push(tier_to_window("pro", "Pro", pro.percent_left, pro.reset_at_unix_secs));
+            windows.push(tier_to_window(
+                "pro",
+                "Pro",
+                pro.percent_left,
+                pro.reset_at_unix_secs,
+            ));
         }
         if let Some(flash) = tiers.flash.as_ref() {
             windows.push(tier_to_window(
@@ -294,7 +296,10 @@ impl GeminiOAuthStrategy {
         Some(parse_status(&response.body))
     }
 
-    async fn discover_project_id(&self, bearer: &str) -> Result<Option<String>, ProviderFetchError> {
+    async fn discover_project_id(
+        &self,
+        bearer: &str,
+    ) -> Result<Option<String>, ProviderFetchError> {
         let response = self
             .http
             .request(HttpMethod::Get, PROJECTS_URL, bearer, None)
@@ -306,22 +311,19 @@ impl GeminiOAuthStrategy {
             Ok(v) => v,
             Err(_) => return Ok(None),
         };
-        Ok(projects
-            .projects
-            .into_iter()
-            .find_map(|p| {
-                let id = p.project_id?;
-                if id.starts_with("gen-lang-client") {
-                    return Some(id);
-                }
-                if p.labels
-                    .as_ref()
-                    .is_some_and(|labels| labels.contains_key("generative-language"))
-                {
-                    return Some(id);
-                }
-                None
-            }))
+        Ok(projects.projects.into_iter().find_map(|p| {
+            let id = p.project_id?;
+            if id.starts_with("gen-lang-client") {
+                return Some(id);
+            }
+            if p.labels
+                .as_ref()
+                .is_some_and(|labels| labels.contains_key("generative-language"))
+            {
+                return Some(id);
+            }
+            None
+        }))
     }
 
     async fn retrieve_quota(
@@ -413,11 +415,10 @@ mod tests {
             _bearer: &str,
             body: Option<&[u8]>,
         ) -> Result<GoogleResponse, ProviderFetchError> {
-            self.captured.lock().unwrap().push((
-                method,
-                url.to_string(),
-                body.map(|b| b.to_vec()),
-            ));
+            self.captured
+                .lock()
+                .unwrap()
+                .push((method, url.to_string(), body.map(|b| b.to_vec())));
             let (status, body) = self
                 .replies
                 .lock()
@@ -439,8 +440,7 @@ mod tests {
 
     fn jwt(payload: &str) -> String {
         use base64::Engine;
-        let encoded =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
+        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
         format!("header.{encoded}.sig")
     }
 
@@ -602,7 +602,11 @@ mod tests {
     #[test]
     fn project_discovery_picks_gen_lang_prefix() {
         let http = Arc::new(ScriptedHttp::default());
-        http.put(LOAD_CODE_ASSIST_URL, 200, br#"{"currentTier": {"id": "free-tier"}}"#);
+        http.put(
+            LOAD_CODE_ASSIST_URL,
+            200,
+            br#"{"currentTier": {"id": "free-tier"}}"#,
+        );
         http.put(
             PROJECTS_URL,
             200,
@@ -611,7 +615,11 @@ mod tests {
                 {"projectId": "gen-lang-client-abc123"}
             ]}"#,
         );
-        http.put(QUOTA_URL, 200, br#"{"buckets": [{"modelId": "gemini-2.5-pro", "remainingFraction": 0.5}]}"#);
+        http.put(
+            QUOTA_URL,
+            200,
+            br#"{"buckets": [{"modelId": "gemini-2.5-pro", "remainingFraction": 0.5}]}"#,
+        );
         let resolver = Arc::new(StubResolver(GeminiCredentialsState {
             auth_type: GeminiAuthType::OauthPersonal,
             credentials: Some(fresh_creds(r#"{"email":"u@x.com"}"#)),
@@ -636,7 +644,11 @@ mod tests {
     #[test]
     fn quota_401_maps_to_unauthorized() {
         let http = Arc::new(ScriptedHttp::default());
-        http.put(LOAD_CODE_ASSIST_URL, 200, br#"{"currentTier": {"id": "free-tier"}}"#);
+        http.put(
+            LOAD_CODE_ASSIST_URL,
+            200,
+            br#"{"currentTier": {"id": "free-tier"}}"#,
+        );
         http.put(QUOTA_URL, 401, b"{}");
         let resolver = Arc::new(StubResolver(GeminiCredentialsState {
             auth_type: GeminiAuthType::OauthPersonal,
@@ -679,7 +691,10 @@ mod tests {
             url: &str,
             body: &str,
         ) -> Result<RefreshResponse, ProviderFetchError> {
-            self.captured.lock().unwrap().push((url.into(), body.into()));
+            self.captured
+                .lock()
+                .unwrap()
+                .push((url.into(), body.into()));
             let mut replies = self.replies.lock().unwrap();
             if replies.is_empty() {
                 return Err(ProviderFetchError::Network("stub exhausted".into()));
@@ -691,9 +706,7 @@ mod tests {
     struct StubClient(Option<OAuthClientCredentials>);
     #[async_trait]
     impl ClientCredentialsProvider for StubClient {
-        async fn resolve(
-            &self,
-        ) -> Result<Option<OAuthClientCredentials>, ProviderFetchError> {
+        async fn resolve(&self) -> Result<Option<OAuthClientCredentials>, ProviderFetchError> {
             Ok(self.0.clone())
         }
     }
@@ -725,7 +738,11 @@ mod tests {
         let creds_path = write_creds_file(dir.path());
 
         let http = Arc::new(ScriptedHttp::default());
-        http.put(LOAD_CODE_ASSIST_URL, 200, br#"{"currentTier": {"id": "standard-tier"}}"#);
+        http.put(
+            LOAD_CODE_ASSIST_URL,
+            200,
+            br#"{"currentTier": {"id": "standard-tier"}}"#,
+        );
         http.put(
             QUOTA_URL,
             200,

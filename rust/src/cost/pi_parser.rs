@@ -50,13 +50,11 @@ pub fn line_passes_prefilter(bytes: &[u8]) -> bool {
     if bytes.len() > MAX_LINE_BYTES {
         return false;
     }
-    contains(bytes, b"\"type\":\"model_change\"")
-        || contains(bytes, b"\"type\":\"message\"")
+    contains(bytes, b"\"type\":\"model_change\"") || contains(bytes, b"\"type\":\"message\"")
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.len() >= needle.len()
-        && haystack.windows(needle.len()).any(|w| w == needle)
+    haystack.len() >= needle.len() && haystack.windows(needle.len()).any(|w| w == needle)
 }
 
 /// Streaming per-file scanner.
@@ -154,56 +152,92 @@ impl PiFileScanner {
             .and_then(Value::as_str)
             .map(|s| s.to_string());
 
-        let (provider_id, model) =
-            match (mapped_provider, explicit_model.as_deref(), &self.context) {
-                (Some(p), Some(m), _) => (p, m.to_string()),
-                (Some(p), None, ctx) if ctx.provider_id == Some(p) => {
-                    let m = ctx.model.clone()?;
-                    (p, m)
-                }
-                (Some(_), None, _) => return None,
-                (None, Some(m), ctx) => {
-                    let p = ctx.provider_id?;
-                    (p, m.to_string())
-                }
-                (None, None, ctx) => {
-                    let p = ctx.provider_id?;
-                    let m = ctx.model.clone()?;
-                    (p, m)
-                }
-            };
+        let (provider_id, model) = match (mapped_provider, explicit_model.as_deref(), &self.context)
+        {
+            (Some(p), Some(m), _) => (p, m.to_string()),
+            (Some(p), None, ctx) if ctx.provider_id == Some(p) => {
+                let m = ctx.model.clone()?;
+                (p, m)
+            }
+            (Some(_), None, _) => return None,
+            (None, Some(m), ctx) => {
+                let p = ctx.provider_id?;
+                (p, m.to_string())
+            }
+            (None, None, ctx) => {
+                let p = ctx.provider_id?;
+                let m = ctx.model.clone()?;
+                (p, m)
+            }
+        };
 
         let usage = message.get("usage").or_else(|| value.get("usage"))?;
-        let input = pick_i64(usage, &["input", "inputTokens", "input_tokens", "promptTokens", "prompt_tokens"]).unwrap_or(0);
-        let cache_read = pick_i64(usage, &[
-            "cacheRead",
-            "cacheReadTokens",
-            "cache_read",
-            "cache_read_tokens",
-            "cacheReadInputTokens",
-            "cache_read_input_tokens",
-        ]).unwrap_or(0);
-        let cache_write = pick_i64(usage, &[
-            "cacheWrite",
-            "cacheWriteTokens",
-            "cache_write",
-            "cache_write_tokens",
-            "cacheCreationTokens",
-            "cache_creation_tokens",
-            "cacheCreationInputTokens",
-            "cache_creation_input_tokens",
-        ]).unwrap_or(0);
-        let output = pick_i64(usage, &["output", "outputTokens", "output_tokens", "completionTokens", "completion_tokens"]).unwrap_or(0);
-        let direct_total = pick_i64(usage, &["totalTokens", "total_tokens", "tokenCount", "token_count", "tokens"]).unwrap_or(0);
+        let input = pick_i64(
+            usage,
+            &[
+                "input",
+                "inputTokens",
+                "input_tokens",
+                "promptTokens",
+                "prompt_tokens",
+            ],
+        )
+        .unwrap_or(0);
+        let cache_read = pick_i64(
+            usage,
+            &[
+                "cacheRead",
+                "cacheReadTokens",
+                "cache_read",
+                "cache_read_tokens",
+                "cacheReadInputTokens",
+                "cache_read_input_tokens",
+            ],
+        )
+        .unwrap_or(0);
+        let cache_write = pick_i64(
+            usage,
+            &[
+                "cacheWrite",
+                "cacheWriteTokens",
+                "cache_write",
+                "cache_write_tokens",
+                "cacheCreationTokens",
+                "cache_creation_tokens",
+                "cacheCreationInputTokens",
+                "cache_creation_input_tokens",
+            ],
+        )
+        .unwrap_or(0);
+        let output = pick_i64(
+            usage,
+            &[
+                "output",
+                "outputTokens",
+                "output_tokens",
+                "completionTokens",
+                "completion_tokens",
+            ],
+        )
+        .unwrap_or(0);
+        let direct_total = pick_i64(
+            usage,
+            &[
+                "totalTokens",
+                "total_tokens",
+                "tokenCount",
+                "token_count",
+                "tokens",
+            ],
+        )
+        .unwrap_or(0);
         if input == 0 && cache_read == 0 && cache_write == 0 && output == 0 && direct_total == 0 {
             return None;
         }
         let sum = input + cache_read + cache_write + output;
         let total_tokens = direct_total.max(sum);
 
-        let timestamp_raw = message
-            .get("timestamp")
-            .or_else(|| value.get("timestamp"));
+        let timestamp_raw = message.get("timestamp").or_else(|| value.get("timestamp"));
         let (day_key, timestamp_unix_secs) = read_timestamp(timestamp_raw)?;
 
         Some(PiUsageRow {
@@ -301,7 +335,8 @@ mod tests {
 
     #[test]
     fn model_change_then_message_without_provider_inherits_context() {
-        let change = r#"{"type":"model_change","provider":"anthropic","modelId":"claude-haiku-4-5"}"#;
+        let change =
+            r#"{"type":"model_change","provider":"anthropic","modelId":"claude-haiku-4-5"}"#;
         let msg = r#"{"type":"message","message":{"role":"assistant","timestamp":"2026-05-13T10:00:00Z","usage":{"input_tokens":42}}}"#;
         let mut s = PiFileScanner::new("/x.jsonl");
         feed_all(&mut s, &[change, msg]);

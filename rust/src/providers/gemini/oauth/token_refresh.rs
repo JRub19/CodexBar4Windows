@@ -22,11 +22,8 @@ pub const REFRESH_URL: &str = "https://oauth2.googleapis.com/token";
 
 #[async_trait]
 pub trait RefreshHttp: Send + Sync {
-    async fn post_form(
-        &self,
-        url: &str,
-        body: &str,
-    ) -> Result<RefreshResponse, ProviderFetchError>;
+    async fn post_form(&self, url: &str, body: &str)
+        -> Result<RefreshResponse, ProviderFetchError>;
 }
 
 pub struct RefreshResponse {
@@ -91,7 +88,10 @@ pub fn persist_to_disk(
         serde_json::Value::String(response.access_token.clone()),
     );
     if let Some(id_token) = response.id_token.as_ref() {
-        obj.insert("id_token".into(), serde_json::Value::String(id_token.clone()));
+        obj.insert(
+            "id_token".into(),
+            serde_json::Value::String(id_token.clone()),
+        );
     }
     if let Some(expires_in) = response.expires_in {
         let expiry_ms = ((now_unix_secs as f64) + expires_in) * 1000.0;
@@ -272,8 +272,7 @@ mod tests {
             expires_in: Some(60.0),
         };
         persist_to_disk(dir.path(), &response, 2000).unwrap();
-        let after =
-            std::fs::read_to_string(gemini_dir.join("oauth_creds.json")).unwrap();
+        let after = std::fs::read_to_string(gemini_dir.join("oauth_creds.json")).unwrap();
         let value: serde_json::Value = serde_json::from_str(&after).unwrap();
         assert_eq!(value["access_token"], "fresh");
         assert_eq!(value["id_token"], "fresh-id");

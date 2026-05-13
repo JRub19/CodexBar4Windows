@@ -405,8 +405,7 @@ mod tests {
 
     #[test]
     fn error_mapper_recognizes_rate_limit_and_network() {
-        assert!(map_user_facing_error("rate_limit_exceeded")
-            .contains("Try again in a few minutes"));
+        assert!(map_user_facing_error("rate_limit_exceeded").contains("Try again in a few minutes"));
         assert!(map_user_facing_error("ETIMEDOUT").contains("network connection"));
         assert!(map_user_facing_error("DNS lookup failed").contains("network connection"));
     }

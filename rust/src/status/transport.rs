@@ -14,7 +14,10 @@ impl ReqwestStatusClient {
     pub fn new() -> Result<Self, String> {
         let client = Client::builder()
             .timeout(FEED_TIMEOUT)
-            .user_agent(concat!("codexbar4windows-status/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!(
+                "codexbar4windows-status/",
+                env!("CARGO_PKG_VERSION")
+            ))
             .gzip(true)
             .build()
             .map_err(|e| e.to_string())?;

@@ -45,8 +45,11 @@ impl AggregatedCost {
             .collect();
 
         // Top 4 services by spend.
-        let mut services: Vec<(String, f64)> =
-            self.by_model_usd.iter().map(|(k, v)| (k.clone(), *v)).collect();
+        let mut services: Vec<(String, f64)> = self
+            .by_model_usd
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
         services.sort_by(|a, b| {
             b.1.partial_cmp(&a.1)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -72,10 +75,7 @@ impl AggregatedCost {
 
 /// Build an `AggregatedCost` from a list of files' rows. Applies the
 /// full dedup pipeline (in-file then cross-file) before aggregation.
-pub fn aggregate_rows(
-    files: Vec<Vec<ClaudeUsageRow>>,
-    pricing: &PricingTable,
-) -> AggregatedCost {
+pub fn aggregate_rows(files: Vec<Vec<ClaudeUsageRow>>, pricing: &PricingTable) -> AggregatedCost {
     let mut deduped: Vec<ClaudeUsageRow> = Vec::new();
     for file_rows in files {
         deduped.extend(dedup_in_file(file_rows));
@@ -87,7 +87,9 @@ pub fn aggregate_rows(
     for row in deduped {
         let usd = cost_for_row(pricing, &row).unwrap_or(0.0);
         total_usd += usd;
-        *by_model_usd.entry(normalise_model_id(&row.model)).or_default() += usd;
+        *by_model_usd
+            .entry(normalise_model_id(&row.model))
+            .or_default() += usd;
         *by_day_usd.entry(row.day_key.clone()).or_default() += usd;
     }
     AggregatedCost {
@@ -132,9 +134,30 @@ mod tests {
     fn aggregator_sums_costs_per_model_per_day() {
         let pricing = PricingTable::anthropic_default();
         let rows = vec![
-            row("m1", "r1", "claude-sonnet-4-7-20251022", "2026-05-13", 1_000_000, 0),
-            row("m2", "r2", "claude-haiku-4-5-20251015", "2026-05-13", 1_000_000, 0),
-            row("m3", "r3", "claude-sonnet-4-7-20251022", "2026-05-14", 500_000, 100_000),
+            row(
+                "m1",
+                "r1",
+                "claude-sonnet-4-7-20251022",
+                "2026-05-13",
+                1_000_000,
+                0,
+            ),
+            row(
+                "m2",
+                "r2",
+                "claude-haiku-4-5-20251015",
+                "2026-05-13",
+                1_000_000,
+                0,
+            ),
+            row(
+                "m3",
+                "r3",
+                "claude-sonnet-4-7-20251022",
+                "2026-05-14",
+                500_000,
+                100_000,
+            ),
         ];
         let agg = aggregate_rows(vec![rows], &pricing);
         // sonnet: 1M*3 + (500k*3 + 100k*15)/1e6 = 3 + 1.5 + 1.5 = 6.00
@@ -142,13 +165,19 @@ mod tests {
         // total = 7.00
         assert!((agg.total_usd - 7.0).abs() < 1e-9);
         assert!(
-            (agg.by_model_usd.get("claude-sonnet-4-7").copied().unwrap_or(0.0)
+            (agg.by_model_usd
+                .get("claude-sonnet-4-7")
+                .copied()
+                .unwrap_or(0.0)
                 - 6.0)
                 .abs()
                 < 1e-9
         );
         assert!(
-            (agg.by_model_usd.get("claude-haiku-4-5").copied().unwrap_or(0.0)
+            (agg.by_model_usd
+                .get("claude-haiku-4-5")
+                .copied()
+                .unwrap_or(0.0)
                 - 1.0)
                 .abs()
                 < 1e-9
@@ -162,7 +191,14 @@ mod tests {
         let pricing = PricingTable::anthropic_default();
         // Same canonical key (sess-1, m1, r1), two files. Parent
         // should win over subagent.
-        let parent = row("m1", "r1", "claude-sonnet-4-7-20251022", "2026-05-13", 1_000_000, 0);
+        let parent = row(
+            "m1",
+            "r1",
+            "claude-sonnet-4-7-20251022",
+            "2026-05-13",
+            1_000_000,
+            0,
+        );
         let mut subagent = parent.clone();
         subagent.path_role = PathRole::Subagent;
         subagent.source_path = "/a/sub.jsonl".into();
@@ -177,8 +213,22 @@ mod tests {
         let pricing = PricingTable::anthropic_default();
         // Two chunks of the same message/request: only the final one
         // should be counted.
-        let early = row("m1", "r1", "claude-sonnet-4-7-20251022", "2026-05-13", 500_000, 0);
-        let final_ = row("m1", "r1", "claude-sonnet-4-7-20251022", "2026-05-13", 1_000_000, 0);
+        let early = row(
+            "m1",
+            "r1",
+            "claude-sonnet-4-7-20251022",
+            "2026-05-13",
+            500_000,
+            0,
+        );
+        let final_ = row(
+            "m1",
+            "r1",
+            "claude-sonnet-4-7-20251022",
+            "2026-05-13",
+            1_000_000,
+            0,
+        );
         let agg = aggregate_rows(vec![vec![early, final_]], &pricing);
         // Only $3.00 from the 1M cumulative.
         assert!((agg.total_usd - 3.0).abs() < 1e-9);
@@ -188,9 +238,30 @@ mod tests {
     fn to_provider_snapshot_picks_only_current_cycle_days() {
         let pricing = PricingTable::anthropic_default();
         let rows = vec![
-            row("m1", "r1", "claude-sonnet-4-7-20251022", "2026-05-12", 1_000_000, 0),
-            row("m2", "r2", "claude-sonnet-4-7-20251022", "2026-05-13", 2_000_000, 0),
-            row("m3", "r3", "claude-sonnet-4-7-20251022", "2026-05-14", 500_000, 0),
+            row(
+                "m1",
+                "r1",
+                "claude-sonnet-4-7-20251022",
+                "2026-05-12",
+                1_000_000,
+                0,
+            ),
+            row(
+                "m2",
+                "r2",
+                "claude-sonnet-4-7-20251022",
+                "2026-05-13",
+                2_000_000,
+                0,
+            ),
+            row(
+                "m3",
+                "r3",
+                "claude-sonnet-4-7-20251022",
+                "2026-05-14",
+                500_000,
+                0,
+            ),
         ];
         let agg = aggregate_rows(vec![rows], &pricing);
         // Current cycle = May 13-14: $6 + $1.5 = $7.5.
@@ -209,8 +280,22 @@ mod tests {
     fn to_provider_snapshot_breakdown_sorted_by_spend_desc() {
         let pricing = PricingTable::anthropic_default();
         let rows = vec![
-            row("m1", "r1", "claude-haiku-4-5-20251015", "2026-05-13", 1_000_000, 0),
-            row("m2", "r2", "claude-sonnet-4-7-20251022", "2026-05-13", 1_000_000, 0),
+            row(
+                "m1",
+                "r1",
+                "claude-haiku-4-5-20251015",
+                "2026-05-13",
+                1_000_000,
+                0,
+            ),
+            row(
+                "m2",
+                "r2",
+                "claude-sonnet-4-7-20251022",
+                "2026-05-13",
+                1_000_000,
+                0,
+            ),
         ];
         let agg = aggregate_rows(vec![rows], &pricing);
         let snap = agg.to_provider_snapshot(&["2026-05-13"], None, &["2026-05-13"]);
@@ -227,8 +312,22 @@ mod tests {
     fn unknown_model_contributes_zero_dollars_but_still_dedup_counted() {
         let pricing = PricingTable::anthropic_default();
         let rows = vec![
-            row("m1", "r1", "future-experimental-model", "2026-05-13", 1_000_000, 0),
-            row("m2", "r2", "claude-sonnet-4-7-20251022", "2026-05-13", 1_000_000, 0),
+            row(
+                "m1",
+                "r1",
+                "future-experimental-model",
+                "2026-05-13",
+                1_000_000,
+                0,
+            ),
+            row(
+                "m2",
+                "r2",
+                "claude-sonnet-4-7-20251022",
+                "2026-05-13",
+                1_000_000,
+                0,
+            ),
         ];
         let agg = aggregate_rows(vec![rows], &pricing);
         assert!((agg.total_usd - 3.0).abs() < 1e-9);

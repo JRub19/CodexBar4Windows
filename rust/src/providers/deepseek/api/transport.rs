@@ -24,11 +24,7 @@ impl ReqwestDeepSeekClient {
 
 #[async_trait]
 impl DeepSeekHttp for ReqwestDeepSeekClient {
-    async fn get(
-        &self,
-        url: &str,
-        bearer: &str,
-    ) -> Result<DeepSeekResponse, ProviderFetchError> {
+    async fn get(&self, url: &str, bearer: &str) -> Result<DeepSeekResponse, ProviderFetchError> {
         let response = self
             .client
             .get(url)

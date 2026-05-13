@@ -90,7 +90,9 @@ impl Filesystem for OsFilesystem {
                 .ok()
                 .and_then(|m| m.modified().ok())
                 .and_then(|t| {
-                    t.duration_since(UNIX_EPOCH).ok().map(|d| d.as_secs() as i64)
+                    t.duration_since(UNIX_EPOCH)
+                        .ok()
+                        .map(|d| d.as_secs() as i64)
                 });
             out.push((entry.into_path(), mtime));
         }
@@ -120,11 +122,17 @@ fn resolve_codex_roots(env: &dyn Env, fs: &dyn Filesystem) -> Vec<PathBuf> {
         push_if_dir(&mut out, fs, PathBuf::from(home).join("sessions"));
     }
     if let Some(profile) = env.var("USERPROFILE") {
-        push_if_dir(&mut out, fs, PathBuf::from(&profile).join(".codex").join("sessions"));
         push_if_dir(
             &mut out,
             fs,
-            PathBuf::from(&profile).join(".codex").join("archived_sessions"),
+            PathBuf::from(&profile).join(".codex").join("sessions"),
+        );
+        push_if_dir(
+            &mut out,
+            fs,
+            PathBuf::from(&profile)
+                .join(".codex")
+                .join("archived_sessions"),
         );
     }
     out
@@ -321,7 +329,12 @@ mod tests {
         }
     }
     fn env(pairs: &[(&str, &str)]) -> FakeEnv {
-        FakeEnv(pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect())
+        FakeEnv(
+            pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        )
     }
 
     #[test]
@@ -343,25 +356,28 @@ mod tests {
         fs.put_file(r"D:\custom\projects\x.jsonl", Some(100));
         fs.put_file(r"E:\alt\already-projects\projects\y.jsonl", Some(100));
         let e = env(&[
-            ("CLAUDE_CONFIG_DIR", r"D:\custom;E:\alt\already-projects\projects"),
+            (
+                "CLAUDE_CONFIG_DIR",
+                r"D:\custom;E:\alt\already-projects\projects",
+            ),
             ("USERPROFILE", r"C:\Users\u"),
         ]);
         let roots = resolve_claude_roots(&e, &fs);
         assert!(roots.contains(&PathBuf::from(r"D:\custom\projects")));
-        assert!(roots
-            .contains(&PathBuf::from(r"E:\alt\already-projects\projects")));
+        assert!(roots.contains(&PathBuf::from(r"E:\alt\already-projects\projects")));
     }
 
     #[test]
     fn claude_resolve_falls_back_to_dotfolders() {
         let mut fs = FakeFs::new();
-        fs.put_file(r"C:\Users\u\.config\claude\projects\session.jsonl", Some(100));
+        fs.put_file(
+            r"C:\Users\u\.config\claude\projects\session.jsonl",
+            Some(100),
+        );
         fs.put_file(r"C:\Users\u\.claude\projects\another.jsonl", Some(100));
         let e = env(&[("USERPROFILE", r"C:\Users\u")]);
         let roots = resolve_claude_roots(&e, &fs);
-        assert!(
-            roots.contains(&PathBuf::from(r"C:\Users\u\.config\claude\projects"))
-        );
+        assert!(roots.contains(&PathBuf::from(r"C:\Users\u\.config\claude\projects")));
         assert!(roots.contains(&PathBuf::from(r"C:\Users\u\.claude\projects")));
     }
 
@@ -397,20 +413,18 @@ mod tests {
     #[test]
     fn discover_filters_by_mtime_threshold() {
         let mut fs = FakeFs::new();
-        fs.put_file(r"C:\Users\u\.claude\projects\fresh.jsonl", Some(1_700_000_500));
-        fs.put_file(r"C:\Users\u\.claude\projects\stale.jsonl", Some(1_699_999_900));
-        let e = env(&[("USERPROFILE", r"C:\Users\u")]);
-        let found = discover(
-            JsonlFamily::ClaudeCode,
-            &e,
-            &fs,
-            Some(1_700_000_000),
+        fs.put_file(
+            r"C:\Users\u\.claude\projects\fresh.jsonl",
+            Some(1_700_000_500),
         );
+        fs.put_file(
+            r"C:\Users\u\.claude\projects\stale.jsonl",
+            Some(1_699_999_900),
+        );
+        let e = env(&[("USERPROFILE", r"C:\Users\u")]);
+        let found = discover(JsonlFamily::ClaudeCode, &e, &fs, Some(1_700_000_000));
         assert_eq!(found.len(), 1);
-        assert!(found[0]
-            .path
-            .to_string_lossy()
-            .ends_with("fresh.jsonl"));
+        assert!(found[0].path.to_string_lossy().ends_with("fresh.jsonl"));
     }
 
     #[test]

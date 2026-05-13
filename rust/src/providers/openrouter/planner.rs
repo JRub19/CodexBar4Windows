@@ -15,7 +15,6 @@ pub struct OpenRouterWiring {
 
 impl OpenRouterWiring {
     pub fn into_strategies(self) -> Vec<Arc<dyn Strategy>> {
-        vec![Arc::new(OpenRouterApiStrategy::new(self.http, self.credentials))
-            as Arc<dyn Strategy>]
+        vec![Arc::new(OpenRouterApiStrategy::new(self.http, self.credentials)) as Arc<dyn Strategy>]
     }
 }

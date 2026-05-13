@@ -29,8 +29,9 @@ impl FactoryWiring {
         self,
         refresh: FactoryRefreshHook,
     ) -> Vec<Arc<dyn Strategy>> {
-        vec![Arc::new(
-            FactoryApiStrategy::new(self.http, self.credentials).with_refresh(refresh),
-        ) as Arc<dyn Strategy>]
+        vec![
+            Arc::new(FactoryApiStrategy::new(self.http, self.credentials).with_refresh(refresh))
+                as Arc<dyn Strategy>,
+        ]
     }
 }

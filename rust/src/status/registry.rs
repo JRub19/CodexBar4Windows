@@ -57,14 +57,16 @@ pub fn feed_for_provider(provider_id: &str) -> Option<StatusFeed> {
             kind: StatusFeedKind::GoogleWorkspace {
                 product_id: GEMINI_GWS_PRODUCT_ID,
             },
-            public_url: "https://www.google.com/appsstatus/dashboard/products/npdyhgECDJ6tB66MxXyo/history",
+            public_url:
+                "https://www.google.com/appsstatus/dashboard/products/npdyhgECDJ6tB66MxXyo/history",
         },
         "antigravity" => StatusFeed {
             provider_id: "antigravity",
             kind: StatusFeedKind::GoogleWorkspace {
                 product_id: GEMINI_GWS_PRODUCT_ID,
             },
-            public_url: "https://www.google.com/appsstatus/dashboard/products/npdyhgECDJ6tB66MxXyo/history",
+            public_url:
+                "https://www.google.com/appsstatus/dashboard/products/npdyhgECDJ6tB66MxXyo/history",
         },
         _ => return None,
     })

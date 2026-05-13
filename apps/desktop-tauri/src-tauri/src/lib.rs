@@ -579,7 +579,11 @@ impl FactoryCredentialsResolver for StoredFactoryCredentials {
             .find(|a| a.label.starts_with(FACTORY_WORKOS_REFRESH_LABEL_PREFIX))
             .and_then(|a| {
                 let v = a.value.trim();
-                if v.is_empty() { None } else { Some(v.to_string()) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v.to_string())
+                }
             });
 
         if bearer.is_none() {

@@ -86,7 +86,10 @@ mod tests {
     fn depleted_copy_matches_macos_strings() {
         let toast = copy_for_transition("claude", "Claude", SessionTransition::Depleted).unwrap();
         assert_eq!(toast.title, "Claude session depleted");
-        assert_eq!(toast.body, "0% left. Will notify when it's available again.");
+        assert_eq!(
+            toast.body,
+            "0% left. Will notify when it's available again."
+        );
         assert_eq!(toast.id, "session-claude-depleted");
         assert!(!toast.sound, "transitions are silent on macOS");
     }

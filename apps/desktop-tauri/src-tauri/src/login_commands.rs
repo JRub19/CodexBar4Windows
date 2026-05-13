@@ -69,8 +69,9 @@ pub async fn start_copilot_device_login(
         ..DeviceFlowConfig::default()
     };
     let http = ReqwestDeviceFlowClient::new().map_err(|e| e.to_string())?;
-    let response: DeviceCodeResponse =
-        request_device_code(&http, &config).await.map_err(|e| e.to_string())?;
+    let response: DeviceCodeResponse = request_device_code(&http, &config)
+        .await
+        .map_err(|e| e.to_string())?;
     let session_id = format!(
         "copilot-{}",
         std::time::SystemTime::now()
@@ -159,9 +160,7 @@ pub async fn poll_copilot_device_login(
 
 fn map_device_flow_error(err: DeviceFlowError) -> String {
     match err {
-        DeviceFlowError::Expired => {
-            "Login expired. Start a new device-code login.".into()
-        }
+        DeviceFlowError::Expired => "Login expired. Start a new device-code login.".into(),
         DeviceFlowError::AccessDenied => "Login was denied on GitHub.".into(),
         DeviceFlowError::IncorrectDeviceCode => {
             "GitHub did not recognise the device code. Try again.".into()
@@ -232,7 +231,14 @@ pub async fn complete_factory_workos_login(
     let refresh_value = auth.refresh_token.clone();
     let bearer_account = tokio::task::spawn_blocking({
         let store = store.clone();
-        move || store.add("factory", TokenKind::OauthToken, "WorkOS bearer", bearer_value)
+        move || {
+            store.add(
+                "factory",
+                TokenKind::OauthToken,
+                "WorkOS bearer",
+                bearer_value,
+            )
+        }
     })
     .await
     .map_err(|e| e.to_string())?

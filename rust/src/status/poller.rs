@@ -131,31 +131,11 @@ mod tests {
     fn run_once_records_operational_on_each_polled_feed() {
         let http = Arc::new(ScriptedStatusHttp::new());
         let ok = br#"{"status": {"indicator": "none", "description": "ok"}}"#;
-        http.put(
-            "https://status.openai.com/api/v2/status.json",
-            200,
-            ok,
-        );
-        http.put(
-            "https://status.claude.com/api/v2/status.json",
-            200,
-            ok,
-        );
-        http.put(
-            "https://status.cursor.com/api/v2/status.json",
-            200,
-            ok,
-        );
-        http.put(
-            "https://status.factory.ai/api/v2/status.json",
-            200,
-            ok,
-        );
-        http.put(
-            "https://www.githubstatus.com/api/v2/status.json",
-            200,
-            ok,
-        );
+        http.put("https://status.openai.com/api/v2/status.json", 200, ok);
+        http.put("https://status.claude.com/api/v2/status.json", 200, ok);
+        http.put("https://status.cursor.com/api/v2/status.json", 200, ok);
+        http.put("https://status.factory.ai/api/v2/status.json", 200, ok);
+        http.put("https://www.githubstatus.com/api/v2/status.json", 200, ok);
         http.put(
             "https://www.google.com/appsstatus/dashboard/incidents.json",
             200,
@@ -164,14 +144,8 @@ mod tests {
         let store = StatusStore::new();
         let poller = StatusPoller::new(http, store.clone());
         rt().block_on(async { poller.run_once().await });
-        assert_eq!(
-            store.get("claude").unwrap().severity,
-            StatusSeverity::None
-        );
-        assert_eq!(
-            store.get("gemini").unwrap().severity,
-            StatusSeverity::None
-        );
+        assert_eq!(store.get("claude").unwrap().severity, StatusSeverity::None);
+        assert_eq!(store.get("gemini").unwrap().severity, StatusSeverity::None);
     }
 
     #[test]
@@ -204,11 +178,7 @@ mod tests {
         let feed = feed_for_provider("claude").unwrap();
         rt().block_on(async { poller.poll_one(feed.clone()).await });
         // Now poison the response.
-        http.put(
-            "https://status.claude.com/api/v2/status.json",
-            500,
-            b"err",
-        );
+        http.put("https://status.claude.com/api/v2/status.json", 500, b"err");
         rt().block_on(async { poller.poll_one(feed).await });
         assert_eq!(
             store.get("claude").unwrap().severity,

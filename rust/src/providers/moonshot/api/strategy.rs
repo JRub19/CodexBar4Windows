@@ -19,11 +19,7 @@ pub const PER_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[async_trait]
 pub trait MoonshotHttp: Send + Sync {
-    async fn get(
-        &self,
-        url: &str,
-        bearer: &str,
-    ) -> Result<MoonshotResponse, ProviderFetchError>;
+    async fn get(&self, url: &str, bearer: &str) -> Result<MoonshotResponse, ProviderFetchError>;
 }
 
 pub struct MoonshotResponse {
@@ -48,10 +44,7 @@ pub struct MoonshotApiStrategy {
 }
 
 impl MoonshotApiStrategy {
-    pub fn new(
-        http: Arc<dyn MoonshotHttp>,
-        creds: Arc<dyn MoonshotCredentialsResolver>,
-    ) -> Self {
+    pub fn new(http: Arc<dyn MoonshotHttp>, creds: Arc<dyn MoonshotCredentialsResolver>) -> Self {
         Self { http, creds }
     }
 }
@@ -129,7 +122,11 @@ impl Strategy for MoonshotApiStrategy {
 fn short_key_token(api_key: &str) -> String {
     let trimmed = api_key.trim();
     let suffix = trimmed.strip_prefix("sk-").unwrap_or(trimmed);
-    suffix.chars().take(4).collect::<String>().to_ascii_lowercase()
+    suffix
+        .chars()
+        .take(4)
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]
@@ -145,11 +142,7 @@ mod tests {
 
     #[async_trait]
     impl MoonshotHttp for ScriptedHttp {
-        async fn get(
-            &self,
-            url: &str,
-            _: &str,
-        ) -> Result<MoonshotResponse, ProviderFetchError> {
+        async fn get(&self, url: &str, _: &str) -> Result<MoonshotResponse, ProviderFetchError> {
             *self.captured_url.lock().unwrap() = Some(url.into());
             let (status, body) = self
                 .reply
@@ -226,7 +219,8 @@ mod tests {
             region: MoonshotRegion::China,
         })));
         let strategy = MoonshotApiStrategy::new(http.clone(), resolver);
-        rt().block_on(async { strategy.fetch(&ctx()).await }).unwrap();
+        rt().block_on(async { strategy.fetch(&ctx()).await })
+            .unwrap();
         assert_eq!(
             http.captured_url.lock().unwrap().as_deref(),
             Some("https://api.moonshot.cn/v1/users/me/balance")

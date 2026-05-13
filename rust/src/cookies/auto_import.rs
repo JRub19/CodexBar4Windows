@@ -59,7 +59,10 @@ pub fn configs() -> &'static [AutoImportConfig] {
 }
 
 pub fn config_for(provider_id: &str) -> Option<AutoImportConfig> {
-    configs().iter().copied().find(|c| c.provider_id == provider_id)
+    configs()
+        .iter()
+        .copied()
+        .find(|c| c.provider_id == provider_id)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -158,7 +161,10 @@ mod tests {
     fn label_for_distinguishes_source() {
         use crate::cookies::BrowserId;
         assert_eq!(label_for(&CookieSource::Cache), "Auto-imported (cached)");
-        assert_eq!(label_for(&CookieSource::Manual), "Auto-imported (manual paste)");
+        assert_eq!(
+            label_for(&CookieSource::Manual),
+            "Auto-imported (manual paste)"
+        );
         assert_eq!(
             label_for(&CookieSource::Browser(BrowserId::Brave)),
             "Auto-imported from brave"

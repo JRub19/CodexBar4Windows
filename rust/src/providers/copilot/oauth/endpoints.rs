@@ -42,7 +42,10 @@ pub fn api_host(enterprise_host: Option<&str>) -> String {
 }
 
 pub fn usage_url(enterprise_host: Option<&str>) -> String {
-    format!("https://{}/copilot_internal/user", api_host(enterprise_host))
+    format!(
+        "https://{}/copilot_internal/user",
+        api_host(enterprise_host)
+    )
 }
 
 pub fn user_identity_url() -> &'static str {
@@ -57,18 +60,30 @@ mod tests {
     fn default_host_when_unset() {
         assert_eq!(normalize_host(None), "github.com");
         assert_eq!(api_host(None), "api.github.com");
-        assert_eq!(usage_url(None), "https://api.github.com/copilot_internal/user");
+        assert_eq!(
+            usage_url(None),
+            "https://api.github.com/copilot_internal/user"
+        );
     }
 
     #[test]
     fn normalizes_scheme_and_path() {
-        assert_eq!(normalize_host(Some("https://corp.example.com/")), "corp.example.com");
-        assert_eq!(api_host(Some("https://corp.example.com/")), "api.corp.example.com");
+        assert_eq!(
+            normalize_host(Some("https://corp.example.com/")),
+            "corp.example.com"
+        );
+        assert_eq!(
+            api_host(Some("https://corp.example.com/")),
+            "api.corp.example.com"
+        );
     }
 
     #[test]
     fn passes_through_api_prefix_when_already_present() {
-        assert_eq!(api_host(Some("api.corp.example.com")), "api.corp.example.com");
+        assert_eq!(
+            api_host(Some("api.corp.example.com")),
+            "api.corp.example.com"
+        );
     }
 
     #[test]

@@ -123,15 +123,14 @@ mod tests {
     #[test]
     fn apply_success_inserts_and_overwrites() {
         let store = StatusStore::new();
-        assert!(store.apply_success(snap("claude", StatusSeverity::None)).is_none());
+        assert!(store
+            .apply_success(snap("claude", StatusSeverity::None))
+            .is_none());
         let prev = store
             .apply_success(snap("claude", StatusSeverity::Major))
             .unwrap();
         assert_eq!(prev.severity, StatusSeverity::None);
-        assert_eq!(
-            store.get("claude").unwrap().severity,
-            StatusSeverity::Major
-        );
+        assert_eq!(store.get("claude").unwrap().severity, StatusSeverity::Major);
     }
 
     #[test]
@@ -140,10 +139,7 @@ mod tests {
         store.apply_success(snap("cursor", StatusSeverity::None));
         store.apply_failure("cursor", Some("offline".into()), None);
         // Still operational (sticky).
-        assert_eq!(
-            store.get("cursor").unwrap().severity,
-            StatusSeverity::None
-        );
+        assert_eq!(store.get("cursor").unwrap().severity, StatusSeverity::None);
     }
 
     #[test]

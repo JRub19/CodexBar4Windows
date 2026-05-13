@@ -242,9 +242,7 @@ mod tests {
         // Unknown sub-family falls back to a parent if registered.
         // `claude-3-5-sonnet-experimental` → walks down to
         // `claude-3-5-sonnet`.
-        assert!(table
-            .lookup("claude-3-5-sonnet-experimental")
-            .is_some());
+        assert!(table.lookup("claude-3-5-sonnet-experimental").is_some());
     }
 
     #[test]
@@ -261,8 +259,7 @@ mod tests {
         assert_eq!(cost_for_row(&table, &r), Some(3.00));
         // Combined input + output.
         let r = row("claude-sonnet-4-5-20250101", 500_000, 200_000);
-        let expected = (500_000_f64 / 1_000_000.0) * 3.00
-            + (200_000_f64 / 1_000_000.0) * 15.00;
+        let expected = (500_000_f64 / 1_000_000.0) * 3.00 + (200_000_f64 / 1_000_000.0) * 15.00;
         let actual = cost_for_row(&table, &r).unwrap();
         assert!((actual - expected).abs() < 1e-9);
     }

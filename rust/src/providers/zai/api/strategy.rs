@@ -288,7 +288,8 @@ mod tests {
             quota_url_override: None,
         })));
         let strategy = ZaiApiStrategy::new(http.clone(), resolver);
-        rt().block_on(async { strategy.fetch(&ctx()).await }).unwrap();
+        rt().block_on(async { strategy.fetch(&ctx()).await })
+            .unwrap();
         assert_eq!(
             http.captured_url.lock().unwrap().as_deref(),
             Some("https://open.bigmodel.cn/api/monitor/usage/quota/limit")

@@ -45,9 +45,7 @@ pub struct HotkeyRegistry {
 pub struct HotkeyHandle(pub Arc<HotkeyRegistry>);
 
 #[tauri::command]
-pub async fn hotkey_is_registered(
-    handle: tauri::State<'_, HotkeyHandle>,
-) -> Result<bool, String> {
+pub async fn hotkey_is_registered(handle: tauri::State<'_, HotkeyHandle>) -> Result<bool, String> {
     Ok(handle.0.active.lock().is_some())
 }
 
@@ -168,9 +166,10 @@ pub fn parse_chord(input: &str) -> Result<Shortcut, String> {
                         "chord '{input}' has more than one non-modifier key"
                     ));
                 }
-                key = Some(parse_key(other).ok_or_else(|| {
-                    format!("chord '{input}' has unknown key token '{token}'")
-                })?);
+                key =
+                    Some(parse_key(other).ok_or_else(|| {
+                        format!("chord '{input}' has unknown key token '{token}'")
+                    })?);
             }
         }
     }
@@ -357,5 +356,30 @@ mod tests {
         let win = parse_chord("Win+Shift+P").unwrap();
         assert_eq!(cmd, meta);
         assert_eq!(meta, win);
+    }
+
+    #[test]
+    fn parse_chord_tolerates_whitespace_in_tokens() {
+        let a = parse_chord(" Ctrl + Shift + K ").unwrap();
+        let b = parse_chord("Ctrl+Shift+K").unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn default_chord_round_trips_through_parser() {
+        // The DEFAULT_CHORD constant must always be parseable by the
+        // same `parse_chord` the recorder + Tauri command call. If
+        // someone changes the default to "Ctrl+Space" but forgets the
+        // parser, this catches it.
+        let parsed = parse_chord(DEFAULT_CHORD).expect("DEFAULT_CHORD must parse");
+        assert_eq!(parsed, default_shortcut());
+    }
+
+    #[test]
+    fn parse_chord_rejects_modifier_only_chords() {
+        // Modifier-only chords are useless (no key to press) and the
+        // OS would never deliver an event for them.
+        assert!(parse_chord("Ctrl+Shift").is_err());
+        assert!(parse_chord("Win").is_err());
     }
 }

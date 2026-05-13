@@ -24,11 +24,7 @@ impl ReqwestMoonshotClient {
 
 #[async_trait]
 impl MoonshotHttp for ReqwestMoonshotClient {
-    async fn get(
-        &self,
-        url: &str,
-        bearer: &str,
-    ) -> Result<MoonshotResponse, ProviderFetchError> {
+    async fn get(&self, url: &str, bearer: &str) -> Result<MoonshotResponse, ProviderFetchError> {
         let response = self
             .client
             .get(url)

@@ -181,7 +181,7 @@ mod tests {
         store.step(&key(), 60.0, DEFAULT_THRESHOLDS);
         store.step(&key(), 40.0, DEFAULT_THRESHOLDS); // fires 50
         store.step(&key(), 0.0, DEFAULT_THRESHOLDS); // depleted
-        // Climbing back up: restored toast fires, fired set is reset.
+                                                     // Climbing back up: restored toast fires, fired set is reset.
         let dec = store.step(&key(), 30.0, DEFAULT_THRESHOLDS);
         assert_eq!(
             dec,
@@ -214,7 +214,7 @@ mod tests {
         store.step(&key(), 60.0, DEFAULT_THRESHOLDS);
         store.step(&key(), 40.0, DEFAULT_THRESHOLDS); // 50 fired
         store.step(&key(), 60.0, DEFAULT_THRESHOLDS); // re-arm 50
-        // Now drop again past 50 — should fire again.
+                                                      // Now drop again past 50 — should fire again.
         let dec = store.step(&key(), 30.0, DEFAULT_THRESHOLDS);
         match dec {
             NotificationDecision::Threshold(e) => assert_eq!(e.threshold, 50),
@@ -244,10 +244,7 @@ mod tests {
         store.step(&codex, 60.0, DEFAULT_THRESHOLDS);
         // Claude crosses 50, Codex does not.
         let claude_dec = store.step(&claude, 40.0, DEFAULT_THRESHOLDS);
-        assert!(matches!(
-            claude_dec,
-            NotificationDecision::Threshold(_)
-        ));
+        assert!(matches!(claude_dec, NotificationDecision::Threshold(_)));
         // Codex stays at 60; no toast.
         let codex_dec = store.step(&codex, 60.0, DEFAULT_THRESHOLDS);
         assert_eq!(codex_dec, NotificationDecision::None);

@@ -24,6 +24,13 @@ installer/*.exe
 installer/*.msi
 *.app/
 
+# Signing keys — generated locally, never committed. The release
+# workflow consumes the private key via the
+# TAURI_MINISIGN_PRIVATE_KEY_PATH secret instead.
+.minisign/
+*.minisign.key
+*.minisign.pub
+
 # OS
 .DS_Store
 Thumbs.db

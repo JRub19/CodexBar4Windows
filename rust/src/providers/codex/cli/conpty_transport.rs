@@ -118,11 +118,7 @@ impl RpcTransport for ConPtyRpcTransport {
         // executor on the lock.
         let writer = match self.writer.lock() {
             Ok(w) => w,
-            Err(_) => {
-                return Err(RpcCallError::Transport(
-                    "writer mutex poisoned".into(),
-                ))
-            }
+            Err(_) => return Err(RpcCallError::Transport("writer mutex poisoned".into())),
         };
         // Hold the lock for the synchronous write; `Box<dyn Write>` is
         // not Send across an await so we cannot move it. Writes here

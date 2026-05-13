@@ -64,9 +64,7 @@ pub fn fold_summary(summary: &UsageSummary, legacy: Option<&LegacyUsage>) -> Cur
 
     let plan_used_cents = plan.and_then(|p| p.used).unwrap_or(0);
     let plan_limit_cents = plan.and_then(|p| p.limit).unwrap_or(0);
-    let auto_percent = plan
-        .and_then(|p| p.auto_percent_used)
-        .map(clamp_percent);
+    let auto_percent = plan.and_then(|p| p.auto_percent_used).map(clamp_percent);
     let api_percent = plan.and_then(|p| p.api_percent_used).map(clamp_percent);
 
     let overall_used = overall.and_then(|o| o.used);
@@ -110,7 +108,10 @@ pub fn fold_summary(summary: &UsageSummary, legacy: Option<&LegacyUsage>) -> Cur
     // USD figures track the same fallback order so the popup never shows
     // a zeroed dollar amount when overall/pooled actually carry the cents.
     let (plan_used_usd, plan_limit_usd) = if plan_limit_cents > 0 || plan_used_cents > 0 {
-        (cents_to_usd(plan_used_cents), cents_to_usd(plan_limit_cents))
+        (
+            cents_to_usd(plan_used_cents),
+            cents_to_usd(plan_limit_cents),
+        )
     } else if let (Some(u), Some(l)) = (overall_used, overall_limit) {
         (cents_to_usd(u), cents_to_usd(l))
     } else if let (Some(u), Some(l)) = (pooled_used, pooled_limit) {

@@ -94,7 +94,9 @@ impl UsageSummary {
 }
 
 fn parse_iso8601_unix_secs(value: &str) -> Option<i64> {
-    DateTime::parse_from_rfc3339(value).ok().map(|d| d.timestamp())
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|d| d.timestamp())
 }
 
 #[cfg(test)]
@@ -152,7 +154,8 @@ mod tests {
 
     #[test]
     fn parses_legacy_gpt4_usage() {
-        let body = br#"{"gpt-4": {"numRequests": 12, "numRequestsTotal": 15, "maxRequestUsage": 500}}"#;
+        let body =
+            br#"{"gpt-4": {"numRequests": 12, "numRequestsTotal": 15, "maxRequestUsage": 500}}"#;
         let usage: LegacyUsage = serde_json::from_slice(body).unwrap();
         let gpt4 = usage.gpt4.unwrap();
         assert_eq!(gpt4.num_requests_total, Some(15));

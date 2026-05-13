@@ -51,20 +51,14 @@ mod tests {
     #[test]
     fn detects_depletion_only_when_crossing_zero() {
         // Was 5 %, now 0 % → depleted.
-        assert_eq!(
-            transition_for(Some(5.0), 0.0),
-            SessionTransition::Depleted
-        );
+        assert_eq!(transition_for(Some(5.0), 0.0), SessionTransition::Depleted);
         // Was 5 %, now 4 % → no transition (still available).
         assert_eq!(transition_for(Some(5.0), 4.0), SessionTransition::None);
     }
 
     #[test]
     fn detects_restoration_when_crossing_back() {
-        assert_eq!(
-            transition_for(Some(0.0), 1.0),
-            SessionTransition::Restored
-        );
+        assert_eq!(transition_for(Some(0.0), 1.0), SessionTransition::Restored);
     }
 
     #[test]
@@ -75,10 +69,7 @@ mod tests {
     #[test]
     fn epsilon_dust_is_treated_as_zero() {
         // Floating point noise just below epsilon: still depleted.
-        assert_eq!(
-            transition_for(Some(0.00005), 0.0),
-            SessionTransition::None
-        );
+        assert_eq!(transition_for(Some(0.00005), 0.0), SessionTransition::None);
         // Crossing above epsilon counts as restoration.
         assert_eq!(
             transition_for(Some(0.00005), 0.5),

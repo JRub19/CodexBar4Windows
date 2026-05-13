@@ -133,12 +133,20 @@ impl<'de> Deserialize<'de> for FlexibleDate {
         use chrono::DateTime;
         let value = serde_json::Value::deserialize(de)?;
         let secs = match &value {
-            serde_json::Value::Number(n) => n
-                .as_f64()
-                .map(|v| if v > 1e12 { (v / 1000.0) as i64 } else { v as i64 }),
+            serde_json::Value::Number(n) => n.as_f64().map(|v| {
+                if v > 1e12 {
+                    (v / 1000.0) as i64
+                } else {
+                    v as i64
+                }
+            }),
             serde_json::Value::String(s) => {
                 if let Ok(v) = s.parse::<f64>() {
-                    Some(if v > 1e12 { (v / 1000.0) as i64 } else { v as i64 })
+                    Some(if v > 1e12 {
+                        (v / 1000.0) as i64
+                    } else {
+                        v as i64
+                    })
                 } else {
                     DateTime::parse_from_rfc3339(s).ok().map(|d| d.timestamp())
                 }

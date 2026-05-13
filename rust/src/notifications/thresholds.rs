@@ -51,11 +51,7 @@ pub fn crossed_threshold(
     }
     let chosen = if let Some(prev) = previous_remaining {
         // Strictly crossed: prev > t && current <= t.
-        eligible
-            .iter()
-            .copied()
-            .filter(|t| prev > *t as f64)
-            .min()
+        eligible.iter().copied().filter(|t| prev > *t as f64).min()
     } else {
         // First observation: deliberately do not fire. The macOS
         // behaviour fires on first observation, but it has a
@@ -79,10 +75,7 @@ pub fn fired_after(threshold: i64, thresholds: &[i64]) -> BTreeSet<i64> {
 
 /// When `remaining` climbs above a previously-fired threshold, that
 /// threshold is re-armed for future notifications.
-pub fn thresholds_to_clear(
-    current_remaining: f64,
-    already_fired: &BTreeSet<i64>,
-) -> BTreeSet<i64> {
+pub fn thresholds_to_clear(current_remaining: f64, already_fired: &BTreeSet<i64>) -> BTreeSet<i64> {
     already_fired
         .iter()
         .copied()

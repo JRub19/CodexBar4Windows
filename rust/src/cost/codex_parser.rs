@@ -92,8 +92,7 @@ pub fn line_passes_prefilter(bytes: &[u8]) -> bool {
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.len() >= needle.len()
-        && haystack.windows(needle.len()).any(|w| w == needle)
+    haystack.len() >= needle.len() && haystack.windows(needle.len()).any(|w| w == needle)
 }
 
 /// Streaming per-file Codex scanner. Construct once per `.jsonl`,
@@ -176,8 +175,7 @@ impl CodexFileScanner {
                 let Some((day_key, ts_secs)) = timestamp.and_then(day_and_timestamp) else {
                     return 0;
                 };
-                let model =
-                    resolve_model(self.current_model.as_deref(), info, payload, &value);
+                let model = resolve_model(self.current_model.as_deref(), info, payload, &value);
                 let delta = self.compute_delta(info);
                 if delta.input == 0 && delta.cached == 0 && delta.output == 0 {
                     return 0;
@@ -241,7 +239,10 @@ fn last_minus_consumed(last: &TokenTriple, consumed: &TokenTriple) -> TokenTripl
 
 fn read_token_block(value: Option<&Value>) -> Option<TokenTriple> {
     let block = value?;
-    let input = block.get("input_tokens").and_then(Value::as_i64).unwrap_or(0);
+    let input = block
+        .get("input_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     // `cached_input_tokens` is the modern name; accept the legacy
     // `cache_read_input_tokens` per spec §4.4.
     let cached = block
@@ -249,7 +250,10 @@ fn read_token_block(value: Option<&Value>) -> Option<TokenTriple> {
         .or_else(|| block.get("cache_read_input_tokens"))
         .and_then(Value::as_i64)
         .unwrap_or(0);
-    let output = block.get("output_tokens").and_then(Value::as_i64).unwrap_or(0);
+    let output = block
+        .get("output_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     if input == 0 && cached == 0 && output == 0 {
         return None;
     }
@@ -262,11 +266,8 @@ fn read_token_block(value: Option<&Value>) -> Option<TokenTriple> {
 
 fn parse_session_meta(value: &Value) -> CodexSessionMeta {
     let payload = value.get("payload").unwrap_or(value);
-    let session_id = pick_str(
-        payload,
-        &["session_id", "sessionId", "id"],
-    )
-    .or_else(|| pick_str(value, &["session_id", "sessionId", "id"]));
+    let session_id = pick_str(payload, &["session_id", "sessionId", "id"])
+        .or_else(|| pick_str(value, &["session_id", "sessionId", "id"]));
     let forked_from_id = pick_str(
         payload,
         &[
@@ -276,8 +277,8 @@ fn parse_session_meta(value: &Value) -> CodexSessionMeta {
             "parentSessionId",
         ],
     );
-    let fork_timestamp = pick_str(payload, &["timestamp"])
-        .or_else(|| pick_str(value, &["timestamp"]));
+    let fork_timestamp =
+        pick_str(payload, &["timestamp"]).or_else(|| pick_str(value, &["timestamp"]));
     CodexSessionMeta {
         session_id,
         forked_from_id,
@@ -347,13 +348,10 @@ pub fn normalize(raw: &str) -> String {
         let dash_idx = bytes.len() - 11;
         let date_bytes = &bytes[bytes.len() - 10..];
         let looks_like_date = bytes[dash_idx] == b'-'
-            && date_bytes
-                .iter()
-                .enumerate()
-                .all(|(i, b)| match i {
-                    4 | 7 => *b == b'-',
-                    _ => b.is_ascii_digit(),
-                });
+            && date_bytes.iter().enumerate().all(|(i, b)| match i {
+                4 | 7 => *b == b'-',
+                _ => b.is_ascii_digit(),
+            });
         if looks_like_date {
             let head = &s[..dash_idx];
             if head.starts_with("gpt-")
@@ -527,7 +525,10 @@ mod tests {
         assert_eq!(normalize("gpt-5.1-codex-2026-05-13"), "gpt-5.1-codex");
         assert_eq!(normalize("o3-mini-2026-05-13"), "o3-mini");
         // Unknown family is left alone.
-        assert_eq!(normalize("future-model-2026-05-13"), "future-model-2026-05-13");
+        assert_eq!(
+            normalize("future-model-2026-05-13"),
+            "future-model-2026-05-13"
+        );
     }
 
     #[test]

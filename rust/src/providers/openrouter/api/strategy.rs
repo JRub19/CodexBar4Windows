@@ -94,7 +94,8 @@ impl Strategy for OpenRouterApiStrategy {
         let bearer = format!("Bearer {}", creds.api_key);
         let title = creds.client_title.as_deref().unwrap_or(CLIENT_TITLE);
 
-        let mut headers: Vec<(&str, &str)> = vec![("Accept", "application/json"), ("X-Title", title)];
+        let mut headers: Vec<(&str, &str)> =
+            vec![("Accept", "application/json"), ("X-Title", title)];
         if let Some(ref referer) = creds.http_referer {
             headers.push(("HTTP-Referer", referer.as_str()));
         }
@@ -186,7 +187,11 @@ impl OpenRouterApiStrategy {
         headers: &[(&str, &str)],
     ) -> Option<KeyData> {
         let url = format!("{}/key", base.trim_end_matches('/'));
-        let response = self.http.get(&url, bearer, headers, KEY_FETCH_TIMEOUT).await.ok()?;
+        let response = self
+            .http
+            .get(&url, bearer, headers, KEY_FETCH_TIMEOUT)
+            .await
+            .ok()?;
         if !(200..=299).contains(&response.status) {
             return None;
         }
@@ -206,10 +211,12 @@ fn rate_limit_label(data: &KeyData) -> Option<String> {
 /// the popup without leaking the secret.
 fn short_key_token(api_key: &str) -> String {
     let trimmed = api_key.trim();
-    let suffix = trimmed
-        .strip_prefix("sk-or-v1-")
-        .unwrap_or(trimmed);
-    suffix.chars().take(4).collect::<String>().to_ascii_lowercase()
+    let suffix = trimmed.strip_prefix("sk-or-v1-").unwrap_or(trimmed);
+    suffix
+        .chars()
+        .take(4)
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]
