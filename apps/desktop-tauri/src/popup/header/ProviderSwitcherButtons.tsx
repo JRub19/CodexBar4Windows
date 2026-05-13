@@ -18,9 +18,7 @@ export function ProviderSwitcherButtons() {
 
   if (enabled.length < 2) return null;
 
-  // Inline single-row layout works cleanly up to 3 tabs; 4+ tabs go
-  // to the stacked 2-column grid so labels never truncate.
-  const stacked = enabled.length > 3;
+  const stacked = enabled.length > 4;
 
   return (
     <div

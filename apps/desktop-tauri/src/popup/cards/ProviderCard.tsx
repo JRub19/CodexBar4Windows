@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProviderDescriptorDto } from "../../bindings";
 import { useUsageStore, type ProviderSlot } from "../state/usageStore";
@@ -101,20 +101,6 @@ function snapshotFromSlot(
 export function ProviderCard({ descriptor }: Props) {
   const slot = useUsageStore((s) => s.snapshots[descriptor.id] ?? null);
   const [retrying, setRetrying] = useState(false);
-  const [stillWaitingAfterBoot, setStillWaitingAfterBoot] = useState(false);
-
-  // If we still have no slot 8 seconds after mount, the refresh
-  // either errored or produced no snapshot (most likely: no
-  // credentials yet). Surface a sign-in hint instead of an infinite
-  // shimmer.
-  useEffect(() => {
-    if (slot) {
-      setStillWaitingAfterBoot(false);
-      return;
-    }
-    const t = window.setTimeout(() => setStillWaitingAfterBoot(true), 8000);
-    return () => window.clearTimeout(t);
-  }, [slot]);
 
   const onRetry = async () => {
     setRetrying(true);
@@ -127,29 +113,15 @@ export function ProviderCard({ descriptor }: Props) {
     }
   };
 
-  const onOpenSettings = async () => {
-    try {
-      await invoke("open_preferences", { providerId: descriptor.id });
-    } catch {
-      /* ignore */
-    }
-  };
-
-  // No slot at all — distinguish two cases by elapsed time since mount.
+  // No data yet — could be "loading first refresh" or "empty after
+  // first refresh". We don't have a direct signal for the former, so
+  // we treat the absence of a slot as loading.
   if (!slot) {
     const snapshot = placeholderSnapshot(descriptor);
     return (
       <article className="provider-card">
         <CardHeader snapshot={snapshot} />
-        {stillWaitingAfterBoot ? (
-          <CardNoCredentials
-            onOpenSettings={() => void onOpenSettings()}
-            onRetry={() => void onRetry()}
-            retrying={retrying}
-          />
-        ) : (
-          <CardLoading />
-        )}
+        <CardLoading />
       </article>
     );
   }
@@ -222,51 +194,6 @@ function CardEmpty({
         >
           <Icon name="refresh" size={14} />
           {loading ? "Refreshing…" : "Refresh now"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Shown when the refresh attempt clearly couldn't fetch anything —
-// typically because no credentials were found on disk. Surfaces a
-// clear sign-in path instead of an infinite loading shimmer.
-function CardNoCredentials({
-  onOpenSettings,
-  onRetry,
-  retrying,
-}: {
-  onOpenSettings: () => void;
-  onRetry: () => void;
-  retrying: boolean;
-}) {
-  return (
-    <div className="card-state">
-      <div className="card-state__icon card-state__icon--accent">
-        <Icon name="info" size={24} />
-      </div>
-      <div className="card-state__title">Sign in to fetch your quota</div>
-      <div className="card-state__body">
-        No credentials found on disk. Open Settings to sign in — or
-        retry if you just signed in.
-      </div>
-      <div className="card-state__actions">
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={onOpenSettings}
-        >
-          <Icon name="settings" size={14} />
-          Open Settings
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={onRetry}
-          disabled={retrying}
-        >
-          <Icon name="refresh" size={14} />
-          {retrying ? "Retrying…" : "Retry"}
         </button>
       </div>
     </div>

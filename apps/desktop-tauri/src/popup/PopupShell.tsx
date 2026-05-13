@@ -85,43 +85,6 @@ export function PopupShell() {
     };
   }, [setEnabledProviderIds]);
 
-  // Boot bootstrap: fire browser-cookie auto-import for cookie-based
-  // providers + trigger an immediate refresh so cards populate
-  // without waiting for the 5-min cadence tick. Errors are swallowed
-  // — both calls are opportunistic.
-  useEffect(() => {
-    let cancelled = false;
-    const AUTO_IMPORT_PROVIDERS = ["cursor", "factory"];
-
-    async function bootstrap() {
-      try {
-        const s = await invoke<{ allow_browser_cookie_import: boolean }>(
-          "get_settings",
-        );
-        if (s.allow_browser_cookie_import && !cancelled) {
-          await Promise.allSettled(
-            AUTO_IMPORT_PROVIDERS.map((id) =>
-              invoke("auto_import_cookies", { providerId: id }),
-            ),
-          );
-        }
-      } catch {
-        /* fall through to refresh anyway */
-      }
-      if (cancelled) return;
-      try {
-        await invoke("refresh_now");
-      } catch {
-        /* swallow */
-      }
-    }
-
-    void bootstrap();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     void invoke<OnboardingStateDto>("first_run_state").then((s) => {
@@ -204,27 +167,6 @@ export function PopupShell() {
       role="application"
       aria-label="CodexBar4Windows"
     >
-      {/* TEMPORARY DEBUG BANNER — if you see this in the popup,
-          React is mounting fine and the bug is below. If you do
-          NOT see it, React isn't loading at all (WebView2 stale
-          cache / wrong URL / etc.). Remove after triage. */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          background: "#ff3b3b",
-          color: "#fff",
-          padding: "2px 8px",
-          fontSize: 11,
-          fontFamily: "monospace",
-          zIndex: 9999,
-          textAlign: "center",
-        }}
-      >
-        DEBUG: React mounted. window={typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight}` : "?"}
-      </div>
       <PopupHeader />
       <main className="popup-body">
         {onboardingActive ? (
