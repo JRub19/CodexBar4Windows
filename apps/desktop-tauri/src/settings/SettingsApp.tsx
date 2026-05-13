@@ -553,25 +553,65 @@ function AdvancedPane() {
 }
 
 function AboutPane() {
+  const [version, setVersion] = useState<string>("");
+  const [reonboardError, setReonboardError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void invoke<string>("current_version")
+      .then(setVersion)
+      .catch(() => setVersion(""));
+  }, []);
+
+  const rerunOnboarding = async () => {
+    try {
+      await invoke("onboarding_reset");
+      // Close the settings window so the popup wizard takes focus.
+      try {
+        await getCurrentWindow().close();
+      } catch {
+        // best-effort; the popup picks up `onboarding:state` regardless
+      }
+    } catch (e) {
+      setReonboardError(String(e));
+    }
+  };
+
   return (
     <>
       <p className="settings-app__pane-intro">
         CodexBar4Windows is a Tauri-based Windows port of the macOS
         CodexBar tray app. Open source under the MIT licence.
       </p>
+      {version ? (
+        <p className="settings-row__subtitle">Version {version}</p>
+      ) : null}
       <ul className="settings-app__about-links">
         <li>
           <button
             type="button"
             className="settings-action"
             onClick={() =>
-              void openUrl("https://github.com/").catch(() => {})
+              void openUrl(
+                "https://github.com/JRub19/CodexBar4Windows",
+              ).catch(() => {})
             }
           >
             Source on GitHub
           </button>
         </li>
+        <li>
+          <button
+            type="button"
+            className="settings-action"
+            onClick={() => void rerunOnboarding()}
+          >
+            Run onboarding again
+          </button>
+        </li>
       </ul>
+      {reonboardError ? (
+        <p className="settings-row__error">{reonboardError}</p>
+      ) : null}
     </>
   );
 }
