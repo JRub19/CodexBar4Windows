@@ -33,6 +33,14 @@ pub struct Settings {
     /// React side can stay agnostic about value types.
     #[serde(default)]
     pub provider_kv: BTreeMap<String, String>,
+    /// Master toggle for desktop toasts (Phase 7C). Default ON; users
+    /// can disable from the Notifications pane.
+    #[serde(default = "default_notifications_enabled")]
+    pub notifications_enabled: bool,
+}
+
+const fn default_notifications_enabled() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -47,6 +55,7 @@ impl Default for Settings {
             allow_browser_cookie_import: true,
             app_language: None,
             provider_kv: BTreeMap::new(),
+            notifications_enabled: true,
         }
     }
 }
@@ -132,6 +141,7 @@ pub struct SettingsPatch {
     /// or overwritten. Use `Option<None>` instead of an empty map to
     /// signal "leave unchanged".
     pub provider_kv: Option<BTreeMap<String, String>>,
+    pub notifications_enabled: Option<bool>,
 }
 
 impl Settings {
@@ -165,6 +175,9 @@ impl Settings {
                     self.provider_kv.insert(key, value);
                 }
             }
+        }
+        if let Some(v) = patch.notifications_enabled {
+            self.notifications_enabled = v;
         }
         self
     }

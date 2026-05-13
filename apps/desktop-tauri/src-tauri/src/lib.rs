@@ -10,6 +10,7 @@ pub mod commands;
 pub mod dev;
 pub mod first_run;
 pub mod login_commands;
+pub mod notification_bridge;
 pub mod perf;
 pub mod secrets_commands;
 pub mod tray_renderer;
@@ -914,10 +915,22 @@ pub fn run() {
         Arc::new(parking_lot::Mutex::new(None));
     let app_handle_for_setup = app_handle_holder.clone();
     let app_handle_for_bridge = app_handle_holder.clone();
+    let app_handle_for_notif = app_handle_holder.clone();
     let usage_rx = usage.subscribe();
     runtime.spawn(async move {
         bridge_usage_events(usage_rx, app_handle_for_bridge).await;
     });
+
+    // Phase 7C: bridge UsageStore updates into desktop toasts via
+    // tauri-plugin-notification. The bridge owns the per-(provider,
+    // window) state machine, the dedup set, and the master
+    // notifications_enabled toggle check.
+    notification_bridge::NotificationBridge::new().spawn(
+        runtime,
+        usage.clone(),
+        settings.clone(),
+        app_handle_for_notif,
+    );
 
     let first_run_store = FirstRunStore::new(env.roaming.clone());
 
@@ -1171,6 +1184,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(settings.clone())
         .manage(RefreshHandle(refresh))
         .manage(UsageHandle(usage))

@@ -8,6 +8,7 @@ pub mod cookies;
 pub mod core;
 pub mod locale;
 pub mod logging;
+pub mod notifications;
 pub mod providers;
 pub mod redact;
 pub mod renderer;
