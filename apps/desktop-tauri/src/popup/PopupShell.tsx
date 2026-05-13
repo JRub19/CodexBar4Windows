@@ -204,6 +204,27 @@ export function PopupShell() {
       role="application"
       aria-label="CodexBar4Windows"
     >
+      {/* TEMPORARY DEBUG BANNER — if you see this in the popup,
+          React is mounting fine and the bug is below. If you do
+          NOT see it, React isn't loading at all (WebView2 stale
+          cache / wrong URL / etc.). Remove after triage. */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          background: "#ff3b3b",
+          color: "#fff",
+          padding: "2px 8px",
+          fontSize: 11,
+          fontFamily: "monospace",
+          zIndex: 9999,
+          textAlign: "center",
+        }}
+      >
+        DEBUG: React mounted. window={typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight}` : "?"}
+      </div>
       <PopupHeader />
       <main className="popup-body">
         {onboardingActive ? (
