@@ -338,12 +338,27 @@ interface ProvidersPaneProps {
   focusedProviderId: string | null;
 }
 
+interface ProviderDescriptorMini {
+  id: string;
+  display_name: string;
+  accent_hex: string;
+}
+
+interface ProviderToggle {
+  id: string;
+  enabled: boolean;
+  order?: number;
+}
+
 function ProvidersPane({ focusedProviderId }: ProvidersPaneProps) {
   const [snapshot, setSnapshot] = useState<ProviderSettingsSnapshot | null>(
     null,
   );
+  const [descriptors, setDescriptors] = useState<ProviderDescriptorMini[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     void invoke<ProviderSettingsSnapshot>("provider_settings_descriptors")
@@ -360,14 +375,39 @@ function ProvidersPane({ focusedProviderId }: ProvidersPaneProps) {
       .catch((e) => {
         if (!cancelled) setError(String(e));
       });
+
+    // Provider descriptors give us name + accent for the sidebar
+    // swatches that the settings snapshot doesn't expose.
+    void invoke<
+      Array<{
+        id: string;
+        metadata: { display_name: string };
+        branding: { accent_hex: string };
+      }>
+    >("provider_descriptors")
+      .then((arr) => {
+        if (cancelled) return;
+        setDescriptors(
+          arr.map((d) => ({
+            id: d.id,
+            display_name: d.metadata.display_name,
+            accent_hex: d.branding.accent_hex,
+          })),
+        );
+      })
+      .catch(() => {});
+
+    void invoke<Settings>("get_settings")
+      .then((s) => {
+        if (!cancelled) setSettings(s);
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
   }, [focusedProviderId]);
 
-  // If the focus event fires after the snapshot already loaded
-  // (e.g. user re-opens preferences twice in a row), update the
-  // selection without re-fetching.
   useEffect(() => {
     if (!snapshot || !focusedProviderId) return;
     const found = snapshot.sections.find(
@@ -375,8 +415,10 @@ function ProvidersPane({ focusedProviderId }: ProvidersPaneProps) {
     );
     if (found) setSelected(found.provider_id);
   }, [focusedProviderId, snapshot]);
+
   if (error) return <p className="settings-row__error">{error}</p>;
-  if (!snapshot) return <p className="settings-app__loading">Loading…</p>;
+  if (!snapshot || !settings)
+    return <p className="settings-app__loading">Loading…</p>;
   if (snapshot.sections.length === 0)
     return <p className="settings-app__empty">No providers configured.</p>;
 
@@ -384,65 +426,239 @@ function ProvidersPane({ focusedProviderId }: ProvidersPaneProps) {
     snapshot.sections.find((s) => s.provider_id === selected) ??
     snapshot.sections[0];
 
+  // Treat empty `settings.providers[]` as "all providers enabled" —
+  // mirrors the refresh-loop semantics in rust/src/core/refresh.rs.
+  const isEnabled = (providerId: string): boolean => {
+    if (settings.providers.length === 0) return true;
+    const toggle = settings.providers.find((p) => p.id === providerId);
+    return toggle ? toggle.enabled : true;
+  };
+
+  // Persist a single provider's enabled state. If the settings list
+  // is empty (fresh install), seed it with every known provider all
+  // enabled, then flip the target — this lets the user toggle off a
+  // single provider without accidentally disabling the others.
+  const setEnabled = async (providerId: string, next: boolean) => {
+    const allIds = snapshot.sections.map((s) => s.provider_id);
+    const seed: ProviderToggle[] =
+      settings.providers.length === 0
+        ? allIds.map((id, idx) => ({ id, enabled: true, order: idx }))
+        : settings.providers.slice();
+    // Ensure every known provider has a slot before flipping ours.
+    for (const id of allIds) {
+      if (!seed.some((t) => t.id === id)) {
+        seed.push({ id, enabled: true, order: seed.length });
+      }
+    }
+    const updated = seed.map((t) =>
+      t.id === providerId ? { ...t, enabled: next } : t,
+    );
+    try {
+      const result = await invoke<Settings>("update_settings", {
+        patch: { providers: updated },
+      });
+      setSettings(result);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // Bulk action: set every provider to the same enabled state.
+  const setAllEnabled = async (next: boolean) => {
+    const allIds = snapshot.sections.map((s) => s.provider_id);
+    const updated: ProviderToggle[] = allIds.map((id, idx) => ({
+      id,
+      enabled: next,
+      order: idx,
+    }));
+    try {
+      const result = await invoke<Settings>("update_settings", {
+        patch: { providers: updated },
+      });
+      setSettings(result);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const accentFor = (id: string): string =>
+    descriptors.find((d) => d.id === id)?.accent_hex ?? "#888";
+
+  const enabledCount = snapshot.sections.filter((s) =>
+    isEnabled(s.provider_id),
+  ).length;
+
+  const sectionEnabled = isEnabled(section.provider_id);
+
   return (
-    <div className="settings-providers">
-      <ul className="settings-providers__list">
-        {snapshot.sections.map((s) => (
-          <li key={s.provider_id}>
-            <button
-              type="button"
-              className={
-                s.provider_id === section.provider_id
-                  ? "settings-providers__entry settings-providers__entry--active"
-                  : "settings-providers__entry"
-              }
-              ref={(el) => {
-                // Scroll the focused entry into view when the
-                // event-driven selection lands on a row that's below
-                // the fold of the sidebar.
-                if (
-                  el &&
-                  focusedProviderId &&
-                  s.provider_id === focusedProviderId
-                ) {
-                  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-                }
+    <>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "var(--space-3)",
+          padding: "0 var(--space-1)",
+        }}
+      >
+        <span className="settings-row__subtitle">
+          {enabledCount} of {snapshot.sections.length} providers enabled
+        </span>
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          <button
+            type="button"
+            className="settings-action"
+            onClick={() => void setAllEnabled(true)}
+            disabled={enabledCount === snapshot.sections.length}
+          >
+            Enable all
+          </button>
+          <button
+            type="button"
+            className="settings-action"
+            onClick={() => void setAllEnabled(false)}
+            disabled={enabledCount === 0}
+          >
+            Disable all
+          </button>
+        </div>
+      </div>
+      <div className="settings-providers">
+        <ul className="settings-providers__list">
+          {snapshot.sections.map((s) => {
+            const enabled = isEnabled(s.provider_id);
+            const accent = accentFor(s.provider_id);
+            return (
+              <li key={s.provider_id}>
+                <button
+                  type="button"
+                  className={
+                    s.provider_id === section.provider_id
+                      ? "settings-providers__entry settings-providers__entry--active"
+                      : "settings-providers__entry"
+                  }
+                  ref={(el) => {
+                    if (
+                      el &&
+                      focusedProviderId &&
+                      s.provider_id === focusedProviderId
+                    ) {
+                      el.scrollIntoView({
+                        block: "nearest",
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
+                  onClick={() => setSelected(s.provider_id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    opacity: enabled ? 1 : 0.5,
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: "inline-block",
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: accent,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ flex: 1, textAlign: "left" }}>
+                    {s.section_title}
+                  </span>
+                  {!enabled ? (
+                    <Icon
+                      name="close"
+                      size={12}
+                      style={{ color: "var(--text-tertiary)" }}
+                    />
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <section className="settings-providers__detail">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-3)",
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-block",
+                width: 12,
+                height: 12,
+                borderRadius: 999,
+                background: accentFor(section.provider_id),
+                flexShrink: 0,
               }}
-              onClick={() => setSelected(s.provider_id)}
-            >
-              {s.section_title}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <section className="settings-providers__detail">
-        <h3>{section.section_title}</h3>
-        {section.rows.map((row, idx) => (
-          <DescriptorRow key={idx} descriptor={row} />
-        ))}
-        {section.provider_id === "copilot" ? (
-          <div className="settings-row settings-row--login">
-            <CopilotLoginButton />
+            />
+            <h3 style={{ flex: 1, margin: 0 }}>{section.section_title}</h3>
           </div>
-        ) : null}
-        {section.provider_id === "cursor" ? (
-          <div className="settings-row settings-row--login">
-            <CursorLoginButton />
+          <div className="settings-section__card">
+            <label className="settings-row settings-row--toggle">
+              <div className="settings-row__text">
+                <span className="settings-row__title">Enable this provider</span>
+                <span className="settings-row__subtitle">
+                  {sectionEnabled
+                    ? "Showing in the popup. Toggle off to hide it from the popup and stop polling."
+                    : "Hidden from the popup. Toggle on to start polling and show its card."}
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={sectionEnabled}
+                onChange={(e) =>
+                  void setEnabled(section.provider_id, e.target.checked)
+                }
+              />
+            </label>
           </div>
-        ) : null}
-        {section.provider_id === "cursor" ||
-        section.provider_id === "factory" ? (
-          <div className="settings-row settings-row--autoimport">
-            <AutoImportCookiesButton providerId={section.provider_id} />
-          </div>
-        ) : null}
-        {section.provider_id === "factory" ? (
-          <div className="settings-row settings-row--login">
-            <FactoryLoginPanel />
-          </div>
-        ) : null}
-      </section>
-    </div>
+          {sectionEnabled ? (
+            <>
+              {section.rows.map((row, idx) => (
+                <DescriptorRow key={idx} descriptor={row} />
+              ))}
+              {section.provider_id === "copilot" ? (
+                <div className="settings-row settings-row--login">
+                  <CopilotLoginButton />
+                </div>
+              ) : null}
+              {section.provider_id === "cursor" ? (
+                <div className="settings-row settings-row--login">
+                  <CursorLoginButton />
+                </div>
+              ) : null}
+              {section.provider_id === "cursor" ||
+              section.provider_id === "factory" ? (
+                <div className="settings-row settings-row--autoimport">
+                  <AutoImportCookiesButton providerId={section.provider_id} />
+                </div>
+              ) : null}
+              {section.provider_id === "factory" ? (
+                <div className="settings-row settings-row--login">
+                  <FactoryLoginPanel />
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="settings-app__empty" style={{ marginTop: "var(--space-3)" }}>
+              Enable this provider to configure sign-in and per-provider
+              settings.
+            </p>
+          )}
+        </section>
+      </div>
+    </>
   );
 }
 
