@@ -22,7 +22,11 @@
 //!   roots from env vars + standard fallback paths, walks them with
 //!   mtime prefiltering, and skips hidden components.
 //!
-//! Still pending: projection algorithm, on-disk row cache.
+//! The Codex consumer-plan projection lives in `crate::projection`;
+//! its smoothing constant is the only `f64` math the cost subsystem
+//! does today (per `spec/70 §10`, JSONL data is not extrapolated).
+//! An on-disk row cache (spec §6.5) is the remaining post-1.0
+//! optimisation; current scans re-parse on every refresh tick.
 
 pub mod aggregator;
 pub mod claude_parser;
