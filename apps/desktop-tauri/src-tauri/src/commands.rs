@@ -46,6 +46,37 @@ pub async fn update_settings(
 }
 
 #[tauri::command]
+pub async fn get_provider_kv(
+    key: String,
+    store: State<'_, SettingsHandle>,
+) -> Result<Option<String>, String> {
+    let snap = store.snapshot();
+    Ok(snap.provider_kv.get(&key).cloned())
+}
+
+#[tauri::command]
+pub async fn set_provider_kv(
+    app: AppHandle,
+    store: State<'_, SettingsHandle>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    let mut entry = std::collections::BTreeMap::new();
+    entry.insert(key, value);
+    let next = store
+        .update(SettingsPatch {
+            provider_kv: Some(entry),
+            ..Default::default()
+        })
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit(
+        EVENT_SETTINGS_CHANGED,
+        SettingsChangedPayload { settings: next },
+    );
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn reset_settings(
     app: AppHandle,
     store: State<'_, SettingsHandle>,

@@ -2,6 +2,8 @@
 //! Later phases extend the structs in place. New fields must default safely
 //! so older `config.json` files load without intervention.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 pub const SCHEMA_VERSION: u32 = 1;
@@ -25,6 +27,12 @@ pub struct Settings {
     pub allow_browser_cookie_import: bool,
     #[serde(default)]
     pub app_language: Option<String>,
+    /// Per-provider key/value bag for picker + text-field settings
+    /// (e.g. `moonshot.region`, `zai.api_host`, `copilot.enterprise_host`).
+    /// Stored as plain strings so the settings descriptors and the
+    /// React side can stay agnostic about value types.
+    #[serde(default)]
+    pub provider_kv: BTreeMap<String, String>,
 }
 
 impl Default for Settings {
@@ -38,6 +46,7 @@ impl Default for Settings {
             debug: DebugFlags::default(),
             allow_browser_cookie_import: true,
             app_language: None,
+            provider_kv: BTreeMap::new(),
         }
     }
 }
@@ -118,6 +127,11 @@ pub struct SettingsPatch {
     pub debug: Option<DebugFlags>,
     pub allow_browser_cookie_import: Option<bool>,
     pub app_language: Option<Option<String>>,
+    /// Merge entries into `Settings.provider_kv`. Map keys that map
+    /// to an empty string are removed; non-empty values are inserted
+    /// or overwritten. Use `Option<None>` instead of an empty map to
+    /// signal "leave unchanged".
+    pub provider_kv: Option<BTreeMap<String, String>>,
 }
 
 impl Settings {
@@ -143,7 +157,21 @@ impl Settings {
         if let Some(v) = patch.app_language {
             self.app_language = v;
         }
+        if let Some(kv) = patch.provider_kv {
+            for (key, value) in kv {
+                if value.is_empty() {
+                    self.provider_kv.remove(&key);
+                } else {
+                    self.provider_kv.insert(key, value);
+                }
+            }
+        }
         self
+    }
+
+    /// Convenience: read a single provider-kv entry.
+    pub fn provider_kv_get(&self, key: &str) -> Option<&str> {
+        self.provider_kv.get(key).map(String::as_str)
     }
 }
 
@@ -207,5 +235,37 @@ mod tests {
         let json = serde_json::to_string(&s).unwrap();
         let back: Settings = serde_json::from_str(&json).unwrap();
         assert_eq!(s, back);
+    }
+
+    #[test]
+    fn provider_kv_patch_inserts_and_removes_entries() {
+        let mut s = Settings::default();
+        s.provider_kv.insert("moonshot.region".into(), "china".into());
+        // Patch sets one key, clears another (empty value).
+        let patched = s.apply_patch(SettingsPatch {
+            provider_kv: Some(
+                [
+                    ("zai.api_host".to_string(), "zai.example.com".to_string()),
+                    ("moonshot.region".to_string(), String::new()),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+            ..Default::default()
+        });
+        assert_eq!(
+            patched.provider_kv_get("zai.api_host"),
+            Some("zai.example.com")
+        );
+        assert!(patched.provider_kv_get("moonshot.region").is_none());
+    }
+
+    #[test]
+    fn provider_kv_round_trips_through_serde() {
+        let mut s = Settings::default();
+        s.provider_kv.insert("zai.region".into(), "global".into());
+        let json = serde_json::to_string(&s).unwrap();
+        let back: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.provider_kv_get("zai.region"), Some("global"));
     }
 }

@@ -347,6 +347,7 @@ impl CopilotGithubHttp for NullCopilotGithubHttp {
 /// a stored field.
 struct StoredCopilotCredentials {
     tokens: Arc<TokenAccountStore>,
+    settings: SettingsHandle,
 }
 #[async_trait::async_trait]
 impl CopilotCredentialsResolver for StoredCopilotCredentials {
@@ -363,8 +364,13 @@ impl CopilotCredentialsResolver for StoredCopilotCredentials {
         if token.is_empty() {
             return Ok(None);
         }
-        let enterprise_host = std::env::var("CODEXBAR_COPILOT_HOST")
-            .ok()
+        // Settings picker wins; env var stays as a power-user override.
+        let enterprise_host = self
+            .settings
+            .snapshot()
+            .provider_kv_get("copilot.enterprise_host")
+            .map(|s| s.to_string())
+            .or_else(|| std::env::var("CODEXBAR_COPILOT_HOST").ok())
             .filter(|s| !s.trim().is_empty());
         Ok(Some(CopilotCredentials {
             access_token: token.to_string(),
@@ -689,6 +695,7 @@ impl MoonshotHttp for NullMoonshotHttp {
 
 struct StoredMoonshotCredentials {
     tokens: Arc<TokenAccountStore>,
+    settings: SettingsHandle,
 }
 #[async_trait::async_trait]
 impl MoonshotCredentialsResolver for StoredMoonshotCredentials {
@@ -705,8 +712,14 @@ impl MoonshotCredentialsResolver for StoredMoonshotCredentials {
         if api_key.is_empty() {
             return Ok(None);
         }
-        let region = match std::env::var("CODEXBAR_MOONSHOT_REGION").as_deref() {
-            Ok("china") | Ok("cn") => MoonshotRegion::China,
+        let region = self
+            .settings
+            .snapshot()
+            .provider_kv_get("moonshot.region")
+            .map(str::to_ascii_lowercase)
+            .or_else(|| std::env::var("CODEXBAR_MOONSHOT_REGION").ok());
+        let region = match region.as_deref() {
+            Some("china") | Some("cn") => MoonshotRegion::China,
             _ => MoonshotRegion::International,
         };
         Ok(Some(MoonshotCredentials { api_key, region }))
@@ -725,6 +738,7 @@ impl ZaiHttp for NullZaiHttp {
 
 struct StoredZaiCredentials {
     tokens: Arc<TokenAccountStore>,
+    settings: SettingsHandle,
 }
 #[async_trait::async_trait]
 impl ZaiCredentialsResolver for StoredZaiCredentials {
@@ -741,15 +755,30 @@ impl ZaiCredentialsResolver for StoredZaiCredentials {
         if api_key.is_empty() {
             return Ok(None);
         }
-        let region = match std::env::var("CODEXBAR_ZAI_REGION").as_deref() {
-            Ok("bigmodel-cn") | Ok("cn") => ZaiRegion::BigmodelCN,
+        let snap = self.settings.snapshot();
+        let region_value = snap
+            .provider_kv_get("zai.region")
+            .map(str::to_ascii_lowercase)
+            .or_else(|| std::env::var("CODEXBAR_ZAI_REGION").ok());
+        let region = match region_value.as_deref() {
+            Some("bigmodel-cn") | Some("cn") => ZaiRegion::BigmodelCN,
             _ => ZaiRegion::Global,
         };
+        let host_override = snap
+            .provider_kv_get("zai.api_host")
+            .map(|s| s.to_string())
+            .or_else(|| std::env::var("Z_AI_API_HOST").ok())
+            .filter(|s| !s.trim().is_empty());
+        let quota_url_override = snap
+            .provider_kv_get("zai.quota_url")
+            .map(|s| s.to_string())
+            .or_else(|| std::env::var("Z_AI_QUOTA_URL").ok())
+            .filter(|s| !s.trim().is_empty());
         Ok(Some(ZaiCredentials {
             api_key,
             region,
-            host_override: std::env::var("Z_AI_API_HOST").ok(),
-            quota_url_override: std::env::var("Z_AI_QUOTA_URL").ok(),
+            host_override,
+            quota_url_override,
         }))
     }
 }
@@ -947,6 +976,7 @@ pub fn run() {
         http: copilot_http,
         credentials: Arc::new(StoredCopilotCredentials {
             tokens: token_store.clone(),
+            settings: settings.clone(),
         }),
     });
 
@@ -1038,6 +1068,7 @@ pub fn run() {
         http: moonshot_http,
         credentials: Arc::new(StoredMoonshotCredentials {
             tokens: token_store.clone(),
+            settings: settings.clone(),
         }),
     });
 
@@ -1050,6 +1081,7 @@ pub fn run() {
         http: zai_http,
         credentials: Arc::new(StoredZaiCredentials {
             tokens: token_store.clone(),
+            settings: settings.clone(),
         }),
     });
 
@@ -1204,6 +1236,8 @@ pub fn run() {
             commands::get_settings,
             commands::update_settings,
             commands::reset_settings,
+            commands::get_provider_kv,
+            commands::set_provider_kv,
             commands::provider_descriptors,
             commands::provider_snapshots,
             commands::refresh_now,

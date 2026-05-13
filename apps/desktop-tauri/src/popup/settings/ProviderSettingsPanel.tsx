@@ -9,6 +9,27 @@ import { CopilotLoginButton } from "./CopilotLoginButton";
 import { AutoImportCookiesButton } from "./AutoImportCookiesButton";
 import { FactoryLoginPanel } from "./FactoryLoginPanel";
 import { CursorLoginButton } from "./CursorLoginButton";
+import { PersistentField, PersistentPicker } from "./PersistentField";
+
+// Descriptor `key` values that begin with one of these prefixes are
+// provider-scoped pickers/fields stored in `Settings.provider_kv`.
+// Anything else stays in the global Settings struct (refresh
+// frequency, display preferences, etc.) and uses the older
+// non-persistent renderer.
+const PROVIDER_KV_PREFIXES = [
+  "moonshot.",
+  "zai.",
+  "copilot.",
+  "cursor.",
+  "deepseek.",
+  "gemini.",
+  "factory.",
+  "openrouter.",
+];
+
+function isProviderKvKey(key: string): boolean {
+  return PROVIDER_KV_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
 
 // Phase 4 P4-19: renders the per-provider settings rows produced by the
 // `provider_settings_descriptors` Tauri command. Each descriptor variant
@@ -113,6 +134,17 @@ function DescriptorRow({ descriptor }: { descriptor: SettingsDescriptor }) {
         </label>
       );
     case "field":
+      if (isProviderKvKey(descriptor.key)) {
+        return (
+          <PersistentField
+            storageKey={descriptor.key}
+            title={descriptor.title}
+            subtitle={descriptor.subtitle}
+            placeholder={descriptor.placeholder}
+            secret={descriptor.secret}
+          />
+        );
+      }
       return (
         <label className="settings-row settings-row--field">
           <span className="settings-row__title">{descriptor.title}</span>
@@ -126,6 +158,17 @@ function DescriptorRow({ descriptor }: { descriptor: SettingsDescriptor }) {
         </label>
       );
     case "picker":
+      if (isProviderKvKey(descriptor.key)) {
+        return (
+          <PersistentPicker
+            storageKey={descriptor.key}
+            title={descriptor.title}
+            subtitle={descriptor.subtitle}
+            defaultValue={descriptor.default}
+            options={descriptor.options}
+          />
+        );
+      }
       return (
         <label className="settings-row settings-row--picker">
           <span className="settings-row__title">{descriptor.title}</span>
