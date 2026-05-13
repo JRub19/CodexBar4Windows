@@ -178,3 +178,102 @@ fn map_device_flow_error(err: DeviceFlowError) -> String {
 pub async fn _polling_tick() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 }
+
+// ─── Factory WorkOS login (paste refresh token) ─────────────────────
+//
+// Factory does not expose a public OAuth client we can drive headlessly
+// the way GitHub does for Copilot. The flow that works on Windows:
+//
+// 1. User clicks "Sign in with Factory" → we open
+//    https://app.factory.ai in their default browser.
+// 2. User finishes the WorkOS login.
+// 3. User opens DevTools → Application → Cookies on app.factory.ai,
+//    copies the `wos-session` value, pastes it into the form we render.
+// 4. We POST that cookie to api.workos.com/user_management/authenticate
+//    (the same path the strategy uses) and stash the returned
+//    access_token + refresh_token in the DPAPI-wrapped TokenAccountStore.
+//
+// This is two Tauri commands: one to open the sign-in URL, one to
+// finish the flow with the pasted cookie value.
+
+use codexbar::providers::factory::api::transport::ReqwestFactoryClient as FactoryWorkOSClient;
+use codexbar::providers::factory::api::workos_refresh::exchange_cookie;
+
+#[derive(Debug, Serialize)]
+pub struct FactoryLoginResultDto {
+    pub bearer_account_id: String,
+    pub refresh_account_id: Option<String>,
+}
+
+#[tauri::command]
+pub async fn complete_factory_workos_login(
+    cookie_value: String,
+    tokens: State<'_, TokenAccountHandle>,
+) -> Result<FactoryLoginResultDto, String> {
+    let cookie = cookie_value.trim().to_string();
+    if cookie.is_empty() {
+        return Err("Paste the wos-session cookie value first.".into());
+    }
+    // Accept either the bare value or a `name=value` pair. WorkOS
+    // expects the canonical cookie header form on its side.
+    let cookie_header = if cookie.contains('=') {
+        cookie.clone()
+    } else {
+        format!("wos-session={cookie}")
+    };
+
+    let client = FactoryWorkOSClient::new().map_err(|e| e.to_string())?;
+    let auth = exchange_cookie(&client, &cookie_header, None)
+        .await
+        .map_err(map_workos_error)?;
+
+    let store = tokens.0.clone();
+    let bearer_value = auth.access_token.clone();
+    let refresh_value = auth.refresh_token.clone();
+    let bearer_account = tokio::task::spawn_blocking({
+        let store = store.clone();
+        move || store.add("factory", TokenKind::OauthToken, "WorkOS bearer", bearer_value)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    let _ = tokio::task::spawn_blocking({
+        let store = store.clone();
+        let id = bearer_account.id.clone();
+        move || store.set_active("factory", &id)
+    })
+    .await;
+
+    let refresh_account_id = if let Some(rt) = refresh_value {
+        let acct = tokio::task::spawn_blocking({
+            let store = store.clone();
+            move || store.add("factory", TokenKind::OauthToken, "WorkOS refresh", rt)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+        Some(acct.id)
+    } else {
+        None
+    };
+
+    Ok(FactoryLoginResultDto {
+        bearer_account_id: bearer_account.id,
+        refresh_account_id,
+    })
+}
+
+fn map_workos_error(err: ProviderFetchError) -> String {
+    match err {
+        ProviderFetchError::Unauthorized => {
+            "WorkOS rejected the cookie. Sign in to app.factory.ai again and copy the wos-session value.".into()
+        }
+        ProviderFetchError::UserConfigInvalid(msg) => msg,
+        ProviderFetchError::NoCookies(_) => {
+            "Cookie value was empty after trimming.".into()
+        }
+        other => format!("WorkOS auth failed: {other}"),
+    }
+}
+
+use codexbar::providers::errors::ProviderFetchError;

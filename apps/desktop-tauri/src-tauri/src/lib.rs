@@ -1225,6 +1225,7 @@ pub fn run() {
             secrets_commands::auto_import_cookies,
             login_commands::start_copilot_device_login,
             login_commands::poll_copilot_device_login,
+            login_commands::complete_factory_workos_login,
         ])
         .on_window_event(|window, event| {
             // Auto-dismiss the popup on focus loss to match the spec 80

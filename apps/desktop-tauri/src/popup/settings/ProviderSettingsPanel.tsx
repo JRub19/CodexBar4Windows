@@ -7,6 +7,8 @@ import type {
 import { TokenAccountsRow } from "./TokenAccountsRow";
 import { CopilotLoginButton } from "./CopilotLoginButton";
 import { AutoImportCookiesButton } from "./AutoImportCookiesButton";
+import { FactoryLoginPanel } from "./FactoryLoginPanel";
+import { CursorLoginButton } from "./CursorLoginButton";
 
 // Phase 4 P4-19: renders the per-provider settings rows produced by the
 // `provider_settings_descriptors` Tauri command. Each descriptor variant
@@ -71,10 +73,20 @@ export function ProviderSettingsPanel({ onClose }: Props) {
                     <CopilotLoginButton />
                   </div>
                 ) : null}
+                {section.provider_id === "cursor" ? (
+                  <div className="settings-row settings-row--login">
+                    <CursorLoginButton />
+                  </div>
+                ) : null}
                 {section.provider_id === "cursor" ||
                 section.provider_id === "factory" ? (
                   <div className="settings-row settings-row--autoimport">
                     <AutoImportCookiesButton providerId={section.provider_id} />
+                  </div>
+                ) : null}
+                {section.provider_id === "factory" ? (
+                  <div className="settings-row settings-row--login">
+                    <FactoryLoginPanel />
                   </div>
                 ) : null}
               </section>
