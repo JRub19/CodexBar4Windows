@@ -370,6 +370,9 @@ pub fn build_snapshot(
                     current_cycle_usd: cents as f64 / 100.0,
                     previous_cycle_usd: None,
                     last_30_days_usd: Vec::new(),
+                    daily: Vec::new(),
+                    total_window_usd: 0.0,
+                    updated_at_unix_secs: 0,
                     breakdown_by_service: Vec::new(),
                 })
             });

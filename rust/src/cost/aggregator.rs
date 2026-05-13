@@ -64,10 +64,31 @@ impl AggregatedCost {
             })
             .collect();
 
+        // Build per-day entries aligned with `last_30_days_usd`.
+        let daily: Vec<crate::providers::models::provider_cost::DailyCostEntry> = last_30_days
+            .iter()
+            .map(|d| {
+                let cost = self.by_day_usd.get(*d).copied().unwrap_or(0.0);
+                crate::providers::models::provider_cost::DailyCostEntry {
+                    date: (*d).to_string(),
+                    cost_usd: cost,
+                    total_tokens: 0, // populated by aggregate_rows_detailed
+                    models: Vec::new(),
+                }
+            })
+            .collect();
+        let total_window_usd = last_30.iter().sum::<f64>();
+        let updated_at_unix_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
         ProviderCostSnapshot {
             current_cycle_usd: current_total,
             previous_cycle_usd: previous_total,
             last_30_days_usd: last_30,
+            daily,
+            total_window_usd,
+            updated_at_unix_secs,
             breakdown_by_service,
         }
     }

@@ -142,6 +142,9 @@ impl Strategy for CursorWebStrategy {
                 current_cycle_usd: total_on_demand,
                 previous_cycle_usd: None,
                 last_30_days_usd: Vec::new(),
+                daily: Vec::new(),
+                total_window_usd: 0.0,
+                updated_at_unix_secs: 0,
                 breakdown_by_service: Vec::new(),
             })
         } else {
