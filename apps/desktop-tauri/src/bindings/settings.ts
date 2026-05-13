@@ -39,6 +39,8 @@ export interface Settings {
   debug: DebugFlags;
   allow_browser_cookie_import: boolean;
   app_language: string | null;
+  provider_kv: Record<string, string>;
+  notifications_enabled: boolean;
 }
 
 export interface SettingsPatch {
@@ -49,6 +51,8 @@ export interface SettingsPatch {
   debug?: DebugFlags;
   allow_browser_cookie_import?: boolean;
   app_language?: string | null;
+  provider_kv?: Record<string, string>;
+  notifications_enabled?: boolean;
 }
 
 export interface SettingsChangedPayload {

@@ -1,0 +1,174 @@
+/* Phase 8 task 1: standalone Settings window styling. Mica is applied
+ * via tauri.conf.json's windowEffects; this stylesheet is opaque
+ * panels stacked on top of the translucent chrome. */
+
+.settings-app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: 100vh;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  color: var(--color-fg, #1a1a1a);
+  background: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-app {
+    color: #f1f1f1;
+  }
+}
+
+.settings-app__sidebar {
+  padding: 16px 8px;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-app__sidebar {
+    border-right-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.settings-app__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 4px 8px 12px;
+}
+
+.settings-app__nav-item {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.settings-app__nav-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-app__nav-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.settings-app__nav-item--active {
+  background: rgba(0, 120, 215, 0.12);
+  font-weight: 600;
+}
+
+.settings-app__pane {
+  padding: 24px 32px;
+  overflow-y: auto;
+}
+
+.settings-app__pane-header h2 {
+  margin: 0 0 16px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.settings-app__pane-intro {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0 0 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-app__pane-intro {
+    color: rgba(255, 255, 255, 0.6);
+  }
+}
+
+.settings-app__pane-body > .settings-row {
+  margin-bottom: 12px;
+}
+
+.settings-app__loading,
+.settings-app__empty {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.settings-providers {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  height: 100%;
+}
+
+.settings-providers__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  padding-right: 12px;
+  overflow-y: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-providers__list {
+    border-right-color: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.settings-providers__entry {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
+.settings-providers__entry:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.settings-providers__entry--active {
+  background: rgba(0, 120, 215, 0.12);
+  font-weight: 600;
+}
+
+.settings-providers__detail h3 {
+  margin: 0 0 16px;
+  font-size: 17px;
+}
+
+.settings-app__about-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+kbd {
+  font-family: "Cascadia Code", "Consolas", monospace;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  kbd {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}

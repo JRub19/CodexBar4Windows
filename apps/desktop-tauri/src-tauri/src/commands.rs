@@ -8,7 +8,7 @@ use codexbar::core::{RefreshLoop, UsageStore};
 use codexbar::providers::{ProviderCatalog, ProviderDescriptor, REGISTRY};
 use codexbar::settings::{Settings, SettingsHandle, SettingsPatch};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tracing::info;
 
 use crate::first_run::{FirstRunState, FirstRunStore};
@@ -299,9 +299,30 @@ pub async fn toggle_pause(
 }
 
 #[tauri::command]
-pub async fn open_preferences() -> Result<(), String> {
-    // Phase 8 wires this to the preferences window.
-    info!(target: "codexbar::commands", "open_preferences.invoked");
+pub async fn open_preferences(app: AppHandle) -> Result<(), String> {
+    // Phase 8: show + focus the Mica-effect Settings window.
+    if let Some(window) = app.get_webview_window("settings") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        window.unminimize().ok();
+        info!(target: "codexbar::commands", "open_preferences.shown");
+        return Ok(());
+    }
+    // The settings window is declared in `tauri.conf.json`. If it
+    // disappeared for any reason (uncaught close), recreate it.
+    let _ = tauri::WebviewWindowBuilder::new(
+        &app,
+        "settings",
+        tauri::WebviewUrl::App("index.html#/settings".into()),
+    )
+    .title("CodexBar4Windows Preferences")
+    .inner_size(880.0, 620.0)
+    .min_inner_size(720.0, 480.0)
+    .resizable(true)
+    .visible(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+    info!(target: "codexbar::commands", "open_preferences.recreated");
     Ok(())
 }
 

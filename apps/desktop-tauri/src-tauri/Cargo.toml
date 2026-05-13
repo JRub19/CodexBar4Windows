@@ -37,3 +37,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "rt", "sync", "time"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"

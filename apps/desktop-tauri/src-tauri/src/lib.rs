@@ -9,6 +9,8 @@ pub mod commands;
 #[cfg(feature = "dev")]
 pub mod dev;
 pub mod first_run;
+pub mod hotkey_commands;
+pub mod launch_at_signin;
 pub mod login_commands;
 pub mod notification_bridge;
 pub mod perf;
@@ -1185,6 +1187,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(hotkey_commands::build_plugin())
         .manage(settings.clone())
         .manage(RefreshHandle(refresh))
         .manage(UsageHandle(usage))
@@ -1192,12 +1195,29 @@ pub fn run() {
         .manage(secrets_commands::TokenAccountHandle(token_store))
         .manage(secrets_commands::CookieImporterHandle(cookie_importer))
         .manage(commands::StatusHandle(status_store.clone()))
+        .manage(hotkey_commands::HotkeyHandle(Arc::new(
+            hotkey_commands::HotkeyRegistry::default(),
+        )))
         .manage(login_commands::CopilotLoginHandle(Arc::new(
             login_commands::CopilotLoginRegistry::default(),
         )))
         .setup(move |app| {
             // Hand the live AppHandle to the usage-event bridge.
             *app_handle_for_setup.lock() = Some(app.handle().clone());
+
+            // Phase 8 task 14: register the default Win+Shift+U
+            // hotkey at boot. Failures are non-fatal (e.g. another
+            // app already owns the chord); the Shortcuts pane lets
+            // the user retry / disable.
+            if let Some(registry) = app.try_state::<hotkey_commands::HotkeyHandle>() {
+                if let Err(err) = hotkey_commands::register_default(app.handle(), &registry.0) {
+                    info!(
+                        target: "codexbar::hotkey",
+                        error = %err,
+                        "global_shortcut.boot_register_failed",
+                    );
+                }
+            }
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh now", true, None::<&str>)?;
             let pause_i = MenuItem::with_id(
                 app,
@@ -1255,6 +1275,23 @@ pub fn run() {
                     }
                     "preferences" => {
                         info!(target: "codexbar::tray", "menu.preferences");
+                        if let Some(window) = app.get_webview_window("settings") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                            let _ = window.unminimize();
+                        } else {
+                            let _ = tauri::WebviewWindowBuilder::new(
+                                app,
+                                "settings",
+                                tauri::WebviewUrl::App("index.html#/settings".into()),
+                            )
+                            .title("CodexBar4Windows Preferences")
+                            .inner_size(880.0, 620.0)
+                            .min_inner_size(720.0, 480.0)
+                            .resizable(true)
+                            .visible(true)
+                            .build();
+                        }
                     }
                     "about" => {
                         info!(target: "codexbar::tray", "menu.about");
@@ -1345,6 +1382,12 @@ pub fn run() {
             login_commands::start_copilot_device_login,
             login_commands::poll_copilot_device_login,
             login_commands::complete_factory_workos_login,
+            hotkey_commands::hotkey_is_registered,
+            hotkey_commands::hotkey_register,
+            hotkey_commands::hotkey_unregister,
+            launch_at_signin::launch_at_signin_is_enabled,
+            launch_at_signin::launch_at_signin_enable,
+            launch_at_signin::launch_at_signin_disable,
         ])
         .on_window_event(|window, event| {
             // Auto-dismiss the popup on focus loss to match the spec 80

@@ -27,6 +27,25 @@
           "effects": ["mica", "acrylic"],
           "state": "active"
         }
+      },
+      {
+        "label": "settings",
+        "title": "CodexBar4Windows Preferences",
+        "url": "index.html#/settings",
+        "width": 880,
+        "height": 620,
+        "minWidth": 720,
+        "minHeight": 480,
+        "decorations": true,
+        "transparent": false,
+        "skipTaskbar": false,
+        "visible": false,
+        "resizable": true,
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["mica", "acrylic"],
+          "state": "active"
+        }
       }
     ],
     "security": {
