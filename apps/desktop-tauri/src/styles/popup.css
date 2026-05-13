@@ -1020,3 +1020,52 @@ html, body, #root {
     background: rgba(0, 0, 0, 0.06);
   }
 }
+
+/* Phase 9 §F: update banner. Anchored at the top of the popup body,
+ * above the header, with thin accent stripe + two-button action set. */
+.update-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.update-banner--available {
+  background: rgba(0, 120, 215, 0.08);
+}
+.update-banner--installing {
+  background: rgba(0, 120, 215, 0.05);
+  font-style: italic;
+}
+.update-banner--error {
+  background: rgba(220, 53, 69, 0.08);
+  color: #842029;
+}
+.update-banner__copy {
+  display: block;
+}
+.update-banner__actions {
+  display: flex;
+  gap: 6px;
+}
+.update-banner__button {
+  appearance: none;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: transparent;
+  padding: 2px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.update-banner__button--primary {
+  background: rgba(0, 120, 215, 1);
+  color: white;
+  border-color: rgba(0, 120, 215, 1);
+}
+.update-banner__button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.update-banner__button--primary:hover {
+  background: rgba(0, 100, 195, 1);
+}

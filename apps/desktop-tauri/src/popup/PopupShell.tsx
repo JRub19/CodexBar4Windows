@@ -11,6 +11,7 @@ import type {
 import { useUsageStore } from "./state/usageStore";
 import { useKeyboardNav } from "./a11y/useKeyboardNav";
 import { PopupHeader } from "./header/PopupHeader";
+import { UpdateBanner } from "./header/UpdateBanner";
 import { CardStack } from "./cards/CardStack";
 import { PopupFooter } from "./footer/PopupFooter";
 import { FirstRunToast } from "./firstRun/FirstRunToast";
@@ -84,6 +85,7 @@ export function PopupShell() {
 
   return (
     <div className="popup-root">
+      <UpdateBanner />
       <PopupHeader onOpenSettings={() => setSettingsOpen(true)} />
       <main className="popup-body">
         {settingsOpen ? (

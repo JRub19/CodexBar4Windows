@@ -16,6 +16,7 @@ pub mod notification_bridge;
 pub mod perf;
 pub mod secrets_commands;
 pub mod tray_renderer;
+pub mod updater_commands;
 
 use std::sync::Arc;
 
@@ -1187,6 +1188,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(hotkey_commands::build_plugin())
         .manage(settings.clone())
         .manage(RefreshHandle(refresh))
@@ -1388,6 +1390,9 @@ pub fn run() {
             launch_at_signin::launch_at_signin_is_enabled,
             launch_at_signin::launch_at_signin_enable,
             launch_at_signin::launch_at_signin_disable,
+            updater_commands::current_version,
+            updater_commands::check_for_update,
+            updater_commands::install_update,
         ])
         .on_window_event(|window, event| {
             // Auto-dismiss the popup on focus loss to match the spec 80

@@ -61,6 +61,20 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": "v1Compatible"
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "windows": {
+        "installMode": "passive"
+      },
+      "endpoints": [
+        "https://github.com/JRub19/CodexBar4Windows/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_WITH_BASE64_MINISIGN_PUBLIC_KEY"
+    }
   }
 }
