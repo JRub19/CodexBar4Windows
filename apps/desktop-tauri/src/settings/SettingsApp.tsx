@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { KeyShortcutRecorder } from "../components/KeyShortcutRecorder";
+import { Icon, type IconName } from "../components/Icon";
 import { SUPPORTED_LOCALES, useT, type LocaleCode } from "../i18n";
 
 import "../styles/popup.css";
@@ -40,15 +41,15 @@ type PaneId =
   | "advanced"
   | "about";
 
-const PANES: ReadonlyArray<{ id: PaneId; label: string }> = [
-  { id: "general", label: "General" },
-  { id: "appearance", label: "Appearance" },
-  { id: "providers", label: "Providers" },
-  { id: "notifications", label: "Notifications" },
-  { id: "shortcuts", label: "Shortcuts" },
-  { id: "cost", label: "Cost & Storage" },
-  { id: "advanced", label: "Advanced" },
-  { id: "about", label: "About" },
+const PANES: ReadonlyArray<{ id: PaneId; label: string; icon: IconName }> = [
+  { id: "general", label: "General", icon: "cog" },
+  { id: "providers", label: "Providers", icon: "layers" },
+  { id: "notifications", label: "Notifications", icon: "bell" },
+  { id: "appearance", label: "Appearance", icon: "palette" },
+  { id: "shortcuts", label: "Shortcuts", icon: "keyboard" },
+  { id: "cost", label: "Cost & Storage", icon: "chart" },
+  { id: "advanced", label: "Advanced", icon: "sliders" },
+  { id: "about", label: "About", icon: "info" },
 ];
 
 const PROVIDER_KV_PREFIXES = [
@@ -149,7 +150,7 @@ export function SettingsApp() {
     <div className="settings-app">
       <aside className="settings-app__sidebar" aria-label="Preferences sections">
         <h1 className="settings-app__title">Preferences</h1>
-        <nav>
+        <nav className="settings-app__nav">
           {PANES.map((entry) => (
             <button
               key={entry.id}
@@ -162,10 +163,26 @@ export function SettingsApp() {
               onClick={() => setPane(entry.id)}
               aria-current={pane === entry.id ? "page" : undefined}
             >
+              <span className="settings-app__nav-icon">
+                <Icon name={entry.icon} size={16} />
+              </span>
               {entry.label}
             </button>
           ))}
         </nav>
+        <div className="settings-app__sidebar-bottom">
+          <button
+            type="button"
+            className="settings-app__nav-item"
+            onClick={() => void invoke("quit_app")}
+            style={{ color: "var(--text-error)" }}
+          >
+            <span className="settings-app__nav-icon">
+              <Icon name="logout" size={16} />
+            </span>
+            Quit CodexBar
+          </button>
+        </div>
       </aside>
       <main className="settings-app__pane" role="region" aria-label={paneLabel(pane)}>
         <header className="settings-app__pane-header">
@@ -848,6 +865,8 @@ function AdvancedPane() {
 function AboutPane() {
   const [version, setVersion] = useState<string>("");
   const [reonboardError, setReonboardError] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   useEffect(() => {
     void invoke<string>("current_version")
@@ -858,53 +877,156 @@ function AboutPane() {
   const rerunOnboarding = async () => {
     try {
       await invoke("onboarding_reset");
-      // Close the settings window so the popup wizard takes focus.
       try {
         await getCurrentWindow().close();
       } catch {
-        // best-effort; the popup picks up `onboarding:state` regardless
+        /* best-effort */
       }
     } catch (e) {
       setReonboardError(String(e));
     }
   };
 
+  const checkForUpdates = async () => {
+    setCheckingUpdate(true);
+    setUpdateStatus(null);
+    try {
+      const info = await invoke<{
+        current_version: string;
+        available_version: string | null;
+      }>("check_for_update");
+      setUpdateStatus(
+        info.available_version
+          ? `Update available: v${info.available_version}`
+          : "You're up to date.",
+      );
+    } catch (e) {
+      setUpdateStatus(String(e));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
   return (
-    <>
-      <p className="settings-app__pane-intro">
-        CodexBar4Windows is a Tauri-based Windows port of the macOS
-        CodexBar tray app. Open source under the MIT licence.
-      </p>
-      {version ? (
-        <p className="settings-row__subtitle">Version {version}</p>
-      ) : null}
-      <ul className="settings-app__about-links">
+    <div className="settings-about">
+      <div className="settings-about__hero">
+        <div className="settings-about__icon">
+          <Icon name="sparkles" size={40} />
+        </div>
+        <h3 className="settings-about__name">CodexBar4Windows</h3>
+        {version ? (
+          <div className="settings-about__version">Version {version}</div>
+        ) : null}
+        <p className="settings-about__tagline">
+          Track your AI coding quota at a glance — Claude, Codex, Cursor,
+          and more, right in your tray.
+        </p>
+      </div>
+
+      <div className="settings-section" style={{ width: "100%", maxWidth: 420 }}>
+        <div className="settings-section__caption">Updates</div>
+        <div className="settings-section__card">
+          <div className="settings-row">
+            <div className="settings-row__text">
+              <span className="settings-row__title">Check for updates</span>
+              {updateStatus ? (
+                <span className="settings-row__subtitle">{updateStatus}</span>
+              ) : (
+                <span className="settings-row__subtitle">
+                  Verify you're on the latest signed release.
+                </span>
+              )}
+            </div>
+            <div className="settings-row__control">
+              <button
+                type="button"
+                className="settings-action"
+                onClick={() => void checkForUpdates()}
+                disabled={checkingUpdate}
+              >
+                <Icon name="download" size={14} />
+                {checkingUpdate ? "Checking…" : "Check now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ul className="settings-about__links">
         <li>
           <button
             type="button"
-            className="settings-action"
+            className="settings-about__link-row"
+            onClick={() =>
+              void openUrl("https://github.com/JRub19/CodexBar4Windows").catch(
+                () => {},
+              )
+            }
+          >
+            <span className="settings-about__link-icon">
+              <Icon name="externalLink" size={16} />
+            </span>
+            <span className="settings-about__link-label">
+              Source on GitHub
+            </span>
+            <Icon
+              name="chevronRight"
+              size={14}
+              style={{ color: "var(--text-tertiary)" }}
+            />
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className="settings-about__link-row"
             onClick={() =>
               void openUrl(
-                "https://github.com/JRub19/CodexBar4Windows",
+                "https://github.com/JRub19/CodexBar4Windows/issues",
               ).catch(() => {})
             }
           >
-            Source on GitHub
+            <span className="settings-about__link-icon">
+              <Icon name="error" size={16} />
+            </span>
+            <span className="settings-about__link-label">
+              Report an issue
+            </span>
+            <Icon
+              name="chevronRight"
+              size={14}
+              style={{ color: "var(--text-tertiary)" }}
+            />
           </button>
         </li>
         <li>
           <button
             type="button"
-            className="settings-action"
+            className="settings-about__link-row"
             onClick={() => void rerunOnboarding()}
           >
-            Run onboarding again
+            <span className="settings-about__link-icon">
+              <Icon name="sparkles" size={16} />
+            </span>
+            <span className="settings-about__link-label">
+              Run onboarding again
+            </span>
+            <Icon
+              name="chevronRight"
+              size={14}
+              style={{ color: "var(--text-tertiary)" }}
+            />
           </button>
         </li>
       </ul>
+
+      <p className="settings-about__footnote">
+        MIT licensed · © 2026
+      </p>
+
       {reonboardError ? (
         <p className="settings-row__error">{reonboardError}</p>
       ) : null}
-    </>
+    </div>
   );
 }
