@@ -3,23 +3,46 @@ import { invoke } from "@tauri-apps/api/core";
 import { ActionRow } from "./ActionRow";
 import { formatUpdated } from "../format/reset";
 import { useUsageStore } from "../state/usageStore";
+import { usePopupVisibility } from "../state/usePopupVisibility";
+import { useT } from "../../i18n";
 
-// Phase 3 D10: footer with Refresh, Preferences, and Quit rows. The
-// refresh icon spins via the `action-row__icon--spinning` class while a
-// refresh is in flight. Last refresh caption ticks every 30 s through
-// the shared `formatUpdated` helper.
+// Footer action rows — Refresh / Settings… / About / Quit — plus an
+// optional "Update ready" row when the updater has staged an install.
+// This mirrors the original mac app's NSMenu meta-section layout:
+// stacked full-width rows, each row a hover plate with leading icon,
+// label, and optional accelerator hint on the right.
 
-// Segoe Fluent codepoints, see https://learn.microsoft.com/en-us/windows/apps/design/style/segoe-fluent-icons-font
-const ICON_REFRESH = "";
-const ICON_SETTINGS = "";
-const ICON_POWER = "";
+// Segoe Fluent codepoints. See
+// https://learn.microsoft.com/en-us/windows/apps/design/style/segoe-fluent-icons-font
+const ICON_REFRESH = "";   // Refresh
+const ICON_SETTINGS = "";  // Settings
+const ICON_INFO = "";      // Info
+const ICON_POWER = "";     // PowerButton
+const ICON_UPDATE = "";    // SyncFolder / Update
 
-export function PopupFooter() {
+interface Props {
+  /** Reserved for in-popup settings panel toggle. Currently unused —
+   *  Settings… opens the standalone Preferences window directly. */
+  onOpenSettings?: () => void;
+}
+
+interface UpdateInfoDto {
+  current_version: string;
+  available_version: string | null;
+  release_notes: string | null;
+  release_date: string | null;
+}
+
+export function PopupFooter({ onOpenSettings: _onOpenSettings }: Props = {}) {
+  const t = useT();
   const lastUsageEvent = useUsageStore((s) => s.lastUsageEvent);
+  const visible = usePopupVisibility();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     if (lastUsageEvent != null) {
@@ -33,6 +56,16 @@ export function PopupFooter() {
     return () => clearInterval(id);
   }, []);
 
+  // Probe the updater once when the popup is open. The runtime guard
+  // in `updater_commands.rs` short-circuits when the placeholder
+  // pubkey is still baked in, so this is always safe to call.
+  useEffect(() => {
+    if (!visible) return;
+    void invoke<UpdateInfoDto>("check_for_update")
+      .then((info) => setUpdateAvailable(info.available_version))
+      .catch(() => setUpdateAvailable(null));
+  }, [visible]);
+
   const subtitle = refreshError
     ? refreshError
     : lastRefreshAt
@@ -41,7 +74,7 @@ export function PopupFooter() {
           now,
           lastRefreshAt,
         )
-      : "Awaiting first refresh";
+      : null;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -55,8 +88,33 @@ export function PopupFooter() {
     }
   };
 
+  const onInstallUpdate = async () => {
+    setInstalling(true);
+    try {
+      await invoke("install_update");
+    } catch {
+      // Installer launch errors fall back to the regular updater
+      // path; the runtime guard already logs them.
+    } finally {
+      setInstalling(false);
+    }
+  };
+
   return (
     <footer className="popup-footer">
+      {updateAvailable ? (
+        <ActionRow
+          icon={<span className="action-row__icon-glyph">{ICON_UPDATE}</span>}
+          title={
+            installing
+              ? t("update.title.installing")
+              : "Update ready, restart now?"
+          }
+          subtitle={`v${updateAvailable}`}
+          onClick={() => void onInstallUpdate()}
+          variant="accent"
+        />
+      ) : null}
       <ActionRow
         icon={
           <span
@@ -69,8 +127,9 @@ export function PopupFooter() {
             {ICON_REFRESH}
           </span>
         }
-        title={refreshError ? "Refresh failed" : "Refresh now"}
+        title={refreshError ? "Refresh failed" : "Refresh"}
         subtitle={subtitle}
+        accelerator="Ctrl+R"
         onClick={() => {
           void onRefresh();
         }}
@@ -78,10 +137,18 @@ export function PopupFooter() {
       />
       <ActionRow
         icon={<span className="action-row__icon-glyph">{ICON_SETTINGS}</span>}
-        title="Preferences"
+        title="Settings…"
         accelerator="Ctrl+,"
         onClick={() => {
           void invoke("open_preferences");
+        }}
+      />
+      <ActionRow
+        icon={<span className="action-row__icon-glyph">{ICON_INFO}</span>}
+        title="About CodexBar"
+        onClick={() => {
+          void invoke("open_preferences", { providerId: null });
+          // Future: route to the About pane specifically.
         }}
       />
       <ActionRow

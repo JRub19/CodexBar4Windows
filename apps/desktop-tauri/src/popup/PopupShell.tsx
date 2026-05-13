@@ -11,7 +11,6 @@ import type {
 import { useUsageStore } from "./state/usageStore";
 import { useKeyboardNav } from "./a11y/useKeyboardNav";
 import { PopupHeader } from "./header/PopupHeader";
-import { UpdateBanner } from "./header/UpdateBanner";
 import { CardStack } from "./cards/CardStack";
 import { PopupFooter } from "./footer/PopupFooter";
 import { FirstRunToast } from "./firstRun/FirstRunToast";
@@ -123,8 +122,7 @@ export function PopupShell() {
       role="application"
       aria-label="CodexBar4Windows popup"
     >
-      <UpdateBanner />
-      <PopupHeader onOpenSettings={() => setSettingsOpen(true)} />
+      <PopupHeader />
       <main className="popup-body">
         {onboardingActive ? (
           <OnboardingShell onFinish={() => setOnboardingActive(false)} />
@@ -136,7 +134,7 @@ export function PopupShell() {
           <CardStack />
         )}
       </main>
-      <PopupFooter />
+      <PopupFooter onOpenSettings={() => setSettingsOpen(true)} />
       <FirstRunToast />
     </div>
   );

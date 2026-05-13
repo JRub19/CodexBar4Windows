@@ -10,6 +10,9 @@ interface Props {
   accelerator?: string | null;
   destructive?: boolean;
   disabled?: boolean;
+  /** Visual emphasis. "accent" uses the system accent color for the
+   *  title text — used by the conditional update-ready row. */
+  variant?: "default" | "accent";
   onClick: () => void;
 }
 
@@ -20,16 +23,16 @@ export function ActionRow({
   accelerator,
   destructive = false,
   disabled = false,
+  variant = "default",
   onClick,
 }: Props) {
+  const classes = ["action-row"];
+  if (destructive) classes.push("action-row--destructive");
+  if (variant === "accent") classes.push("action-row--accent");
   return (
     <button
       type="button"
-      className={
-        destructive
-          ? "action-row action-row--destructive"
-          : "action-row"
-      }
+      className={classes.join(" ")}
       onClick={onClick}
       disabled={disabled}
     >

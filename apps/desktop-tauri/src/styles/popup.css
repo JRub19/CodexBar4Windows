@@ -3,27 +3,99 @@
 
 :root {
   color-scheme: light dark;
-  --surface-popup: rgba(32, 32, 32, 0.92);
-  --surface-popup-light: rgba(249, 249, 249, 0.92);
+
+  /* Surfaces. Popup itself stays transparent so Mica/Acrylic shows
+     through; the fallback opaque shell is gated on @supports below. */
+  --surface-popup: transparent;
+  --surface-popup-fallback: rgba(32, 32, 32, 0.94);
+  --surface-popup-light-fallback: rgba(249, 249, 249, 0.94);
+  --surface-elevated: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-selected: rgba(255, 255, 255, 0.10);
+
+  /* Text colors. Mirror NSColor labelColor / secondaryLabelColor /
+     tertiaryLabelColor + selectedMenuItemTextColor + systemRed/Yellow/
+     Green. Dark theme defaults; light overrides below. */
   --text-primary: #e6e6e6;
   --text-secondary: #a0a0a0;
-  --accent: #6e5aff;
-  --radius: 12px;
-  /* Spacing scale used throughout the popover. Multiples of 4 keep
-     elements aligned to the 4 px grid the icon renderer also uses. */
+  --text-tertiary: #7a7a7a;
+  --text-on-accent: #ffffff;
+  --text-error: #ff453a;
+  --text-warning: #ffd60a;
+  --text-success: #34c759;
+
+  /* Accent. Reads the Windows system accent injected at boot via
+     `set_accent_color` (Rust side calls UISettings.GetColorValue).
+     Falls back to CSS system AccentColor on modern WebView2, then to
+     a neutral Fluent blue. The 12/18 derivatives are pre-computed
+     translucent variants for hover/press plates. */
+  --accent: var(--win-accent, AccentColor, #0078d4);
+  --accent-12: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-18: color-mix(in srgb, var(--accent) 18%, transparent);
+
+  /* Hover + bar tokens used by every interactive surface. */
+  --hover-plate: rgba(255, 255, 255, 0.06);
+  --press-plate: rgba(255, 255, 255, 0.10);
+  --bar-track: rgba(255, 255, 255, 0.18);
+  --switcher-wash: transparent;
+  --border-card: rgba(255, 255, 255, 0.08);
+  --divider: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+
+  /* Semantic radius tokens. The mac source uses exactly four
+     canonical radii; everything else is non-canonical drift. */
+  --r-popup: 12px;
+  --r-card-highlight: 6px;
+  --r-tab: 6px;
+  --r-bar: 3px;
+  --r-pill: 9999px;
+  --r-copy: 4px;
+  --radius: var(--r-popup); /* back-compat shim */
+
+  /* Spacing — 4pt grid. Original mac source uses 2/3/4/6/8/10/12/
+     16/20/24 values. Keep numbered tokens for back-compat, add
+     semantic aliases for new code. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
-  /* Hairline border around the card and dividers between sections.
-     Both adapt to light mode via the prefers-color-scheme block. */
-  --border-card: rgba(255, 255, 255, 0.08);
-  --divider: rgba(255, 255, 255, 0.06);
-  /* Windows 11 splits Segoe UI Variable into three optical sizes:
-     Display (>=20pt headlines), Text (11-19pt body), and Small (<11pt
-     captions). We declare all three so older systems without the
-     Variable family fall back through Segoe UI to the system stack. */
+  --gutter-h: 16px;       /* card horizontal padding */
+  --gap-tight: 3px;       /* name → email */
+  --gap-row: 6px;         /* title → bar → percent */
+  --gap-section: 10px;    /* metrics → credits */
+  --gap-block: 12px;      /* metric stack → cost stack */
+  --gap-list: 4px;        /* usage note lines */
+  --row-action: 28px;     /* footer action-row min-height */
+
+  /* Animation timing. Spec 15 §1 says popup-in 140ms / popup-out 90ms.
+     Press is a uniform 120ms scale 0.94 (copy button + action rows).
+     Hover-in is fast (80ms), hover-out slightly slower (120ms). */
+  --d-popup-in: 140ms;
+  --d-popup-out: 90ms;
+  --d-hover-in: 80ms;
+  --d-hover-out: 120ms;
+  --d-tab-switch: 120ms;
+  --d-bar-update: 240ms;
+  --d-press: 120ms;
+  --d-copy-in: 120ms;
+  --d-copy-hold: 900ms;
+  --d-copy-out: 200ms;
+  --d-tab-indicator: 220ms;
+
+  /* Easings. ease-out (default) is a soft landing; ease-in for hides;
+     ease-in-out for cross-fades. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.32, 0, 0.67, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Drop shadow. Popup floats above the desktop; the OS chrome
+     doesn't draw a shadow for transparent windows, so we paint
+     it. Dark theme is heavier than light per spec 15 §1.1. */
+  --shadow-popup: 0 12px 32px rgba(0, 0, 0, 0.28);
+
+  /* Typography. Segoe UI Variable has three optical sizes on Win11.
+     Older systems fall back through Segoe UI to system-ui. */
   --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-small: "Segoe UI Variable Small", "Segoe UI", system-ui, sans-serif;
@@ -31,10 +103,27 @@
 
 @media (prefers-color-scheme: light) {
   :root {
+    --surface-popup-fallback: var(--surface-popup-light-fallback);
+    --surface-elevated: rgba(0, 0, 0, 0.03);
+    --surface-hover: rgba(0, 0, 0, 0.05);
+    --surface-selected: rgba(0, 0, 0, 0.08);
+
     --text-primary: #1f1f1f;
-    --text-secondary: #5c5c5c;
+    --text-secondary: #5d5d5d;
+    --text-tertiary: #8a8a8a;
+    --text-error: #d70015;
+    --text-warning: #b25000;
+    --text-success: #248a3d;
+
+    --hover-plate: rgba(0, 0, 0, 0.06);
+    --press-plate: rgba(0, 0, 0, 0.10);
+    --bar-track: rgba(0, 0, 0, 0.14);
+    --switcher-wash: rgba(0, 0, 0, 0.035);
     --border-card: rgba(0, 0, 0, 0.10);
     --divider: rgba(0, 0, 0, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.06);
+
+    --shadow-popup: 0 8px 24px rgba(0, 0, 0, 0.14);
   }
 }
 
@@ -60,37 +149,45 @@ html, body, #root {
   width: 100vw;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius);
+  border-radius: var(--r-popup);
   overflow: hidden;
   background: var(--surface-popup);
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-popup);
   -webkit-app-region: drag;
-  animation: popup-show 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: popup-show var(--d-popup-in) var(--ease-out) both;
+}
+
+/* Fallback for Win10 / dark-mode-disabled where Mica won't apply.
+   We use @supports as a heuristic — if backdrop-filter isn't
+   supported, the OS chrome is also unlikely to provide a backdrop. */
+@supports not (backdrop-filter: blur(20px)) {
+  .popup-root {
+    background: var(--surface-popup-fallback);
+  }
 }
 
 .popup-root--leaving {
-  animation: popup-hide 140ms cubic-bezier(0.4, 0, 1, 1) both;
+  animation: popup-hide var(--d-popup-out) var(--ease-in) both;
 }
 
 @keyframes popup-show {
   from {
     opacity: 0;
-    transform: translateY(4px) scale(0.98);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes popup-hide {
   from {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
   to {
     opacity: 0;
-    transform: translateY(2px) scale(0.99);
   }
 }
 
@@ -101,59 +198,19 @@ html, body, #root {
   }
 }
 
-@media (prefers-color-scheme: light) {
-  .popup-root {
-    background: var(--surface-popup-light);
-  }
-}
-
+/* The header is a thin container that hosts the provider switcher
+   when it's relevant. The mac popup has no decorative chrome above
+   the cards — no app title, no top-right cog — so this region
+   collapses to zero when the switcher isn't shown. */
 .popup-header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) 18px var(--space-2);
   -webkit-app-region: drag;
-  border-bottom: 1px solid var(--divider);
 }
 
-.popup-header__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.popup-header__title {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-}
-
-.settings-cog {
-  -webkit-app-region: no-drag;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  background: transparent;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background-color 80ms ease-out, color 80ms ease-out;
-}
-
-.settings-cog:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary);
-}
-
-@media (prefers-color-scheme: light) {
-  .settings-cog:hover {
-    background: rgba(0, 0, 0, 0.05);
-  }
+.popup-header:empty,
+.popup-header:has(.switcher--hidden) {
+  display: none;
 }
 
 .switcher {
@@ -281,18 +338,22 @@ html, body, #root {
 .provider-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-card);
-  border-radius: 10px;
-  animation: popup-card-fade 120ms ease-out both;
+  gap: var(--gap-row);
+  padding: 6px var(--gutter-h);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  animation: popup-card-fade var(--d-tab-switch) var(--ease-out) both;
+}
+
+.provider-card + .provider-card {
+  border-top: 1px solid var(--divider);
 }
 
 .provider-card__metrics {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--gap-row);
 }
 
 .card-header {
@@ -618,21 +679,26 @@ html, body, #root {
 .action-row {
   display: flex;
   align-items: center;
-  height: 28px;
+  min-height: var(--row-action);
   gap: var(--space-2);
-  padding: 0 var(--space-3);
+  padding: 0 var(--gutter-h);
   border: 0;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 4px;
   color: inherit;
   font: inherit;
   cursor: pointer;
   text-align: left;
-  transition: background-color 80ms ease-out;
+  transition: background-color var(--d-hover-in) var(--ease-out);
+  width: 100%;
 }
 
 .action-row:hover:not([disabled]) {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover-plate);
+}
+
+.action-row:active:not([disabled]) {
+  background: var(--press-plate);
 }
 
 .action-row[disabled] {
@@ -641,7 +707,16 @@ html, body, #root {
 }
 
 .action-row--destructive .action-row__subtitle {
-  color: #ff6961;
+  color: var(--text-error);
+}
+
+.action-row--accent .action-row__title {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.action-row--accent .action-row__icon {
+  color: var(--accent);
 }
 
 .action-row__icon {
