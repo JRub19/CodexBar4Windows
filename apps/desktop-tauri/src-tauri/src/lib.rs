@@ -879,6 +879,34 @@ pub fn run() {
         refresh_for_spawn.spawn().await.ok();
     });
 
+    // Phase 7B: status feed poller. Polls public Statuspage / Google
+    // Workspace feeds on the same cadence as the refresh tick (default
+    // 5 min). Runs independently from the strategy JoinSet so a slow
+    // status feed cannot delay a usage refresh.
+    let status_store = codexbar::status::StatusStore::new();
+    if let Ok(status_http) = codexbar::status::ReqwestStatusClient::new() {
+        let status_poller = Arc::new(codexbar::status::StatusPoller::new(
+            Arc::new(status_http),
+            status_store.clone(),
+        ));
+        let settings_for_status = settings.clone();
+        runtime.spawn(async move {
+            // First pass immediately so the popup has something to
+            // show on launch; subsequent passes ride the refresh
+            // frequency picker.
+            status_poller.run_once().await;
+            loop {
+                let snap = settings_for_status.snapshot();
+                let cadence = snap
+                    .refresh_frequency
+                    .as_duration()
+                    .unwrap_or(std::time::Duration::from_secs(300));
+                tokio::time::sleep(cadence).await;
+                status_poller.run_once().await;
+            }
+        });
+    }
+
     // Phase 4 P4-20: pipe core UsageStore events to the Tauri event bus
     // so the popup can listen for `usage:updated`. The Tauri setup
     // closure later fills `app_handle_holder` with the live AppHandle.
@@ -1149,6 +1177,7 @@ pub fn run() {
         .manage(FirstRunHandle(first_run_store))
         .manage(secrets_commands::TokenAccountHandle(token_store))
         .manage(secrets_commands::CookieImporterHandle(cookie_importer))
+        .manage(commands::StatusHandle(status_store.clone()))
         .manage(login_commands::CopilotLoginHandle(Arc::new(
             login_commands::CopilotLoginRegistry::default(),
         )))
@@ -1286,6 +1315,7 @@ pub fn run() {
             commands::open_preferences,
             commands::quit_app,
             commands::provider_settings_descriptors,
+            commands::status_snapshots,
             commands::first_run_state,
             commands::first_run_mark_tray_hint_shown,
             commands::first_run_reset,

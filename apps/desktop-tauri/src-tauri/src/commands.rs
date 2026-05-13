@@ -22,6 +22,66 @@ pub struct SettingsChangedPayload {
 
 pub struct RefreshHandle(pub Arc<RefreshLoop>);
 pub struct UsageHandle(pub Arc<UsageStore>);
+pub struct StatusHandle(pub codexbar::status::StatusStore);
+
+#[derive(Serialize)]
+pub struct StatusSnapshotDto {
+    pub provider_id: String,
+    pub severity: String,
+    pub title: Option<String>,
+    pub updated_at_unix_secs: Option<i64>,
+    pub status_page_url: Option<String>,
+    pub captured_at_unix_secs: i64,
+}
+
+#[derive(Serialize)]
+pub struct StatusOverviewDto {
+    pub snapshots: Vec<StatusSnapshotDto>,
+    pub aggregate_provider_id: Option<String>,
+    pub aggregate_severity: Option<String>,
+}
+
+#[tauri::command]
+pub async fn status_snapshots(
+    status: State<'_, StatusHandle>,
+) -> Result<StatusOverviewDto, String> {
+    let store = &status.0;
+    let mut snapshots: Vec<StatusSnapshotDto> = store
+        .all()
+        .into_iter()
+        .map(|s| StatusSnapshotDto {
+            provider_id: s.provider_id,
+            severity: serde_json::to_value(s.severity)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| "unknown".into()),
+            title: s.title,
+            updated_at_unix_secs: s.updated_at_unix_secs,
+            status_page_url: s.status_page_url,
+            captured_at_unix_secs: s.captured_at_unix_secs,
+        })
+        .collect();
+    snapshots.sort_by(|a, b| a.provider_id.cmp(&b.provider_id));
+
+    // Tray aggregation honours user-configured provider order. Until
+    // the Phase-8 reorder UI exists we walk the registry's canonical
+    // order with every provider enabled.
+    let mut order = codexbar::status::AggregationOrder::new();
+    for id in codexbar::status::registry::all_status_capable_provider_ids() {
+        order.push(*id, true);
+    }
+    let aggregated = codexbar::status::aggregate(store, &order);
+    Ok(StatusOverviewDto {
+        snapshots,
+        aggregate_provider_id: aggregated.as_ref().map(|s| s.provider_id.clone()),
+        aggregate_severity: aggregated.as_ref().map(|s| {
+            serde_json::to_value(s.severity)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| "unknown".into())
+        }),
+    })
+}
 
 #[tauri::command]
 pub async fn get_settings(store: State<'_, SettingsHandle>) -> Result<Settings, String> {
