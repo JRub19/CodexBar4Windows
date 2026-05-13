@@ -1,3 +1,5 @@
+import { useT } from "../../i18n";
+
 // Phase 8 Task 21 step 4: final confirmation card. The user dismisses
 // the wizard and the popup falls back to the regular CardStack.
 
@@ -7,26 +9,26 @@ interface Props {
 }
 
 export function Step4Done({ onFinish, onBack }: Props) {
+  const t = useT();
   return (
     <div className="onboarding-step">
       <h2 className="onboarding-step__title" id="onboarding-title">
-        You're all set
+        {t("onboarding.title.done")}
       </h2>
       <p className="onboarding-step__body" id="onboarding-body">
-        CodexBar will refresh in the background. Click the tray icon
-        anytime to open the popup, or press Win+Shift+U.
+        {t("onboarding.body.done")}
       </p>
       <ul className="onboarding-step__bullets">
-        <li>Re-run this wizard from Preferences → About.</li>
-        <li>Quotas, status, and toasts update every minute.</li>
-        <li>Pin the tray icon so it always stays visible.</li>
+        <li>{t("onboarding.bullet.done.rerun")}</li>
+        <li>{t("onboarding.bullet.done.cadence")}</li>
+        <li>{t("onboarding.bullet.done.pin")}</li>
       </ul>
       <div className="onboarding-step__actions">
         <button type="button" className="btn-secondary" onClick={onBack}>
-          Back
+          {t("common.button.back")}
         </button>
         <button type="button" className="btn-primary" onClick={onFinish}>
-          Finish
+          {t("onboarding.button.finish")}
         </button>
       </div>
     </div>

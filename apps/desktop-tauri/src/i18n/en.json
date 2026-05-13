@@ -1,0 +1,38 @@
+{
+  "onboarding.title.welcome": "Welcome to CodexBar4Windows",
+  "onboarding.body.welcome": "Track your AI coding usage at a glance. CodexBar lives in the system tray and shows your quota for Claude, Codex, GitHub Copilot, and more — all without leaving your editor.",
+  "onboarding.bullet.welcome.bars": "One bar per provider, primary plus secondary windows.",
+  "onboarding.bullet.welcome.toasts": "Smart toasts when you near a quota threshold.",
+  "onboarding.bullet.welcome.hotkey": "Open the popup with Win+Shift+U (rebindable).",
+  "onboarding.button.get_started": "Get started",
+
+  "onboarding.title.providers": "Pick your providers",
+  "onboarding.body.providers": "Choose the AI services you use. You can change this later in Preferences → Providers.",
+  "onboarding.hint.providers.loading": "Loading…",
+  "onboarding.hint.providers.empty": "No providers available yet. You can finish onboarding and add them later in Preferences.",
+
+  "onboarding.title.sign_in": "Sign in",
+  "onboarding.body.sign_in": "Sign in to each provider so CodexBar can read your usage. The sign-in window opens in Preferences; come back here when done.",
+  "onboarding.hint.sign_in.empty": "No providers selected. You can skip this step and add accounts later from Preferences.",
+  "onboarding.button.sign_in": "Sign in →",
+
+  "onboarding.title.done": "You're all set",
+  "onboarding.body.done": "CodexBar will refresh in the background. Click the tray icon anytime to open the popup, or press Win+Shift+U.",
+  "onboarding.bullet.done.rerun": "Re-run this wizard from Preferences → About.",
+  "onboarding.bullet.done.cadence": "Quotas, status, and toasts update every minute.",
+  "onboarding.bullet.done.pin": "Pin the tray icon so it always stays visible.",
+  "onboarding.button.finish": "Finish",
+
+  "common.button.back": "Back",
+  "common.button.next": "Next",
+
+  "first_run.title": "Pin CodexBar4Windows for one click access",
+  "first_run.body": "CodexBar4Windows lives in the tray. To pin it, open the overflow flyout and drag the icon next to the volume icon.",
+  "first_run.button.got_it": "Got it",
+
+  "update.title.available": "Update available",
+  "update.title.installing": "Installing update…",
+  "update.title.error": "Update failed",
+  "update.button.update_now": "Update now",
+  "update.button.later": "Later"
+}

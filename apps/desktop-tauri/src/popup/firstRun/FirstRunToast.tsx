@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useT } from "../../i18n";
 
 // Phase 3 D12: 3 s after the popup mounts on a fresh install, we show
 // an inline toast that hints the user to drag the tray icon out of the
@@ -12,11 +13,8 @@ interface FirstRunStateDto {
   tray_pinned_hint_shown: boolean;
 }
 
-const HINT_TITLE = "Pin CodexBar4Windows for one click access";
-const HINT_TEXT =
-  "CodexBar4Windows lives in the tray. To pin it, open the overflow flyout and drag the icon next to the volume icon.";
-
 export function FirstRunToast() {
+  const t = useT();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -35,9 +33,9 @@ export function FirstRunToast() {
   return (
     <div className="first-run-toast" role="dialog" aria-labelledby="first-run-toast-title">
       <div className="first-run-toast__title" id="first-run-toast-title">
-        {HINT_TITLE}
+        {t("first_run.title")}
       </div>
-      <p className="first-run-toast__text">{HINT_TEXT}</p>
+      <p className="first-run-toast__text">{t("first_run.body")}</p>
       <button
         type="button"
         className="first-run-toast__dismiss"
@@ -46,7 +44,7 @@ export function FirstRunToast() {
           void invoke("first_run_mark_tray_hint_shown");
         }}
       >
-        Got it
+        {t("first_run.button.got_it")}
       </button>
     </div>
   );

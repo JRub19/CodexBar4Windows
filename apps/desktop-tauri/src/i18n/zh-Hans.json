@@ -1,0 +1,38 @@
+{
+  "onboarding.title.welcome": "欢迎使用 CodexBar4Windows",
+  "onboarding.body.welcome": "随时掌握你的 AI 编程用量。CodexBar 驻留在系统托盘中，显示 Claude、Codex、GitHub Copilot 等服务的配额，无需离开你的编辑器。",
+  "onboarding.bullet.welcome.bars": "每个提供商一条进度条，包含主窗口与次窗口。",
+  "onboarding.bullet.welcome.toasts": "接近配额阈值时智能弹出提示。",
+  "onboarding.bullet.welcome.hotkey": "按 Win+Shift+U 打开弹出窗口（可自定义）。",
+  "onboarding.button.get_started": "开始使用",
+
+  "onboarding.title.providers": "选择你的提供商",
+  "onboarding.body.providers": "勾选你使用的 AI 服务。之后可以在「首选项 → 提供商」中修改。",
+  "onboarding.hint.providers.loading": "正在加载…",
+  "onboarding.hint.providers.empty": "暂时没有可用的提供商。你可以先完成引导，稍后在首选项中添加。",
+
+  "onboarding.title.sign_in": "登录",
+  "onboarding.body.sign_in": "登录每个提供商，CodexBar 才能读取你的用量。登录窗口将在首选项中打开，完成后请返回。",
+  "onboarding.hint.sign_in.empty": "未选择任何提供商。可以跳过此步骤，稍后在首选项中添加账户。",
+  "onboarding.button.sign_in": "登录 →",
+
+  "onboarding.title.done": "全部就绪",
+  "onboarding.body.done": "CodexBar 将在后台刷新。随时点击托盘图标即可打开弹出窗口，或按 Win+Shift+U。",
+  "onboarding.bullet.done.rerun": "可在「首选项 → 关于」中重新运行此向导。",
+  "onboarding.bullet.done.cadence": "配额、状态和提示每分钟更新一次。",
+  "onboarding.bullet.done.pin": "固定托盘图标以保持可见。",
+  "onboarding.button.finish": "完成",
+
+  "common.button.back": "返回",
+  "common.button.next": "下一步",
+
+  "first_run.title": "固定 CodexBar4Windows 以便一键访问",
+  "first_run.body": "CodexBar4Windows 驻留在托盘中。打开溢出菜单，将图标拖到音量图标旁边即可固定。",
+  "first_run.button.got_it": "我知道了",
+
+  "update.title.available": "有可用更新",
+  "update.title.installing": "正在安装更新…",
+  "update.title.error": "更新失败",
+  "update.button.update_now": "立即更新",
+  "update.button.later": "稍后"
+}

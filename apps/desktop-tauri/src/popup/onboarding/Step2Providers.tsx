@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProviderDescriptorDto } from "../../bindings";
+import { useT } from "../../i18n";
 
 // Phase 8 Task 21 step 2: provider picker. Lists every provider the
 // registry exposes with a checkbox; the picked set is forwarded to
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function Step2Providers({ picked, setPicked, onNext, onBack }: Props) {
+  const t = useT();
   const [descriptors, setDescriptors] = useState<ProviderDescriptorDto[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,18 +53,20 @@ export function Step2Providers({ picked, setPicked, onNext, onBack }: Props) {
   return (
     <div className="onboarding-step">
       <h2 className="onboarding-step__title" id="onboarding-title">
-        Pick your providers
+        {t("onboarding.title.providers")}
       </h2>
       <p className="onboarding-step__body" id="onboarding-body">
-        Choose the AI services you use. You can change this later in
-        Preferences → Providers.
+        {t("onboarding.body.providers")}
       </p>
       <div className="onboarding-providers" role="group" aria-label="Providers">
-        {loading && <p className="onboarding-step__hint">Loading…</p>}
+        {loading && (
+          <p className="onboarding-step__hint">
+            {t("onboarding.hint.providers.loading")}
+          </p>
+        )}
         {!loading && descriptors.length === 0 && (
           <p className="onboarding-step__hint">
-            No providers available yet. You can finish onboarding and add
-            them later in Preferences.
+            {t("onboarding.hint.providers.empty")}
           </p>
         )}
         {descriptors.map((d) => (
@@ -85,7 +89,7 @@ export function Step2Providers({ picked, setPicked, onNext, onBack }: Props) {
       </div>
       <div className="onboarding-step__actions">
         <button type="button" className="btn-secondary" onClick={onBack}>
-          Back
+          {t("common.button.back")}
         </button>
         <button
           type="button"
@@ -93,7 +97,7 @@ export function Step2Providers({ picked, setPicked, onNext, onBack }: Props) {
           onClick={onNext}
           disabled={!canAdvance && descriptors.length > 0}
         >
-          Next
+          {t("common.button.next")}
         </button>
       </div>
     </div>

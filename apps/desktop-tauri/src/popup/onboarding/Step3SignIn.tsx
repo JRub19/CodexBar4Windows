@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProviderDescriptorDto } from "../../bindings";
+import { useT } from "../../i18n";
 
 // Phase 8 Task 21 step 3: per-provider sign-in. For each picked
 // provider we surface a "Sign in" button that triggers the same
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function Step3SignIn({ pickedProviders, onNext, onBack }: Props) {
+  const t = useT();
   const [descriptors, setDescriptors] = useState<ProviderDescriptorDto[]>([]);
 
   useEffect(() => {
@@ -44,16 +46,14 @@ export function Step3SignIn({ pickedProviders, onNext, onBack }: Props) {
   return (
     <div className="onboarding-step">
       <h2 className="onboarding-step__title" id="onboarding-title">
-        Sign in
+        {t("onboarding.title.sign_in")}
       </h2>
       <p className="onboarding-step__body" id="onboarding-body">
-        Sign in to each provider so CodexBar can read your usage. The
-        sign-in window opens in Preferences; come back here when done.
+        {t("onboarding.body.sign_in")}
       </p>
       {picked.length === 0 ? (
         <p className="onboarding-step__hint">
-          No providers selected. You can skip this step and add accounts
-          later from Preferences.
+          {t("onboarding.hint.sign_in.empty")}
         </p>
       ) : (
         <ul className="onboarding-signin-list">
@@ -72,7 +72,7 @@ export function Step3SignIn({ pickedProviders, onNext, onBack }: Props) {
                 className="btn-link"
                 onClick={() => void openSettingsForProvider(d.id)}
               >
-                Sign in →
+                {t("onboarding.button.sign_in")}
               </button>
             </li>
           ))}
@@ -80,10 +80,10 @@ export function Step3SignIn({ pickedProviders, onNext, onBack }: Props) {
       )}
       <div className="onboarding-step__actions">
         <button type="button" className="btn-secondary" onClick={onBack}>
-          Back
+          {t("common.button.back")}
         </button>
         <button type="button" className="btn-primary" onClick={onNext}>
-          Next
+          {t("common.button.next")}
         </button>
       </div>
     </div>

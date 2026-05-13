@@ -1,0 +1,38 @@
+{
+  "onboarding.title.welcome": "Bem-vindo ao CodexBar4Windows",
+  "onboarding.body.welcome": "Acompanhe seu uso de IA num piscar de olhos. O CodexBar fica na bandeja do sistema e mostra suas cotas no Claude, Codex, GitHub Copilot e outros — sem sair do seu editor.",
+  "onboarding.bullet.welcome.bars": "Uma barra por provedor, com janela primária e secundária.",
+  "onboarding.bullet.welcome.toasts": "Avisos inteligentes quando você se aproxima do limite.",
+  "onboarding.bullet.welcome.hotkey": "Abra o popup com Win+Shift+U (atalho personalizável).",
+  "onboarding.button.get_started": "Começar",
+
+  "onboarding.title.providers": "Escolha seus provedores",
+  "onboarding.body.providers": "Selecione os serviços de IA que você usa. Você pode alterar depois em Preferências → Provedores.",
+  "onboarding.hint.providers.loading": "Carregando…",
+  "onboarding.hint.providers.empty": "Nenhum provedor disponível ainda. Você pode finalizar o onboarding e adicioná-los depois em Preferências.",
+
+  "onboarding.title.sign_in": "Entrar",
+  "onboarding.body.sign_in": "Entre em cada provedor para que o CodexBar possa ler seu uso. A tela de login abre em Preferências; volte aqui quando terminar.",
+  "onboarding.hint.sign_in.empty": "Nenhum provedor selecionado. Você pode pular esta etapa e adicionar contas depois em Preferências.",
+  "onboarding.button.sign_in": "Entrar →",
+
+  "onboarding.title.done": "Tudo pronto",
+  "onboarding.body.done": "O CodexBar atualizará em segundo plano. Clique no ícone da bandeja a qualquer momento para abrir o popup, ou pressione Win+Shift+U.",
+  "onboarding.bullet.done.rerun": "Execute este assistente novamente em Preferências → Sobre.",
+  "onboarding.bullet.done.cadence": "Cotas, status e avisos atualizam a cada minuto.",
+  "onboarding.bullet.done.pin": "Fixe o ícone da bandeja para mantê-lo sempre visível.",
+  "onboarding.button.finish": "Concluir",
+
+  "common.button.back": "Voltar",
+  "common.button.next": "Próximo",
+
+  "first_run.title": "Fixe o CodexBar4Windows para acesso com um clique",
+  "first_run.body": "O CodexBar4Windows fica na bandeja. Para fixar, abra o menu de itens ocultos e arraste o ícone para perto do ícone de volume.",
+  "first_run.button.got_it": "Entendi",
+
+  "update.title.available": "Atualização disponível",
+  "update.title.installing": "Instalando atualização…",
+  "update.title.error": "Falha na atualização",
+  "update.button.update_now": "Atualizar agora",
+  "update.button.later": "Depois"
+}
