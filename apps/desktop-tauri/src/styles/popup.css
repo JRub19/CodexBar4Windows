@@ -189,12 +189,6 @@ kbd {
 /* ============================================================ */
 
 .popup-root {
-  /* Popup fills the Tauri window. The window itself is auto-resized
-     to the natural content height via `useAutoResize` (which sums
-     the three top-level region scrollHeights). overflow:hidden on
-     the root prevents OS-level scrollbars from flickering during
-     a resize-frame race; the body has its own gated overflow for
-     the rare case where content exceeds the screen-height cap. */
   height: 100vh;
   width: 100vw;
   display: flex;
@@ -206,10 +200,6 @@ kbd {
   box-shadow: var(--shadow-popup);
   -webkit-app-region: drag;
   animation: popup-in var(--d-popup-in) var(--ease-out) both;
-}
-
-html, body {
-  overflow: hidden;
 }
 
 @supports not (backdrop-filter: blur(20px)) {
@@ -252,26 +242,25 @@ html, body {
 /* ============================================================ */
 
 .popup-body {
-  /* Body is the flex region between switcher + footer. We make it
-     a flex column container itself so children that use `flex: 1`
-     (empty-state, onboarding-shell, the card-stack centering) can
-     grow to fill it. `min-height: 0` is needed for the flex child
-     to actually shrink below its content size when the parent
-     popup-root is smaller than the content. */
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  -webkit-app-region: no-drag;
   scrollbar-width: thin;
   scrollbar-color: var(--bg-hover) transparent;
+  -webkit-app-region: no-drag;
 }
 
-.popup-body::-webkit-scrollbar { width: 0; }
-.popup-body:hover::-webkit-scrollbar { width: 6px; }
-.popup-body::-webkit-scrollbar-thumb { background: var(--bg-hover); border-radius: 999px; }
+.popup-body::-webkit-scrollbar {
+  width: 6px;
+}
+.popup-body::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 999px;
+}
+.popup-body::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-press);
+}
 
 /* ============================================================ */
 /* 6. SWITCHER (pill-segmented control)                         */
@@ -285,21 +274,16 @@ html, body {
   background: var(--bg-card);
   border-radius: var(--r-pill);
   -webkit-app-region: no-drag;
-  box-sizing: border-box;
 }
 
-/* Stacked grid for 5+ providers. Two columns (rare 7+ wraps to 3
-   rows). Each tab gets a min-width so labels never truncate to
-   illegible 2-char abbreviations. */
 .switcher--stacked {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   grid-auto-rows: 28px;
-  gap: var(--space-1);
 }
 
 .switcher-tab {
-  flex: 1 1 0;
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -316,11 +300,6 @@ html, body {
               color var(--d-hover-in) var(--ease-out);
   position: relative;
   overflow: hidden;
-}
-
-.switcher--stacked .switcher-tab {
-  flex: unset;
-  width: 100%;
 }
 
 .switcher-tab:hover {
@@ -821,11 +800,7 @@ html, body {
   padding: var(--space-7) var(--space-4);
   gap: var(--space-3);
   text-align: center;
-  /* min-height guarantees presence even when the popup-body parent
-     isn't a flex container (defensive). flex:1 still grows when it
-     is, which is the common case. */
-  flex: 1 1 auto;
-  min-height: 280px;
+  flex: 1;
 }
 
 .empty-state__icon {
@@ -1098,10 +1073,7 @@ html, body {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5) var(--space-4);
-  /* Defensive: min-height keeps the wizard sized even when the
-     parent popup-body isn't acting as a flex container. */
-  flex: 1 1 auto;
-  min-height: 360px;
+  flex: 1;
 }
 
 .onboarding-progress {
