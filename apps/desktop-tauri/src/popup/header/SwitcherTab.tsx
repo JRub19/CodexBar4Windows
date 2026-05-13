@@ -1,24 +1,19 @@
 import type { ProviderDescriptorDto } from "../../bindings";
-import { WeeklyIndicator } from "./WeeklyIndicator";
+
+// Pill-segmented tab used inside the popup switcher. Selected tab
+// shows an accent underline indicator; unselected tabs use a hover
+// plate. The brand color is exposed as a CSS custom property so the
+// underline picks up the provider's own color rather than the
+// generic system accent — that subtle cue helps users glance-orient
+// when several providers are stacked.
 
 interface Props {
   descriptor: ProviderDescriptorDto;
   selected: boolean;
-  // 0..100 remaining in the current weekly window.
-  weeklyRemainingPercent: number;
   onSelect: () => void;
 }
 
-// Phase 3 D3: a single tab. Selected paints the brand color through the
-// CSS custom property `--tab-accent`, so the unselected hover state can
-// fade in a 12% wash of the same hue without re-rendering inline style.
-
-export function SwitcherTab({
-  descriptor,
-  selected,
-  weeklyRemainingPercent,
-  onSelect,
-}: Props) {
+export function SwitcherTab({ descriptor, selected, onSelect }: Props) {
   return (
     <button
       type="button"
@@ -29,18 +24,13 @@ export function SwitcherTab({
         selected ? "switcher-tab switcher-tab--selected" : "switcher-tab"
       }
       style={
-        { "--tab-accent": descriptor.branding.accent_hex } as React.CSSProperties
+        { "--accent": descriptor.branding.accent_hex } as React.CSSProperties
       }
       onClick={onSelect}
     >
       <span className="switcher-tab__label">
         {descriptor.metadata.display_name}
       </span>
-      <WeeklyIndicator
-        brandColor={descriptor.branding.accent_hex}
-        remainingPercent={weeklyRemainingPercent}
-        hidden={selected}
-      />
     </button>
   );
 }

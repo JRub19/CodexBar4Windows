@@ -1,63 +1,85 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { ProviderDescriptorDto } from "../../bindings";
 import { useUsageStore, type ProviderSlot } from "../state/usageStore";
 import { CardHeader } from "./CardHeader";
+import { HeroMetric } from "./HeroMetric";
 import { MetricRow } from "./MetricRow";
+import { Icon } from "../../components/Icon";
 import type { Metric, ProviderSnapshot } from "./snapshot";
 
-// Phase 4 P4-20: ProviderCard renders the live `ProviderSlot` from the
-// store when available, falling back to a placeholder when no refresh
-// has completed yet.
+// The popup's per-provider card. Top to bottom:
+//
+//   1. CardHeader  — provider name + brand swatch + plan + email
+//   2. HeroMetric  — the primary metric (session) with big 36px number,
+//                    bar, reset countdown, optional pace text
+//   3. Divider
+//   4. Secondary metrics (weekly, credits, …) as compact MetricRows
+//   5. Optional status block (already rendered inside CardHeader)
+//
+// The card has four states selected on the slot's data:
+//   - has data → above layout
+//   - loading first refresh → skeleton hero (em-dash + shimmer bar)
+//   - no data after refresh → empty hint with "Refresh now" CTA
+//   - refresh failed → error icon + message + Retry/Copy buttons
 
 interface Props {
   descriptor: ProviderDescriptorDto;
 }
 
-function snapshotFromDescriptor(d: ProviderDescriptorDto): ProviderSnapshot {
+function placeholderSnapshot(d: ProviderDescriptorDto): ProviderSnapshot {
   return {
     id: d.id,
     displayName: d.metadata.display_name,
     brandAccent: d.branding.accent_hex,
     email: null,
     plan: null,
-    subtitle: "Awaiting first refresh",
-    metrics: [
-      {
-        title: "Session",
-        percent: null,
-        detailLeft: null,
-        detailRight: "No data yet",
-        resetText: null,
-      },
-    ],
+    subtitle: null,
+    metrics: [],
     status: null,
   };
 }
 
-function metricFromWindow(window: ProviderSlot["snapshot"]["windows"][number]): Metric {
-  const { used, allotted, reset_at_unix_secs } = window.window;
+function metricFromWindow(w: ProviderSlot["snapshot"]["windows"][number]): Metric {
+  const { used, allotted, reset_at_unix_secs } = w.window;
   const percent =
     allotted && allotted > 0
       ? Math.max(0, Math.min(100, (used / allotted) * 100))
       : null;
   const resetText = reset_at_unix_secs
-    ? new Date(reset_at_unix_secs * 1000).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+    ? formatResetCountdown(reset_at_unix_secs)
     : null;
   const detailRight =
     allotted != null
-      ? `${used.toFixed(1)} / ${allotted.toFixed(0)}`
-      : `${used.toFixed(1)} used`;
+      ? `${formatNumber(used)} / ${formatNumber(allotted)}`
+      : null;
   return {
-    title: window.window.label,
+    title: w.window.label,
     percent,
     detailLeft: null,
     detailRight,
     resetText,
   };
+}
+
+function formatNumber(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toFixed(0);
+}
+
+function formatResetCountdown(unixSecs: number): string {
+  const now = Math.floor(Date.now() / 1000);
+  const delta = unixSecs - now;
+  if (delta <= 0) return "now";
+  const hours = Math.floor(delta / 3600);
+  const minutes = Math.floor((delta % 3600) / 60);
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    return `in ${days}d ${hours % 24}h`;
+  }
+  if (hours > 0) return `in ${hours}h ${minutes}m`;
+  return `in ${minutes}m`;
 }
 
 function snapshotFromSlot(
@@ -78,26 +100,102 @@ function snapshotFromSlot(
 
 export function ProviderCard({ descriptor }: Props) {
   const slot = useUsageStore((s) => s.snapshots[descriptor.id] ?? null);
-  const snapshot = slot
-    ? snapshotFromSlot(descriptor, slot)
-    : snapshotFromDescriptor(descriptor);
+  const [retrying, setRetrying] = useState(false);
+
+  const onRetry = async () => {
+    setRetrying(true);
+    try {
+      await invoke("refresh_now");
+    } catch {
+      /* ignore */
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  // No data yet — could be "loading first refresh" or "empty after
+  // first refresh". We don't have a direct signal for the former, so
+  // we treat the absence of a slot as loading.
+  if (!slot) {
+    const snapshot = placeholderSnapshot(descriptor);
+    return (
+      <article className="provider-card">
+        <CardHeader snapshot={snapshot} />
+        <CardLoading />
+      </article>
+    );
+  }
+
+  const snapshot = snapshotFromSlot(descriptor, slot);
+
+  // Slot exists but every metric lacks a percent — treat as empty.
+  const hasAnyPercent = snapshot.metrics.some((m) => m.percent != null);
+  if (!hasAnyPercent) {
+    return (
+      <article className="provider-card">
+        <CardHeader snapshot={snapshot} />
+        <CardEmpty onRefresh={() => void onRetry()} loading={retrying} />
+      </article>
+    );
+  }
+
+  const primary = snapshot.metrics[0];
+  const secondary = snapshot.metrics.slice(1);
+
   return (
-    <article
-      className="provider-card"
-      style={
-        { "--card-accent": snapshot.brandAccent } as React.CSSProperties
-      }
-    >
+    <article className="provider-card">
       <CardHeader snapshot={snapshot} />
-      <div className="provider-card__metrics">
-        {snapshot.metrics.map((metric, idx) => (
-          <MetricRow
-            key={`${snapshot.id}-${idx}`}
-            metric={metric}
-            brandAccent={snapshot.brandAccent}
-          />
-        ))}
-      </div>
+      <HeroMetric metric={primary} />
+      {secondary.length > 0 ? (
+        <div className="provider-card__metrics">
+          {secondary.map((metric, idx) => (
+            <MetricRow key={`${snapshot.id}-${idx}`} metric={metric} />
+          ))}
+        </div>
+      ) : null}
     </article>
+  );
+}
+
+function CardLoading() {
+  return (
+    <div className="card-state">
+      <div className="hero-metric__value" style={{ color: "var(--text-tertiary)" }}>
+        —
+      </div>
+      <div className="skeleton-bar" />
+      <div className="card-state__body">Fetching latest usage…</div>
+    </div>
+  );
+}
+
+function CardEmpty({
+  onRefresh,
+  loading,
+}: {
+  onRefresh: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="card-state">
+      <div className="card-state__icon card-state__icon--accent">
+        <Icon name="sparkles" size={24} />
+      </div>
+      <div className="card-state__title">No usage yet</div>
+      <div className="card-state__body">
+        Start a session — data will appear within a minute.
+      </div>
+      <div className="card-state__actions">
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          <Icon name="refresh" size={14} />
+          {loading ? "Refreshing…" : "Refresh now"}
+        </button>
+      </div>
+    </div>
   );
 }

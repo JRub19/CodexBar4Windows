@@ -93,15 +93,12 @@ function ProgressDots({ current }: { current: OnboardingStep }) {
   const currentIdx = STEPS.indexOf(current);
   return (
     <div className="onboarding-progress" aria-hidden="true">
-      {STEPS.map((s, i) => (
-        <span
-          key={s}
-          className={
-            "onboarding-progress__dot" +
-            (i <= currentIdx ? " onboarding-progress__dot--filled" : "")
-          }
-        />
-      ))}
+      {STEPS.map((s, i) => {
+        const classes = ["onboarding-progress__dot"];
+        if (i < currentIdx) classes.push("onboarding-progress__dot--filled");
+        if (i === currentIdx) classes.push("onboarding-progress__dot--current");
+        return <span key={s} className={classes.join(" ")} />;
+      })}
     </div>
   );
 }

@@ -14,18 +14,25 @@ import { PopupHeader } from "./header/PopupHeader";
 import { CardStack } from "./cards/CardStack";
 import { PopupFooter } from "./footer/PopupFooter";
 import { FirstRunToast } from "./firstRun/FirstRunToast";
-import { OnboardingShell, type OnboardingStateDto } from "./onboarding/OnboardingShell";
-import { ProviderSettingsPanel } from "./settings/ProviderSettingsPanel";
-import { EmptyState } from "../components/EmptyState";
+import {
+  OnboardingShell,
+  type OnboardingStateDto,
+} from "./onboarding/OnboardingShell";
+import { Icon } from "../components/Icon";
 import "../styles/popup.css";
 import "../styles/focus.css";
 import "../styles/reduced-motion.css";
 
-// Phase 3 D1: The top level popup layout. Holds the three card regions
-// (header, body, footer) and is responsible for the popup-wide listeners:
-// descriptor fetch, usage event stream, status event stream, and escape
-// to dismiss. Phase 4 P4-19 swaps the body for the settings pane when
-// the user clicks the cog.
+// Top-level popup. The window is fixed-width (360 px) and the height
+// is content-sized; the body region scrolls when content overflows.
+//
+// Layout (top → bottom):
+//   PopupHeader  — switcher only, when ≥2 providers
+//   PopupBody    — CardStack OR onboarding wizard OR empty hint
+//   PopupFooter  — stacked action rows
+//   FirstRunToast — pinned bottom-right when not yet shown
+//
+// The popup auto-hides on focus loss (handled in the Tauri Rust side).
 
 export function PopupShell() {
   const descriptors = useUsageStore((s) => s.descriptors);
@@ -33,7 +40,6 @@ export function PopupShell() {
   const setSnapshots = useUsageStore((s) => s.setSnapshots);
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [onboardingActive, setOnboardingActive] = useState<boolean | null>(null);
   useKeyboardNav();
 
@@ -42,11 +48,12 @@ export function PopupShell() {
     void invoke<OnboardingStateDto>("first_run_state").then((s) => {
       if (!cancelled) setOnboardingActive(!s.onboarding_completed);
     });
-    const unlisten = listen<OnboardingStateDto>("onboarding:state", (event) => {
-      // Re-show the wizard whenever the back-end resets the flag,
-      // e.g. from the About-pane "Run onboarding again" button.
-      setOnboardingActive(!event.payload.onboarding_completed);
-    });
+    const unlisten = listen<OnboardingStateDto>(
+      "onboarding:state",
+      (event) => {
+        setOnboardingActive(!event.payload.onboarding_completed);
+      },
+    );
     return () => {
       cancelled = true;
       void unlisten.then((f) => f());
@@ -89,53 +96,74 @@ export function PopupShell() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (settingsOpen) {
-          setSettingsOpen(false);
-        } else {
-          void getCurrentWindow().hide();
-        }
+        void getCurrentWindow().hide();
         return;
       }
-      // Phase 9 §B-6: Ctrl+R refreshes the popup without closing it.
-      // The default browser refresh would reload the WebView and
-      // remount everything, dropping in-flight state; explicit
-      // refresh_now invoke keeps the popup mounted and just kicks the
-      // backend refresh loop. Browser F5 / Ctrl+F5 are also caught
-      // (WebView2 honours them otherwise).
       if (
         (event.ctrlKey && (event.key === "r" || event.key === "R")) ||
         event.key === "F5"
       ) {
         event.preventDefault();
-        void invoke("refresh_now").catch(() => {
-          // Best-effort; the refresh loop swallows errors internally.
-        });
+        void invoke("refresh_now").catch(() => {});
+      }
+      if (event.ctrlKey && event.key === ",") {
+        event.preventDefault();
+        void invoke("open_preferences").catch(() => {});
+      }
+      if (event.ctrlKey && (event.key === "q" || event.key === "Q")) {
+        event.preventDefault();
+        void invoke("quit_app").catch(() => {});
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [settingsOpen]);
+  }, []);
 
   return (
     <div
       className="popup-root"
       role="application"
-      aria-label="CodexBar4Windows popup"
+      aria-label="CodexBar4Windows"
     >
       <PopupHeader />
       <main className="popup-body">
         {onboardingActive ? (
           <OnboardingShell onFinish={() => setOnboardingActive(false)} />
-        ) : settingsOpen ? (
-          <ProviderSettingsPanel onClose={() => setSettingsOpen(false)} />
         ) : descriptors.length === 0 ? (
-          <EmptyState />
+          <PopupEmpty />
         ) : (
           <CardStack />
         )}
       </main>
-      <PopupFooter onOpenSettings={() => setSettingsOpen(true)} />
+      <PopupFooter />
       <FirstRunToast />
+    </div>
+  );
+}
+
+// Empty popup — no providers configured yet. The footer Settings row
+// is the primary path forward, but we surface it as a hero CTA here
+// so the user doesn't have to hunt for it.
+function PopupEmpty() {
+  return (
+    <div className="empty-state">
+      <div className="empty-state__icon">
+        <Icon name="sparkles" size={24} />
+      </div>
+      <div className="empty-state__title">No providers yet</div>
+      <p className="empty-state__body">
+        Add a provider in Settings to start tracking your AI coding quota.
+      </p>
+      <div className="empty-state__cta">
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => void invoke("open_preferences")}
+        >
+          <Icon name="settings" size={14} />
+          Open Settings
+        </button>
+      </div>
     </div>
   );
 }

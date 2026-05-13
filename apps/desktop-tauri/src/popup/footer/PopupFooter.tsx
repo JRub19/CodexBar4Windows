@@ -4,26 +4,18 @@ import { ActionRow } from "./ActionRow";
 import { formatUpdated } from "../format/reset";
 import { useUsageStore } from "../state/usageStore";
 import { usePopupVisibility } from "../state/usePopupVisibility";
-import { useT } from "../../i18n";
+import { Icon } from "../../components/Icon";
 
-// Footer action rows — Refresh / Settings… / About / Quit — plus an
-// optional "Update ready" row when the updater has staged an install.
-// This mirrors the original mac app's NSMenu meta-section layout:
-// stacked full-width rows, each row a hover plate with leading icon,
-// label, and optional accelerator hint on the right.
-
-// Segoe Fluent codepoints. See
-// https://learn.microsoft.com/en-us/windows/apps/design/style/segoe-fluent-icons-font
-const ICON_REFRESH = "";   // Refresh
-const ICON_SETTINGS = "";  // Settings
-const ICON_INFO = "";      // Info
-const ICON_POWER = "";     // PowerButton
-const ICON_UPDATE = "";    // SyncFolder / Update
+// Footer = stacked action rows in the style of a native menu's meta
+// section. Each row is 36 px tall, generous gutter, hover plate that
+// fades in, press scales to 0.98.
+//
+// Row order matches the original macOS source's NSMenu layout:
+//   Update ready (conditional, accent) → Refresh → Settings… →
+//   About CodexBar → Quit.
 
 interface Props {
-  /** Reserved for in-popup settings panel toggle. Currently unused —
-   *  Settings… opens the standalone Preferences window directly. */
-  onOpenSettings?: () => void;
+  onOpenAbout?: () => void;
 }
 
 interface UpdateInfoDto {
@@ -33,8 +25,7 @@ interface UpdateInfoDto {
   release_date: string | null;
 }
 
-export function PopupFooter({ onOpenSettings: _onOpenSettings }: Props = {}) {
-  const t = useT();
+export function PopupFooter({ onOpenAbout: _onOpenAbout }: Props = {}) {
   const lastUsageEvent = useUsageStore((s) => s.lastUsageEvent);
   const visible = usePopupVisibility();
   const [refreshing, setRefreshing] = useState(false);
@@ -56,9 +47,8 @@ export function PopupFooter({ onOpenSettings: _onOpenSettings }: Props = {}) {
     return () => clearInterval(id);
   }, []);
 
-  // Probe the updater once when the popup is open. The runtime guard
-  // in `updater_commands.rs` short-circuits when the placeholder
-  // pubkey is still baked in, so this is always safe to call.
+  // Only probe the updater while the popup is open — saves the
+  // round-trip when the user isn't looking.
   useEffect(() => {
     if (!visible) return;
     void invoke<UpdateInfoDto>("check_for_update")
@@ -93,8 +83,7 @@ export function PopupFooter({ onOpenSettings: _onOpenSettings }: Props = {}) {
     try {
       await invoke("install_update");
     } catch {
-      // Installer launch errors fall back to the regular updater
-      // path; the runtime guard already logs them.
+      /* runtime guard handles logging */
     } finally {
       setInstalling(false);
     }
@@ -104,12 +93,8 @@ export function PopupFooter({ onOpenSettings: _onOpenSettings }: Props = {}) {
     <footer className="popup-footer">
       {updateAvailable ? (
         <ActionRow
-          icon={<span className="action-row__icon-glyph">{ICON_UPDATE}</span>}
-          title={
-            installing
-              ? t("update.title.installing")
-              : "Update ready, restart now?"
-          }
+          icon={<Icon name="download" />}
+          title={installing ? "Installing update…" : "Update ready"}
           subtitle={`v${updateAvailable}`}
           onClick={() => void onInstallUpdate()}
           variant="accent"
@@ -118,46 +103,34 @@ export function PopupFooter({ onOpenSettings: _onOpenSettings }: Props = {}) {
       <ActionRow
         icon={
           <span
-            className={
-              refreshing
-                ? "action-row__icon-glyph action-row__icon-glyph--spinning"
-                : "action-row__icon-glyph"
-            }
+            className={refreshing ? "action-row__icon-glyph--spinning" : ""}
+            style={{ display: "inline-flex" }}
           >
-            {ICON_REFRESH}
+            <Icon name="refresh" />
           </span>
         }
         title={refreshError ? "Refresh failed" : "Refresh"}
         subtitle={subtitle}
         accelerator="Ctrl+R"
-        onClick={() => {
-          void onRefresh();
-        }}
+        onClick={() => void onRefresh()}
         destructive={refreshError != null}
       />
       <ActionRow
-        icon={<span className="action-row__icon-glyph">{ICON_SETTINGS}</span>}
+        icon={<Icon name="settings" />}
         title="Settings…"
         accelerator="Ctrl+,"
-        onClick={() => {
-          void invoke("open_preferences");
-        }}
+        onClick={() => void invoke("open_preferences")}
       />
       <ActionRow
-        icon={<span className="action-row__icon-glyph">{ICON_INFO}</span>}
+        icon={<Icon name="info" />}
         title="About CodexBar"
-        onClick={() => {
-          void invoke("open_preferences", { providerId: null });
-          // Future: route to the About pane specifically.
-        }}
+        onClick={() => void invoke("open_preferences")}
       />
       <ActionRow
-        icon={<span className="action-row__icon-glyph">{ICON_POWER}</span>}
+        icon={<Icon name="power" />}
         title="Quit"
         accelerator="Ctrl+Q"
-        onClick={() => {
-          void invoke("quit_app");
-        }}
+        onClick={() => void invoke("quit_app")}
       />
     </footer>
   );

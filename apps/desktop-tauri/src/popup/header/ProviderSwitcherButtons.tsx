@@ -1,11 +1,15 @@
 import { useUsageStore } from "../state/usageStore";
 import { SwitcherTab } from "./SwitcherTab";
 
-// Phase 3 D3: row of provider tabs that lives directly under the header
-// title. Layout switches between inline (single row), stacked 2 row
-// (>3 visible providers), and stacked 4 row (>=15 providers) per
-// spec 15 table 8.2. We only render when there is more than one
-// provider so single-provider users see no extra chrome.
+// Row of provider tabs that hosts the popup-wide provider selection.
+// Only renders when ≥2 providers are enabled — single-provider users
+// see no chrome at all. The switcher is a pill-segmented control;
+// active segment shows a thin accent underline that slides between
+// tabs on switch (handled by SwitcherTab + the ::after rule in CSS).
+//
+// For typical users (2-4 providers) tabs share the row evenly. With
+// 5+ providers the container wraps to a CSS-grid stacked layout via
+// the `switcher--stacked` modifier.
 
 export function ProviderSwitcherButtons() {
   const descriptors = useUsageStore((s) => s.descriptors);
@@ -14,24 +18,18 @@ export function ProviderSwitcherButtons() {
 
   if (descriptors.length < 2) return null;
 
-  const stacked = descriptors.length > 3;
-  const fourRows = descriptors.length >= 15;
-  const variant = fourRows
-    ? "switcher--4rows"
-    : stacked
-      ? "switcher--stacked"
-      : "switcher--inline";
+  const stacked = descriptors.length > 4;
 
   return (
-    <div className={`switcher ${variant}`} role="tablist">
+    <div
+      className={`switcher${stacked ? " switcher--stacked" : ""}`}
+      role="tablist"
+    >
       {descriptors.map((d) => (
         <SwitcherTab
           key={d.id}
           descriptor={d}
           selected={d.id === selectedId}
-          // Phase 4 wires real weekly snapshots; for now show "full"
-          // so the indicator demonstrates the layout.
-          weeklyRemainingPercent={100}
           onSelect={() => selectProvider(d.id)}
         />
       ))}

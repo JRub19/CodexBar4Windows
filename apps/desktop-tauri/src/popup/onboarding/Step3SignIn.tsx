@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProviderDescriptorDto } from "../../bindings";
 import { useT } from "../../i18n";
+import { Icon } from "../../components/Icon";
 
 // Phase 8 Task 21 step 3: per-provider sign-in. For each picked
 // provider we surface a "Sign in" button that triggers the same
@@ -72,19 +73,23 @@ export function Step3SignIn({ pickedProviders, onNext, onBack }: Props) {
                 type="button"
                 className="btn-link"
                 onClick={() => void openSettingsForProvider(d.id)}
+                style={{ marginLeft: "auto" }}
               >
                 {t("onboarding.button.sign_in")}
+                <Icon name="externalLink" size={12} />
               </button>
             </li>
           ))}
         </ul>
       )}
       <div className="onboarding-step__actions">
-        <button type="button" className="btn-secondary" onClick={onBack}>
+        <button type="button" className="btn-ghost" onClick={onBack}>
+          <Icon name="chevronLeft" size={14} />
           {t("common.button.back")}
         </button>
         <button type="button" className="btn-primary" onClick={onNext}>
           {t("common.button.next")}
+          <Icon name="chevronRight" size={14} />
         </button>
       </div>
     </div>

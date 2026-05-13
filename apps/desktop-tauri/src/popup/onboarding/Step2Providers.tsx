@@ -2,14 +2,10 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProviderDescriptorDto } from "../../bindings";
 import { useT } from "../../i18n";
+import { Icon } from "../../components/Icon";
 
-// Phase 8 Task 21 step 2: provider picker. Lists every provider the
-// registry exposes with a checkbox; the picked set is forwarded to
-// step 3 so the sign-in flow can iterate.
-//
-// Mirrors the macOS multi-select where the user can tick zero, one,
-// or many providers — the wizard validates that at least one is
-// chosen before enabling Next.
+// Step 2: pick providers. Multi-select with brand swatches; Next is
+// disabled until at least one provider is picked.
 
 interface Props {
   picked: string[];
@@ -69,35 +65,57 @@ export function Step2Providers({ picked, setPicked, onNext, onBack }: Props) {
             {t("onboarding.hint.providers.empty")}
           </p>
         )}
-        {descriptors.map((d) => (
-          <label key={d.id} className="onboarding-provider-row">
-            <input
-              type="checkbox"
-              checked={picked.includes(d.id)}
-              onChange={() => toggle(d.id)}
-            />
-            <span
-              className="onboarding-provider-row__swatch"
-              style={{ backgroundColor: d.branding.accent_hex }}
-              aria-hidden="true"
-            />
-            <span className="onboarding-provider-row__name">
-              {d.metadata.display_name}
-            </span>
-          </label>
-        ))}
+        {descriptors.map((d) => {
+          const isPicked = picked.includes(d.id);
+          return (
+            <label
+              key={d.id}
+              className="onboarding-provider-row"
+              style={
+                isPicked
+                  ? { background: "var(--accent-soft)" }
+                  : undefined
+              }
+            >
+              <input
+                type="checkbox"
+                checked={isPicked}
+                onChange={() => toggle(d.id)}
+                style={{ display: "none" }}
+              />
+              <span
+                className="onboarding-provider-row__swatch"
+                style={{ background: d.branding.accent_hex }}
+                aria-hidden="true"
+              />
+              <span className="onboarding-provider-row__name">
+                {d.metadata.display_name}
+              </span>
+              {isPicked ? (
+                <Icon
+                  name="check"
+                  size={16}
+                  strokeWidth={2}
+                  style={{ color: "var(--accent)", marginLeft: "auto" }}
+                />
+              ) : null}
+            </label>
+          );
+        })}
       </div>
       <div className="onboarding-step__actions">
-        <button type="button" className="btn-secondary" onClick={onBack}>
+        <button type="button" className="btn-ghost" onClick={onBack}>
+          <Icon name="chevronLeft" size={14} />
           {t("common.button.back")}
         </button>
         <button
           type="button"
           className="btn-primary"
           onClick={onNext}
-          disabled={!canAdvance && descriptors.length > 0}
+          disabled={!canAdvance}
         >
           {t("common.button.next")}
+          <Icon name="chevronRight" size={14} />
         </button>
       </div>
     </div>

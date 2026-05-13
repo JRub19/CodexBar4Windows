@@ -1,8 +1,8 @@
 import { useT } from "../../i18n";
+import { Icon } from "../../components/Icon";
 
-// Phase 8 Task 21 step 1: a static welcome card explaining what the
-// app does, with a single "Get started" button that advances to the
-// provider picker.
+// Step 1: Welcome. Hero icon + headline + body + a single primary
+// CTA. No back button (this is the first step).
 
 interface Props {
   onNext: () => void;
@@ -12,6 +12,9 @@ export function Step1Welcome({ onNext }: Props) {
   const t = useT();
   return (
     <div className="onboarding-step">
+      <div className="onboarding-step__hero">
+        <Icon name="sparkles" size={28} />
+      </div>
       <h2 className="onboarding-step__title" id="onboarding-title">
         {t("onboarding.title.welcome")}
       </h2>
@@ -23,9 +26,10 @@ export function Step1Welcome({ onNext }: Props) {
         <li>{t("onboarding.bullet.welcome.toasts")}</li>
         <li>{t("onboarding.bullet.welcome.hotkey")}</li>
       </ul>
-      <div className="onboarding-step__actions">
+      <div className="onboarding-step__actions onboarding-step__actions--end">
         <button type="button" className="btn-primary" onClick={onNext}>
           {t("onboarding.button.get_started")}
+          <Icon name="chevronRight" size={14} />
         </button>
       </div>
     </div>

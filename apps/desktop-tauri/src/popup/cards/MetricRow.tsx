@@ -1,35 +1,81 @@
+import { useEffect, useState } from "react";
 import type { Metric } from "./snapshot";
-import { UsageProgressBar } from "../components/UsageProgressBar";
 
-// Phase 3 D5: a single metric row inside a card. Per spec 15 section 4.1
-// the row is title, then bar, then two captions: percent + reset on top,
-// detail left + detail right below. The real `UsageProgressBar` replaces
-// the temporary fallback in phase 3 D6.
+// Compact secondary metric row. Used for weekly / credits / cost
+// after the hero metric block. Two-line layout:
+//
+//   WEEKLY                          ← uppercase tertiary caption
+//   48% remaining                   ← title + percent inline
+//   ━━━━━━━━━━━━━━                  ← compact bar (4 px)
+//   Resets Fri 12 PM     12.4M/20M  ← reset / detail row
+//
+// First-paint animation grows the bar from 0 → value; subsequent
+// updates transition the width smoothly.
 
 interface Props {
   metric: Metric;
-  brandAccent: string;
 }
 
-export function MetricRow({ metric, brandAccent }: Props) {
-  const pct = metric.percent;
+function colorClassFor(remainingPercent: number | null): string {
+  if (remainingPercent == null) return "";
+  if (remainingPercent < 10) return "usage-bar__fill--critical";
+  if (remainingPercent < 25) return "usage-bar__fill--warning";
+  return "";
+}
+
+export function MetricRow({ metric }: Props) {
+  const [isFirstPaint, setIsFirstPaint] = useState(true);
+  useEffect(() => {
+    const t = window.requestAnimationFrame(() => setIsFirstPaint(false));
+    return () => window.cancelAnimationFrame(t);
+  }, []);
+
+  const usedPercent = metric.percent;
+  const remainingPercent =
+    usedPercent != null ? Math.max(0, 100 - usedPercent) : null;
+
   return (
     <div className="metric-row">
-      <span className="metric-row__title">{metric.title}</span>
-      <UsageProgressBar percent={pct ?? 0} brandColor={brandAccent} />
-      <div className="metric-row__captions">
-        <span className="metric-row__percent">
-          {pct == null ? "—" : `${Math.round(pct)}%`}
+      <div className="metric-row__caption">{metric.title}</div>
+      <div className="metric-row__head">
+        <span className="metric-row__title">
+          {remainingPercent != null
+            ? `${Math.round(remainingPercent)}% remaining`
+            : metric.detailLeft ?? "—"}
         </span>
-        {metric.resetText ? (
-          <span className="metric-row__reset">{metric.resetText}</span>
-        ) : null}
       </div>
-      {metric.detailLeft || metric.detailRight ? (
+      {usedPercent != null ? (
+        <div
+          className="usage-bar usage-bar--compact"
+          role="progressbar"
+          aria-label={`${metric.title} usage`}
+          aria-valuenow={usedPercent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div
+            className={
+              "usage-bar__fill" +
+              (isFirstPaint ? " usage-bar__fill--first-paint" : "") +
+              " " + colorClassFor(remainingPercent)
+            }
+            style={
+              {
+                "--usage-percent": `${usedPercent}%`,
+              } as React.CSSProperties
+            }
+          />
+        </div>
+      ) : null}
+      {metric.resetText || metric.detailRight ? (
         <div className="metric-row__details">
-          {metric.detailLeft ? (
-            <span className="metric-row__detail-left">{metric.detailLeft}</span>
-          ) : null}
+          {metric.resetText ? (
+            <span className="metric-row__detail-left">
+              Resets {metric.resetText}
+            </span>
+          ) : (
+            <span />
+          )}
           {metric.detailRight ? (
             <span className="metric-row__detail-right">
               {metric.detailRight}
