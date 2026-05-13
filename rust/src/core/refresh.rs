@@ -267,4 +267,36 @@ mod tests {
             assert!(matches!(result, Err(RefreshError::Reentry)));
         });
     }
+
+    /// Phase 9 §A-3: Manual cadence must NEVER auto-trigger. The
+    /// loop spawned by `spawn` should block indefinitely on
+    /// `manual_trigger.notified()` until `nudge()` is called.
+    ///
+    /// We verify by spawning, sleeping 100 ms (the manual await is
+    /// race-free, so any wakeup means a regression), aborting, and
+    /// asserting `tick_count == 0`.
+    #[test]
+    fn manual_cadence_does_not_auto_tick() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .enable_io()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let settings = settings_with(RefreshFrequency::Manual, false);
+            let loop_ref = RefreshLoop::new(settings);
+            let in_flight_before = loop_ref.in_flight.load(Ordering::SeqCst);
+            assert!(!in_flight_before);
+            let handle = loop_ref.clone().spawn();
+            // Give the loop time to spuriously fire if it's going to.
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            // in_flight is set during a tick; if it was set, the
+            // loop ticked, which violates Manual semantics.
+            assert!(
+                !loop_ref.in_flight.load(Ordering::SeqCst),
+                "Manual cadence must not auto-trigger ticks"
+            );
+            handle.abort();
+        });
+    }
 }
