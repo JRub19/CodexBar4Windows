@@ -30,6 +30,7 @@ pub mod presentation;
 pub mod registry;
 pub mod settings_descriptor;
 pub mod settings_snapshot;
+pub mod venice;
 pub mod zai;
 
 pub use branding::ProviderBranding;

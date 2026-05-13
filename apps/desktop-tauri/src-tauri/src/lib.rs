@@ -81,6 +81,12 @@ use codexbar::providers::openrouter::api::strategy::{
 use codexbar::providers::openrouter::api::transport::ReqwestOpenRouterClient;
 use codexbar::providers::openrouter::planner::OpenRouterWiring;
 use codexbar::providers::openrouter::OpenRouterProvider;
+use codexbar::providers::venice::api::strategy::{
+    VeniceCredentialsResolver, VeniceHttp, VeniceResponse,
+};
+use codexbar::providers::venice::api::transport::ReqwestVeniceClient;
+use codexbar::providers::venice::planner::VeniceWiring;
+use codexbar::providers::venice::VeniceProvider;
 use codexbar::providers::zai::api::strategy::{
     ZaiCredentials, ZaiCredentialsResolver, ZaiHttp, ZaiResponse,
 };
@@ -783,6 +789,31 @@ impl ZaiCredentialsResolver for StoredZaiCredentials {
     }
 }
 
+struct NullVeniceHttp;
+#[async_trait::async_trait]
+impl VeniceHttp for NullVeniceHttp {
+    async fn get(&self, _: &str, _: &str) -> Result<VeniceResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; Venice disabled".into(),
+        ))
+    }
+}
+
+struct StoredVeniceCredentials {
+    tokens: Arc<TokenAccountStore>,
+}
+#[async_trait::async_trait]
+impl VeniceCredentialsResolver for StoredVeniceCredentials {
+    async fn resolve(&self) -> Result<Option<String>, ProviderFetchError> {
+        let store = self.tokens.clone();
+        let active = tokio::task::spawn_blocking(move || store.active_for("venice"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        Ok(active.map(|a| a.value).filter(|v| !v.trim().is_empty()))
+    }
+}
+
 /// Locate the `claude` binary on PATH. Returns `None` when the user has
 /// not installed the CLI.
 fn claude_cli_binary() -> Option<String> {
@@ -1082,6 +1113,18 @@ pub fn run() {
         }),
     });
 
+    let venice_provider = Arc::new(VeniceProvider::default());
+    let venice_http: Arc<dyn VeniceHttp> = match ReqwestVeniceClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullVeniceHttp),
+    };
+    venice_provider.install_wiring(VeniceWiring {
+        http: venice_http,
+        credentials: Arc::new(StoredVeniceCredentials {
+            tokens: token_store.clone(),
+        }),
+    });
+
     let providers: Vec<Arc<dyn ProviderImplementation>> = vec![
         claude_provider.clone(),
         codex_provider.clone(),
@@ -1093,6 +1136,7 @@ pub fn run() {
         deepseek_provider.clone(),
         moonshot_provider.clone(),
         zai_provider.clone(),
+        venice_provider.clone(),
     ];
     refresh.install_providers(providers, usage.clone(), token_store.clone());
 

@@ -206,6 +206,7 @@ pub async fn provider_settings_descriptors(
         .with_section(codexbar::providers::deepseek::settings::contribution())
         .with_section(codexbar::providers::moonshot::settings::contribution())
         .with_section(codexbar::providers::zai::settings::contribution())
+        .with_section(codexbar::providers::venice::settings::contribution())
         .build();
     Ok(snap)
 }
