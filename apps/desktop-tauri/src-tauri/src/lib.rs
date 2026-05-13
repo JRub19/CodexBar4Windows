@@ -1356,6 +1356,7 @@ pub fn run() {
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
+                        position,
                         ..
                     } = event
                     {
@@ -1365,6 +1366,49 @@ pub fn run() {
                             if w.is_visible().unwrap_or(false) {
                                 let _ = w.hide();
                             } else {
+                                // Position the popup just above the tray
+                                // icon (which is at `position` in physical
+                                // pixels). Right-align with the click point
+                                // and place the bottom edge a few pixels
+                                // above the icon. Clamp to monitor bounds
+                                // so the popup never goes off-screen.
+                                let size = w
+                                    .outer_size()
+                                    .ok()
+                                    .map(|s| (s.width as f64, s.height as f64))
+                                    .unwrap_or((380.0, 720.0));
+                                let monitor = w.current_monitor().ok().flatten();
+                                let (mon_x, mon_y, mon_w, mon_h) = match &monitor {
+                                    Some(m) => (
+                                        m.position().x as f64,
+                                        m.position().y as f64,
+                                        m.size().width as f64,
+                                        m.size().height as f64,
+                                    ),
+                                    None => (0.0, 0.0, 1920.0, 1080.0),
+                                };
+                                // Bottom-right of popup near (click.x, click.y - 8).
+                                let mut x = position.x - size.0 + 16.0;
+                                let mut y = position.y - size.1 - 12.0;
+                                // Clamp inside the monitor (8px margin).
+                                let max_x = mon_x + mon_w - size.0 - 8.0;
+                                let max_y = mon_y + mon_h - size.1 - 8.0;
+                                if x < mon_x + 8.0 {
+                                    x = mon_x + 8.0;
+                                }
+                                if x > max_x {
+                                    x = max_x;
+                                }
+                                if y < mon_y + 8.0 {
+                                    y = mon_y + 8.0;
+                                }
+                                if y > max_y {
+                                    y = max_y;
+                                }
+                                let _ = w.set_position(tauri::PhysicalPosition::new(
+                                    x as i32,
+                                    y as i32,
+                                ));
                                 let _ = w.show();
                                 let _ = w.set_focus();
                             }
