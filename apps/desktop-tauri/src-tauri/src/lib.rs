@@ -1391,6 +1391,8 @@ pub fn run() {
             hotkey_commands::hotkey_is_registered,
             hotkey_commands::hotkey_register,
             hotkey_commands::hotkey_unregister,
+            hotkey_commands::hotkey_set_chord,
+            hotkey_commands::hotkey_test_chord,
             launch_at_signin::launch_at_signin_is_enabled,
             launch_at_signin::launch_at_signin_enable,
             launch_at_signin::launch_at_signin_disable,

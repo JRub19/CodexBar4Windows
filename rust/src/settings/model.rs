@@ -37,6 +37,12 @@ pub struct Settings {
     /// can disable from the Notifications pane.
     #[serde(default = "default_notifications_enabled")]
     pub notifications_enabled: bool,
+    /// Chord that toggles the popup window. Stored in a human-readable
+    /// form like `"Win+Shift+U"` so the Shortcuts pane can render it
+    /// verbatim. `None` means "use the platform default" (`Win+Shift+U`
+    /// on Windows).
+    #[serde(default)]
+    pub popup_toggle_hotkey: Option<String>,
 }
 
 const fn default_notifications_enabled() -> bool {
@@ -56,6 +62,7 @@ impl Default for Settings {
             app_language: None,
             provider_kv: BTreeMap::new(),
             notifications_enabled: true,
+            popup_toggle_hotkey: None,
         }
     }
 }
@@ -142,6 +149,10 @@ pub struct SettingsPatch {
     /// signal "leave unchanged".
     pub provider_kv: Option<BTreeMap<String, String>>,
     pub notifications_enabled: Option<bool>,
+    /// Outer `Option` = present-in-patch; inner `Option<String>` =
+    /// chord string, where `None` clears the override and restores the
+    /// platform default.
+    pub popup_toggle_hotkey: Option<Option<String>>,
 }
 
 impl Settings {
@@ -178,6 +189,9 @@ impl Settings {
         }
         if let Some(v) = patch.notifications_enabled {
             self.notifications_enabled = v;
+        }
+        if let Some(v) = patch.popup_toggle_hotkey {
+            self.popup_toggle_hotkey = v;
         }
         self
     }

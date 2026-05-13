@@ -41,6 +41,7 @@ export interface Settings {
   app_language: string | null;
   provider_kv: Record<string, string>;
   notifications_enabled: boolean;
+  popup_toggle_hotkey: string | null;
 }
 
 export interface SettingsPatch {
@@ -53,6 +54,7 @@ export interface SettingsPatch {
   app_language?: string | null;
   provider_kv?: Record<string, string>;
   notifications_enabled?: boolean;
+  popup_toggle_hotkey?: string | null;
 }
 
 export interface SettingsChangedPayload {
