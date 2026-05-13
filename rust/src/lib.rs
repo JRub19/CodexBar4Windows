@@ -10,6 +10,7 @@ pub mod cost;
 pub mod locale;
 pub mod logging;
 pub mod notifications;
+pub mod projection;
 pub mod providers;
 pub mod redact;
 pub mod renderer;
