@@ -1,4 +1,4 @@
-import { useUsageStore } from "../state/usageStore";
+import { useUsageStore, useEnabledDescriptors } from "../state/usageStore";
 import { SwitcherTab } from "./SwitcherTab";
 
 // Row of provider tabs that hosts the popup-wide provider selection.
@@ -12,20 +12,20 @@ import { SwitcherTab } from "./SwitcherTab";
 // the `switcher--stacked` modifier.
 
 export function ProviderSwitcherButtons() {
-  const descriptors = useUsageStore((s) => s.descriptors);
+  const enabled = useEnabledDescriptors();
   const selectedId = useUsageStore((s) => s.selectedProviderId);
   const selectProvider = useUsageStore((s) => s.selectProvider);
 
-  if (descriptors.length < 2) return null;
+  if (enabled.length < 2) return null;
 
-  const stacked = descriptors.length > 4;
+  const stacked = enabled.length > 4;
 
   return (
     <div
       className={`switcher${stacked ? " switcher--stacked" : ""}`}
       role="tablist"
     >
-      {descriptors.map((d) => (
+      {enabled.map((d) => (
         <SwitcherTab
           key={d.id}
           descriptor={d}

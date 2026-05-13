@@ -1,16 +1,16 @@
-import { useUsageStore } from "../state/usageStore";
+import { useUsageStore, useEnabledDescriptors } from "../state/usageStore";
 import { ProviderCard } from "./ProviderCard";
 
-// Phase 3 D4: container that renders one ProviderCard per active
-// provider. The card is keyed by `provider.id` so switching tabs cross
-// fades via the CSS `popup-card-fade` animation defined in popup.css
-// (120 ms per spec 80 section 8). Layout height tweens via the
-// container's `transition: height 220ms ease-out`.
+// Renders the currently-selected provider's card. Filters descriptors
+// to only those the user has enabled — disabled providers never
+// surface in the popup body. The selection state is owned by the
+// store; the switcher (when ≥2 providers are enabled) drives it.
 
 export function CardStack() {
-  const descriptors = useUsageStore((s) => s.descriptors);
+  const enabled = useEnabledDescriptors();
   const selectedId = useUsageStore((s) => s.selectedProviderId);
-  const active = descriptors.find((d) => d.id === selectedId) ?? descriptors[0];
+  const active =
+    enabled.find((d) => d.id === selectedId) ?? enabled[0] ?? null;
 
   if (!active) {
     return (

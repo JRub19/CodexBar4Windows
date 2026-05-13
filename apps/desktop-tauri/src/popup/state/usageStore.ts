@@ -48,12 +48,19 @@ export interface ProviderSlot {
 
 interface UsageStoreState {
   descriptors: ProviderDescriptorDto[];
+  /** Provider IDs the user has explicitly enabled. `null` means "no
+   *  preference set yet" — treat every registered provider as enabled.
+   *  This mirrors the refresh-loop's empty-vec semantics so a fresh
+   *  install shows every available provider until the user disables
+   *  some via Preferences → Providers. */
+  enabledProviderIds: string[] | null;
   lastUsageEvent: UsageEventPayload | null;
   lastStatusEvent: StatusEventPayload | null;
   snapshots: Record<string, ProviderSlot>;
   theme: Theme;
   selectedProviderId: string | null;
   setDescriptors: (next: ProviderDescriptorDto[]) => void;
+  setEnabledProviderIds: (next: string[] | null) => void;
   setSnapshots: (next: Record<string, ProviderSlot>) => void;
   applyUsageEvent: (event: UsageEventPayload) => void;
   applyStatusEvent: (event: StatusEventPayload) => void;
@@ -63,6 +70,7 @@ interface UsageStoreState {
 
 export const useUsageStore = create<UsageStoreState>((set) => ({
   descriptors: [],
+  enabledProviderIds: null,
   lastUsageEvent: null,
   lastStatusEvent: null,
   snapshots: {},
@@ -71,17 +79,40 @@ export const useUsageStore = create<UsageStoreState>((set) => ({
   setDescriptors: (next) =>
     set((s) => ({
       descriptors: next,
-      // Preserve a selection when the descriptor still exists, otherwise
-      // pick the first one so the popup always has something to display.
       selectedProviderId:
         s.selectedProviderId &&
         next.some((d) => d.id === s.selectedProviderId)
           ? s.selectedProviderId
           : (next[0]?.id ?? null),
     })),
+  setEnabledProviderIds: (next) =>
+    set((s) => {
+      // Re-pick selection if the currently-selected provider was
+      // just disabled. Fall back to the first enabled descriptor.
+      const allowed = next == null ? s.descriptors.map((d) => d.id) : next;
+      const selectionStillValid =
+        s.selectedProviderId != null && allowed.includes(s.selectedProviderId);
+      const firstEnabled = s.descriptors.find((d) => allowed.includes(d.id));
+      return {
+        enabledProviderIds: next,
+        selectedProviderId: selectionStillValid
+          ? s.selectedProviderId
+          : (firstEnabled?.id ?? null),
+      };
+    }),
   setSnapshots: (next) => set({ snapshots: next }),
   applyUsageEvent: (event) => set({ lastUsageEvent: event }),
   applyStatusEvent: (event) => set({ lastStatusEvent: event }),
   setTheme: (theme) => set({ theme }),
   selectProvider: (id) => set({ selectedProviderId: id }),
 }));
+
+/** Helper selector — returns descriptors filtered by the
+ *  enabledProviderIds set (or all of them when no preference exists). */
+export function useEnabledDescriptors(): ProviderDescriptorDto[] {
+  return useUsageStore((s) => {
+    if (s.enabledProviderIds == null) return s.descriptors;
+    const enabled = new Set(s.enabledProviderIds);
+    return s.descriptors.filter((d) => enabled.has(d.id));
+  });
+}

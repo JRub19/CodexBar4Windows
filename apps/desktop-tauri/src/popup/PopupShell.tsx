@@ -34,14 +34,56 @@ import "../styles/reduced-motion.css";
 //
 // The popup auto-hides on focus loss (handled in the Tauri Rust side).
 
+interface ProviderToggle {
+  id: string;
+  enabled: boolean;
+  order?: number;
+}
+
+interface SettingsForPopup {
+  providers: ProviderToggle[];
+}
+
 export function PopupShell() {
   const descriptors = useUsageStore((s) => s.descriptors);
   const setDescriptors = useUsageStore((s) => s.setDescriptors);
+  const setEnabledProviderIds = useUsageStore((s) => s.setEnabledProviderIds);
   const setSnapshots = useUsageStore((s) => s.setSnapshots);
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
   const [onboardingActive, setOnboardingActive] = useState<boolean | null>(null);
   useKeyboardNav();
+
+  // Fetch settings + listen for live changes so the popup filters to
+  // the providers the user has actually enabled. Empty `providers`
+  // means "no preference set" — treat every registered descriptor as
+  // enabled (matches the refresh-loop's semantics).
+  useEffect(() => {
+    let cancelled = false;
+    const applyToggles = (toggles: ProviderToggle[]) => {
+      if (cancelled) return;
+      if (toggles.length === 0) {
+        setEnabledProviderIds(null);
+        return;
+      }
+      setEnabledProviderIds(
+        toggles.filter((t) => t.enabled).map((t) => t.id),
+      );
+    };
+    void invoke<SettingsForPopup>("get_settings").then((s) =>
+      applyToggles(s.providers ?? []),
+    );
+    const unlisten = listen<{ settings: SettingsForPopup }>(
+      "settings:changed",
+      (event) => {
+        applyToggles(event.payload?.settings?.providers ?? []);
+      },
+    );
+    return () => {
+      cancelled = true;
+      void unlisten.then((f) => f());
+    };
+  }, [setEnabledProviderIds]);
 
   useEffect(() => {
     let cancelled = false;
