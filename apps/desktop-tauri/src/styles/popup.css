@@ -1538,3 +1538,156 @@ kbd {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+
+/* ============================================================ */
+/* COST HISTORY CHART (per-provider, 30-day bar chart)          */
+/* ============================================================ */
+
+.cost-chart {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cost-chart__caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cost-chart__caption-label { font-weight: 600; }
+.cost-chart__caption-value {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-compact);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.cost-chart__empty {
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  padding: var(--space-3) 0;
+  line-height: 1.45;
+}
+
+.cost-chart__bars {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  position: relative;
+}
+
+.cost-chart__bar {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  transition: opacity var(--d-hover-in, 120ms) var(--ease-out);
+}
+
+.cost-chart__bar-fill {
+  width: 100%;
+  border-radius: 2px 2px 1px 1px;
+  transform-origin: bottom;
+  /* Stagger entry — each bar springs up after its index * 14ms. */
+}
+.cost-chart__bar--enter .cost-chart__bar-fill {
+  animation: cost-bar-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--cost-stagger, 0ms);
+}
+
+@keyframes cost-bar-enter {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+.cost-chart__bar-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: #f7c948; /* gentler than systemYellow — Phantom-ish gold */
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.cost-chart__bar--hovered .cost-chart__bar-fill {
+  filter: brightness(1.12);
+}
+
+.cost-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.cost-chart__detail {
+  margin-top: var(--space-1);
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cost-chart__detail-primary {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  height: 16px;
+  display: flex;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-chart__detail-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cost-chart__detail-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 14px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-chart__detail-row--filler {
+  visibility: hidden;
+}
+
+.cost-chart__detail-accent {
+  width: 2px;
+  height: 100%;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.cost-chart__detail-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+}
+
+.cost-chart__detail-cost {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}

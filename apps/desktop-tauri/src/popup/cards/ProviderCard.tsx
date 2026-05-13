@@ -6,6 +6,8 @@ import { CardHeader } from "./CardHeader";
 import { HeroMetric } from "./HeroMetric";
 import { MetricRow } from "./MetricRow";
 import { Icon } from "../../components/Icon";
+import { CostHistoryChart } from "./CostHistoryChart";
+import { useCostHistory } from "./useCostHistory";
 import type { Metric, ProviderSnapshot } from "./snapshot";
 
 // The popup's per-provider card. Top to bottom:
@@ -103,6 +105,8 @@ function snapshotFromSlot(
 export function ProviderCard({ descriptor }: Props) {
   const slot = useUsageStore((s) => s.snapshots[descriptor.id] ?? null);
   const [retrying, setRetrying] = useState(false);
+  const cost = useCostHistory();
+  const costSnap = cost.byProvider[descriptor.id] ?? null;
 
   const onRetry = async () => {
     setRetrying(true);
@@ -144,6 +148,13 @@ export function ProviderCard({ descriptor }: Props) {
   const primary = snapshot.metrics[0];
   const secondary = snapshot.metrics.slice(1);
 
+  // Cost-history is only meaningful for providers that produce
+  // locally-parsable JSONL session logs. The Rust scanner exposes
+  // snapshots for `claude` and `codex` today; the lookup gracefully
+  // returns null for everything else, which renders nothing.
+  const showCostChart =
+    descriptor.id === "claude" || descriptor.id === "codex";
+
   return (
     <article className="provider-card">
       <CardHeader snapshot={snapshot} />
@@ -154,6 +165,13 @@ export function ProviderCard({ descriptor }: Props) {
             <MetricRow key={`${snapshot.id}-${idx}`} metric={metric} />
           ))}
         </div>
+      ) : null}
+      {showCostChart ? (
+        <CostHistoryChart
+          snapshot={costSnap}
+          brandColor={descriptor.branding.accent_hex}
+          visible={!cost.loading}
+        />
       ) : null}
     </article>
   );

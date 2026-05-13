@@ -1202,6 +1202,9 @@ pub fn run() {
         .manage(secrets_commands::TokenAccountHandle(token_store))
         .manage(secrets_commands::CookieImporterHandle(cookie_importer))
         .manage(commands::StatusHandle(status_store.clone()))
+        .manage(commands::CostHandle(Arc::new(
+            codexbar::cost::CostStore::new(),
+        )))
         .manage(hotkey_commands::HotkeyHandle(Arc::new(
             hotkey_commands::HotkeyRegistry::default(),
         )))
@@ -1448,6 +1451,8 @@ pub fn run() {
             commands::storage_footprint_scan,
             commands::open_in_explorer,
             commands::log_from_ui,
+            commands::cost_snapshots,
+            commands::refresh_cost_history,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,

@@ -23,6 +23,11 @@ pub struct SettingsChangedPayload {
 pub struct RefreshHandle(pub Arc<RefreshLoop>);
 pub struct UsageHandle(pub Arc<UsageStore>);
 pub struct StatusHandle(pub codexbar::status::StatusStore);
+/// Shared cost-history store. The first call kicks off a scan; the
+/// scan is also rerun on demand by the `refresh_cost_history`
+/// command and as a side effect of every `cost_snapshots` invocation
+/// that finds the cache older than 60s.
+pub struct CostHandle(pub Arc<codexbar::cost::CostStore>);
 
 #[derive(Serialize)]
 pub struct StatusSnapshotDto {
@@ -568,6 +573,41 @@ pub async fn log_from_ui(level: String, scope: String, message: String) -> Resul
         }
     };
     let _ = f.write_all(line.as_bytes());
+    Ok(())
+}
+
+/// Return the cached per-provider cost snapshots. Runs a fresh scan
+/// when the cache is empty so the first call always returns useful
+/// data (or empty maps if the user has no JSONL on disk).
+///
+/// Subsequent calls are O(1) until `refresh_cost_history` is
+/// invoked or the in-memory cache is rotated.
+#[tauri::command]
+pub async fn cost_snapshots(
+    cost: State<'_, CostHandle>,
+) -> Result<std::collections::HashMap<String, codexbar::providers::ProviderCostSnapshot>, String> {
+    let store = cost.0.clone();
+    // Scan synchronously the first time so callers don't get an
+    // empty map back. The scan is cheap when directories are empty
+    // and bounded by file count when they aren't.
+    if store.snapshots().is_empty() {
+        let store_for_scan = store.clone();
+        tokio::task::spawn_blocking(move || store_for_scan.scan_once())
+            .await
+            .map_err(|e| format!("cost scan join error: {e}"))?;
+    }
+    Ok(store.snapshots())
+}
+
+/// Force a re-scan of the cost JSONL roots. The popup surfaces this
+/// via a "Refresh" affordance in the cost section, and the refresh
+/// loop calls it periodically.
+#[tauri::command]
+pub async fn refresh_cost_history(cost: State<'_, CostHandle>) -> Result<(), String> {
+    let store = cost.0.clone();
+    tokio::task::spawn_blocking(move || store.scan_once())
+        .await
+        .map_err(|e| format!("cost refresh join error: {e}"))?;
     Ok(())
 }
 
