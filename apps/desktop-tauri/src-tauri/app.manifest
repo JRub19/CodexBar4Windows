@@ -26,4 +26,24 @@
       <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
     </application>
   </compatibility>
+  <!-- REQUIRED for any process that touches comctl32 v6 APIs like
+       TaskDialogIndirect, modern themed controls, etc. Without this
+       <dependency>, Windows loads the legacy comctl32 v5 and
+       LoadLibrary/GetProcAddress against the v6 entry points fails
+       at process start with "Der Prozedureinsprungpunkt
+       'TaskDialogIndirect' wurde in der DLL ... nicht gefunden".
+       Tauri 2's runtime imports TaskDialogIndirect indirectly via
+       webview2-com on certain dialog paths. -->
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+        type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"
+      />
+    </dependentAssembly>
+  </dependency>
 </assembly>
