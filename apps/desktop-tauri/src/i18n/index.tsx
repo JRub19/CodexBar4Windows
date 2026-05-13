@@ -7,6 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import en from "./en.json";
 import zhHans from "./zh-Hans.json";
 import ptBR from "./pt-BR.json";
@@ -97,6 +99,54 @@ export function I18nProvider({ initialLocale, children }: ProviderProps) {
       setLocaleState(next);
     }
   }, []);
+
+  // Bridge to the persisted `settings.app_language` value: read it on
+  // boot and live-react to `settings:changed` events emitted from any
+  // window when the Appearance pane writes a new value. This is what
+  // makes the language picker take effect immediately across both the
+  // popup and the Preferences window without needing a relaunch.
+  useEffect(() => {
+    if (initialLocale) return; // tests override system + settings
+    let cancelled = false;
+
+    const apply = (raw: string | null | undefined) => {
+      if (cancelled) return;
+      if (raw && SUPPORTED_LOCALES.includes(raw as LocaleCode)) {
+        setLocaleState(raw as LocaleCode);
+      } else {
+        setLocaleState(
+          resolveSystemLocale(
+            typeof navigator !== "undefined" ? navigator.language : "en",
+          ),
+        );
+      }
+    };
+
+    void invoke<{ app_language: string | null }>("get_settings")
+      .then((s) => apply(s.app_language))
+      .catch(() => {
+        // No backend (vitest/jsdom); keep the navigator-derived locale.
+      });
+
+    let unlisten: (() => void) | null = null;
+    void listen<{ settings: { app_language: string | null } }>(
+      "settings:changed",
+      (event) => apply(event.payload?.settings?.app_language ?? null),
+    )
+      .then((stop) => {
+        if (cancelled) {
+          stop();
+        } else {
+          unlisten = stop;
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+  }, [initialLocale]);
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => {

@@ -34,5 +34,13 @@
   "update.title.installing": "Instalando atualização…",
   "update.title.error": "Falha na atualização",
   "update.button.update_now": "Atualizar agora",
-  "update.button.later": "Depois"
+  "update.button.later": "Depois",
+
+  "settings.pane.appearance": "Aparência",
+  "settings.appearance.intro": "Idioma de exibição e cor de destaque. Trocar o idioma tem efeito imediato.",
+  "settings.appearance.language": "Idioma",
+  "settings.appearance.language.system": "Padrão do sistema",
+  "settings.appearance.language.en": "English",
+  "settings.appearance.language.zh_hans": "简体中文",
+  "settings.appearance.language.pt_br": "Português (Brasil)"
 }

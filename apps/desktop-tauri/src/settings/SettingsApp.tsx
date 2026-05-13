@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { KeyShortcutRecorder } from "../components/KeyShortcutRecorder";
+import { SUPPORTED_LOCALES, useT, type LocaleCode } from "../i18n";
 
 import "../styles/popup.css";
 import "../styles/settings.css";
@@ -31,6 +32,7 @@ import {
 
 type PaneId =
   | "general"
+  | "appearance"
   | "providers"
   | "notifications"
   | "shortcuts"
@@ -39,6 +41,7 @@ type PaneId =
 
 const PANES: ReadonlyArray<{ id: PaneId; label: string }> = [
   { id: "general", label: "General" },
+  { id: "appearance", label: "Appearance" },
   { id: "providers", label: "Providers" },
   { id: "notifications", label: "Notifications" },
   { id: "shortcuts", label: "Shortcuts" },
@@ -168,6 +171,7 @@ export function SettingsApp() {
         </header>
         <div className="settings-app__pane-body">
           {pane === "general" ? <GeneralPane /> : null}
+          {pane === "appearance" ? <AppearancePane /> : null}
           {pane === "providers" ? (
             <ProvidersPane focusedProviderId={focusedProviderId} />
           ) : null}
@@ -235,6 +239,74 @@ function GeneralPane() {
           checked={settings.pause_refresh}
           onChange={() => void togglePause()}
         />
+      </label>
+    </>
+  );
+}
+
+function AppearancePane() {
+  const t = useT();
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void invoke<Settings>("get_settings").then(setSettings).catch((e) => {
+      setError(String(e));
+    });
+  }, []);
+
+  if (error) return <p className="settings-row__error">{error}</p>;
+  if (!settings) return <p className="settings-app__loading">Loading…</p>;
+
+  /** "system" represents an empty `app_language` (auto-detect). */
+  const currentValue: LocaleCode | "system" =
+    settings.app_language && SUPPORTED_LOCALES.includes(settings.app_language as LocaleCode)
+      ? (settings.app_language as LocaleCode)
+      : "system";
+
+  const onLanguageChange = async (value: LocaleCode | "system") => {
+    try {
+      const patch =
+        value === "system"
+          ? { app_language: null }
+          : { app_language: value };
+      const next = await invoke<Settings>("update_settings", { patch });
+      setSettings(next);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  return (
+    <>
+      <p className="settings-app__pane-intro">
+        {t("settings.appearance.intro")}
+      </p>
+      <label className="settings-row settings-row--picker">
+        <span className="settings-row__title">
+          {t("settings.appearance.language")}
+        </span>
+        <select
+          value={currentValue}
+          onChange={(e) =>
+            void onLanguageChange(
+              e.target.value as LocaleCode | "system",
+            )
+          }
+        >
+          <option value="system">
+            {t("settings.appearance.language.system")}
+          </option>
+          <option value="en">
+            {t("settings.appearance.language.en")}
+          </option>
+          <option value="zh-Hans">
+            {t("settings.appearance.language.zh_hans")}
+          </option>
+          <option value="pt-BR">
+            {t("settings.appearance.language.pt_br")}
+          </option>
+        </select>
       </label>
     </>
   );
