@@ -24,6 +24,12 @@ pub const ANIMATION_CEILING: Duration = Duration::from_secs(30);
 pub enum PowerMode {
     Normal,
     LowPower,
+    /// Phase 9 §C-3: the OS reports `prefers-reduced-motion`. We stop
+    /// animating the icon entirely (no morph, no critter blink) — the
+    /// tray icon repaints only on state change. This is stricter than
+    /// `LowPower` because the user has explicitly asked for reduced
+    /// motion, not just reduced power consumption.
+    ReducedMotion,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -51,12 +57,20 @@ impl FrameDriver {
         match self.mode {
             PowerMode::Normal => NORMAL_FRAME_INTERVAL,
             PowerMode::LowPower => LOW_POWER_FRAME_INTERVAL,
+            // Reduced-motion gets a huge interval so the loop still
+            // advances cleanly to the ceiling (avoids special-casing
+            // the caller) but never paints in practice.
+            PowerMode::ReducedMotion => ANIMATION_CEILING,
         }
     }
 
     /// Compute the next frame instant. Returns `None` once the
-    /// [`ANIMATION_CEILING`] has elapsed.
+    /// [`ANIMATION_CEILING`] has elapsed, or immediately in
+    /// `ReducedMotion` mode (no animation frames at all).
     pub fn next_frame_at(&self, now: Instant) -> Option<Instant> {
+        if matches!(self.mode, PowerMode::ReducedMotion) {
+            return None;
+        }
         if now.duration_since(self.started_at) >= ANIMATION_CEILING {
             return None;
         }
@@ -125,5 +139,26 @@ mod tests {
         assert_eq!(d.interval(), NORMAL_FRAME_INTERVAL);
         d.set_mode(PowerMode::LowPower);
         assert_eq!(d.interval(), LOW_POWER_FRAME_INTERVAL);
+    }
+
+    #[test]
+    fn reduced_motion_yields_no_frames() {
+        // Phase 9 §C-3: when the OS reports prefers-reduced-motion,
+        // the driver returns None for next_frame_at unconditionally
+        // so the caller loops directly to is_done() without ever
+        // painting an in-between frame.
+        let d = FrameDriver::new(PowerMode::ReducedMotion);
+        assert!(d.next_frame_at(d.started_at).is_none());
+        // Even at t=0, the answer is None — no animation start frame.
+        assert!(d.next_frame_at(d.started_at + Duration::from_millis(1)).is_none());
+    }
+
+    #[test]
+    fn switching_to_reduced_motion_stops_animation_mid_run() {
+        let mut d = FrameDriver::new(PowerMode::Normal);
+        let now = d.started_at + Duration::from_millis(500);
+        assert!(d.next_frame_at(now).is_some());
+        d.set_mode(PowerMode::ReducedMotion);
+        assert!(d.next_frame_at(now).is_none());
     }
 }

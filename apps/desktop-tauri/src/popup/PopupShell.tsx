@@ -118,7 +118,11 @@ export function PopupShell() {
   }, [settingsOpen]);
 
   return (
-    <div className="popup-root">
+    <div
+      className="popup-root"
+      role="application"
+      aria-label="CodexBar4Windows popup"
+    >
       <UpdateBanner />
       <PopupHeader onOpenSettings={() => setSettingsOpen(true)} />
       <main className="popup-body">

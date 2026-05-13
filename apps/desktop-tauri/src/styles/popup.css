@@ -1271,3 +1271,43 @@ html, body, #root {
     transition: none;
   }
 }
+
+/* Phase 9 §C-4: High Contrast theme adaptation.
+   When Windows is in High Contrast mode, Mica is stripped, bars get
+   2px solid borders, and accent-based decoration falls back to the
+   `Highlight` / `HighlightText` system colors. The renderer-side
+   tray icon also reads the OS High Contrast flag (see
+   rust/src/renderer/theme_detect.rs). */
+@media (forced-colors: active) {
+  .popup-root,
+  .settings-app {
+    background: Canvas !important;
+    backdrop-filter: none !important;
+  }
+  .provider-card,
+  .storage-footprint,
+  .settings-row {
+    border: 2px solid CanvasText !important;
+    background: Canvas !important;
+  }
+  .btn-primary,
+  .settings-action {
+    background: Highlight !important;
+    color: HighlightText !important;
+    border: 2px solid HighlightText !important;
+  }
+  .settings-providers__entry--active,
+  .settings-app__nav-item--active {
+    background: Highlight !important;
+    color: HighlightText !important;
+  }
+  /* Drop animations entirely in High Contrast. Most AT users have
+     both forced-colors and reduced-motion on; the @media rule for
+     reduced-motion above already handles it, but we belt-and-brace. */
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
