@@ -1,17 +1,15 @@
-//! Gemini OAuth strategy. Ported from `GeminiStatusProbe.swift`. The
-//! refresh path (which requires extracting the embedded
-//! `OAUTH_CLIENT_ID/SECRET` from the installed @google/gemini-cli
-//! package) is intentionally out of scope for the initial port:
-//! - Token already valid → call `loadCodeAssist`, optionally discover
-//!   project, then POST `retrieveUserQuota`.
-//! - Token expired but resolver returns refreshed credentials → same
-//!   path.
-//! - Token expired with no refresh available → `Unauthorized`.
+//! Gemini OAuth strategy. Ported from `GeminiStatusProbe.swift`.
 //!
-//! The refresh-via-CLI plumbing will live in a separate file with a
-//! Windows-specific npm/fnm/scoop locator. Until then the user runs
-//! `gemini` once to get a fresh access_token.
+//! Token freshness:
+//! - Token still valid → call `loadCodeAssist`, optionally discover
+//!   project, then POST `retrieveUserQuota`.
+//! - Token expired + a `RefreshHook` is installed → POST
+//!   `oauth2.googleapis.com/token` with the embedded client_id /
+//!   secret from @google/gemini-cli, persist the new token, retry.
+//! - Token expired + no refresh hook → `Unauthorized` (the user must
+//!   re-run `gemini` to mint a fresh token).
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -21,9 +19,11 @@ use serde::Deserialize;
 use super::code_assist::{
     parse_status, plan_label, CodeAssistStatus, LOAD_CODE_ASSIST_BODY, LOAD_CODE_ASSIST_URL,
 };
+use super::client_locator::OAuthClientCredentials;
 use super::credentials::{GeminiAuthType, GeminiOAuthCredentials};
 use super::jwt_claims::extract_claims;
 use super::response::{classify_models, fold_buckets, QuotaResponse};
+use super::token_refresh::{apply_in_memory, persist_to_disk, refresh, RefreshHttp};
 use crate::providers::descriptor::FetchStrategy;
 use crate::providers::errors::ProviderFetchError;
 use crate::providers::fetch_context::ProviderFetchContext;
@@ -73,9 +73,32 @@ pub struct GeminiCredentialsState {
     pub credentials: Option<GeminiOAuthCredentials>,
 }
 
+/// Optional refresh hook. When present, the strategy will try to
+/// refresh an expired access_token before giving up.
+pub struct RefreshHook {
+    /// HTTP transport for the POST to oauth2.googleapis.com/token.
+    pub http: Arc<dyn RefreshHttp>,
+    /// OAuth client credentials extracted from @google/gemini-cli on
+    /// disk. Resolved lazily so the strategy can construct itself even
+    /// when the package is not yet installed.
+    pub client: Arc<dyn ClientCredentialsProvider>,
+    /// Home directory for writing the refreshed token back to
+    /// `~/.gemini/oauth_creds.json`.
+    pub home_dir: PathBuf,
+}
+
+#[async_trait]
+pub trait ClientCredentialsProvider: Send + Sync {
+    /// Returns `Ok(None)` when @google/gemini-cli is not installed; the
+    /// strategy treats that the same as "no refresh hook" and surfaces
+    /// `Unauthorized` so the user is prompted to install / re-auth.
+    async fn resolve(&self) -> Result<Option<OAuthClientCredentials>, ProviderFetchError>;
+}
+
 pub struct GeminiOAuthStrategy {
     http: Arc<dyn GoogleHttp>,
     resolver: Arc<dyn GeminiCredentialsResolver>,
+    refresh: Option<RefreshHook>,
 }
 
 impl GeminiOAuthStrategy {
@@ -83,7 +106,16 @@ impl GeminiOAuthStrategy {
         http: Arc<dyn GoogleHttp>,
         resolver: Arc<dyn GeminiCredentialsResolver>,
     ) -> Self {
-        Self { http, resolver }
+        Self {
+            http,
+            resolver,
+            refresh: None,
+        }
+    }
+
+    pub fn with_refresh(mut self, refresh: RefreshHook) -> Self {
+        self.refresh = Some(refresh);
+        self
     }
 }
 
@@ -109,24 +141,32 @@ impl Strategy for GeminiOAuthStrategy {
             GeminiAuthType::OauthPersonal | GeminiAuthType::Unknown => {}
         }
 
-        let creds = state.credentials.ok_or(ProviderFetchError::NoToken("gemini"))?;
-        let access_token = creds
+        let mut creds = state
+            .credentials
+            .ok_or(ProviderFetchError::NoToken("gemini"))?;
+        if creds
             .access_token
             .as_deref()
+            .map(str::trim)
             .filter(|t| !t.is_empty())
-            .ok_or(ProviderFetchError::NoToken("gemini"))?;
+            .is_none()
+        {
+            return Err(ProviderFetchError::NoToken("gemini"));
+        }
 
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or_default();
         if creds.is_expired(now_secs) {
-            // No refresh wiring yet. Surface Unauthorized so the
-            // runtime stops walking the plan and the popup tells the
-            // user to re-auth via the gemini CLI.
-            return Err(ProviderFetchError::Unauthorized);
+            self.refresh_access_token(&mut creds, now_secs).await?;
         }
 
+        let access_token = creds
+            .access_token
+            .as_deref()
+            .filter(|t| !t.is_empty())
+            .ok_or(ProviderFetchError::NoToken("gemini"))?;
         let bearer = format!("Bearer {access_token}");
         let claims = extract_claims(creds.id_token.as_deref());
 
@@ -205,6 +245,38 @@ impl Strategy for GeminiOAuthStrategy {
 }
 
 impl GeminiOAuthStrategy {
+    async fn refresh_access_token(
+        &self,
+        creds: &mut GeminiOAuthCredentials,
+        now_secs: i64,
+    ) -> Result<(), ProviderFetchError> {
+        let Some(hook) = self.refresh.as_ref() else {
+            return Err(ProviderFetchError::Unauthorized);
+        };
+        let refresh_token = creds
+            .refresh_token
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .ok_or(ProviderFetchError::Unauthorized)?
+            .to_string();
+        // If the @google/gemini-cli package is not installed we cannot
+        // refresh — surface Unauthorized so the popup tells the user
+        // to install / re-auth.
+        let client = match hook.client.resolve().await? {
+            Some(c) => c,
+            None => return Err(ProviderFetchError::Unauthorized),
+        };
+        let refreshed = refresh(hook.http.as_ref(), &client, &refresh_token).await?;
+        apply_in_memory(creds, &refreshed, now_secs);
+        // Disk write is best-effort: if it fails we still keep the
+        // in-memory refresh so the current tick succeeds. The next
+        // tick will simply re-refresh (with the old refresh_token,
+        // which Google leaves valid).
+        let _ = persist_to_disk(&hook.home_dir, &refreshed, now_secs);
+        Ok(())
+    }
+
     async fn load_code_assist(&self, bearer: &str) -> Option<CodeAssistStatus> {
         let response = self
             .http
@@ -571,6 +643,184 @@ mod tests {
             credentials: Some(fresh_creds(r#"{"email":"u@x.com"}"#)),
         }));
         let strategy = GeminiOAuthStrategy::new(http, resolver);
+        let err = rt()
+            .block_on(async { strategy.fetch(&ctx()).await })
+            .unwrap_err();
+        assert!(matches!(err, ProviderFetchError::Unauthorized));
+    }
+
+    // ─── Refresh-hook tests ─────────────────────────────────────────
+
+    use super::super::token_refresh::{RefreshHttp, RefreshResponse};
+    use std::path::PathBuf;
+
+    struct StubRefreshHttp {
+        replies: Mutex<Vec<RefreshResponse>>,
+        captured: Mutex<Vec<(String, String)>>,
+    }
+    impl StubRefreshHttp {
+        fn new() -> Self {
+            Self {
+                replies: Mutex::new(Vec::new()),
+                captured: Mutex::new(Vec::new()),
+            }
+        }
+        fn enqueue(&self, status: u16, body: &[u8]) {
+            self.replies.lock().unwrap().push(RefreshResponse {
+                status,
+                body: body.to_vec(),
+            });
+        }
+    }
+    #[async_trait]
+    impl RefreshHttp for StubRefreshHttp {
+        async fn post_form(
+            &self,
+            url: &str,
+            body: &str,
+        ) -> Result<RefreshResponse, ProviderFetchError> {
+            self.captured.lock().unwrap().push((url.into(), body.into()));
+            let mut replies = self.replies.lock().unwrap();
+            if replies.is_empty() {
+                return Err(ProviderFetchError::Network("stub exhausted".into()));
+            }
+            Ok(replies.remove(0))
+        }
+    }
+
+    struct StubClient(Option<OAuthClientCredentials>);
+    #[async_trait]
+    impl ClientCredentialsProvider for StubClient {
+        async fn resolve(
+            &self,
+        ) -> Result<Option<OAuthClientCredentials>, ProviderFetchError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    fn expired_creds(email_claim: &str) -> GeminiOAuthCredentials {
+        GeminiOAuthCredentials {
+            access_token: Some("stale-token".into()),
+            id_token: Some(jwt(email_claim)),
+            refresh_token: Some("rt-1".into()),
+            expiry_unix_secs: Some(1), // long in the past
+        }
+    }
+
+    fn write_creds_file(dir: &std::path::Path) -> PathBuf {
+        let gemini = dir.join(".gemini");
+        std::fs::create_dir_all(&gemini).unwrap();
+        let path = gemini.join("oauth_creds.json");
+        std::fs::write(
+            &path,
+            r#"{"access_token":"stale-token","id_token":"old-id","refresh_token":"rt-1","expiry_date":1000}"#,
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn expired_token_with_refresh_hook_refreshes_and_proceeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let creds_path = write_creds_file(dir.path());
+
+        let http = Arc::new(ScriptedHttp::default());
+        http.put(LOAD_CODE_ASSIST_URL, 200, br#"{"currentTier": {"id": "standard-tier"}}"#);
+        http.put(
+            QUOTA_URL,
+            200,
+            br#"{"buckets": [
+                {"modelId": "gemini-2.5-pro", "remainingFraction": 0.5}
+            ]}"#,
+        );
+
+        let refresh_http = Arc::new(StubRefreshHttp::new());
+        refresh_http.enqueue(
+            200,
+            br#"{"access_token":"fresh-token","expires_in":3600,"id_token":"fresh-id"}"#,
+        );
+
+        let resolver = Arc::new(StubResolver(GeminiCredentialsState {
+            auth_type: GeminiAuthType::OauthPersonal,
+            credentials: Some(expired_creds(r#"{"email":"u@x.com"}"#)),
+        }));
+        let strategy = GeminiOAuthStrategy::new(http, resolver).with_refresh(RefreshHook {
+            http: refresh_http.clone(),
+            client: Arc::new(StubClient(Some(OAuthClientCredentials {
+                client_id: "client.apps.googleusercontent.com".into(),
+                client_secret: "GOCSPX-test".into(),
+            }))),
+            home_dir: dir.path().to_path_buf(),
+        });
+        let snap = rt()
+            .block_on(async { strategy.fetch(&ctx()).await })
+            .unwrap();
+        assert_eq!(snap.windows.len(), 1);
+        // Refresh POST was made with the expected form body.
+        let captured = refresh_http.captured.lock().unwrap();
+        assert_eq!(captured.len(), 1);
+        assert!(captured[0].1.contains("refresh_token=rt-1"));
+        assert!(captured[0].1.contains("grant_type=refresh_token"));
+        // Disk was rewritten with the new access_token.
+        let on_disk = std::fs::read_to_string(&creds_path).unwrap();
+        assert!(on_disk.contains("fresh-token"));
+    }
+
+    #[test]
+    fn expired_token_with_no_refresh_hook_remains_unauthorized() {
+        let http = Arc::new(ScriptedHttp::default());
+        let resolver = Arc::new(StubResolver(GeminiCredentialsState {
+            auth_type: GeminiAuthType::OauthPersonal,
+            credentials: Some(expired_creds(r#"{"email":"u@x.com"}"#)),
+        }));
+        let strategy = GeminiOAuthStrategy::new(http, resolver);
+        let err = rt()
+            .block_on(async { strategy.fetch(&ctx()).await })
+            .unwrap_err();
+        assert!(matches!(err, ProviderFetchError::Unauthorized));
+    }
+
+    #[test]
+    fn expired_token_with_refresh_hook_but_no_client_falls_back_to_unauthorized() {
+        let dir = tempfile::tempdir().unwrap();
+        write_creds_file(dir.path());
+        let http = Arc::new(ScriptedHttp::default());
+        let refresh_http = Arc::new(StubRefreshHttp::new());
+        let resolver = Arc::new(StubResolver(GeminiCredentialsState {
+            auth_type: GeminiAuthType::OauthPersonal,
+            credentials: Some(expired_creds(r#"{"email":"u@x.com"}"#)),
+        }));
+        // ClientCredentialsProvider returns None (gemini CLI not installed).
+        let strategy = GeminiOAuthStrategy::new(http, resolver).with_refresh(RefreshHook {
+            http: refresh_http,
+            client: Arc::new(StubClient(None)),
+            home_dir: dir.path().to_path_buf(),
+        });
+        let err = rt()
+            .block_on(async { strategy.fetch(&ctx()).await })
+            .unwrap_err();
+        assert!(matches!(err, ProviderFetchError::Unauthorized));
+    }
+
+    #[test]
+    fn expired_token_with_refresh_endpoint_401_propagates_unauthorized() {
+        let dir = tempfile::tempdir().unwrap();
+        write_creds_file(dir.path());
+        let http = Arc::new(ScriptedHttp::default());
+        let refresh_http = Arc::new(StubRefreshHttp::new());
+        refresh_http.enqueue(401, br#"{"error":"invalid_grant"}"#);
+        let resolver = Arc::new(StubResolver(GeminiCredentialsState {
+            auth_type: GeminiAuthType::OauthPersonal,
+            credentials: Some(expired_creds(r#"{"email":"u@x.com"}"#)),
+        }));
+        let strategy = GeminiOAuthStrategy::new(http, resolver).with_refresh(RefreshHook {
+            http: refresh_http,
+            client: Arc::new(StubClient(Some(OAuthClientCredentials {
+                client_id: "x".into(),
+                client_secret: "y".into(),
+            }))),
+            home_dir: dir.path().to_path_buf(),
+        });
         let err = rt()
             .block_on(async { strategy.fetch(&ctx()).await })
             .unwrap_err();

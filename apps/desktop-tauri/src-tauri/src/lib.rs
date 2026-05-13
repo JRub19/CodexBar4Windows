@@ -54,12 +54,16 @@ use codexbar::providers::factory::api::strategy::{
 use codexbar::providers::factory::api::transport::ReqwestFactoryClient;
 use codexbar::providers::factory::planner::FactoryWiring;
 use codexbar::providers::factory::FactoryProvider;
+use codexbar::providers::gemini::oauth::client_locator::{
+    locate as locate_gemini_client, OAuthClientCredentials as GeminiOAuthClient, OsEnv,
+    OsFilesystem,
+};
 use codexbar::providers::gemini::oauth::credentials::{
     load_auth_type, load_credentials, GeminiAuthType,
 };
 use codexbar::providers::gemini::oauth::strategy::{
-    GeminiCredentialsResolver, GeminiCredentialsState, GoogleHttp,
-    GoogleResponse as GeminiGoogleResponse, HttpMethod as GeminiHttpMethod,
+    ClientCredentialsProvider, GeminiCredentialsResolver, GeminiCredentialsState, GoogleHttp,
+    GoogleResponse as GeminiGoogleResponse, HttpMethod as GeminiHttpMethod, RefreshHook,
 };
 use codexbar::providers::gemini::oauth::transport::ReqwestGoogleClient;
 use codexbar::providers::gemini::planner::GeminiWiring;
@@ -366,6 +370,36 @@ impl CopilotCredentialsResolver for StoredCopilotCredentials {
             access_token: token.to_string(),
             enterprise_host,
         }))
+    }
+}
+
+/// Caches the @google/gemini-cli OAuth client credentials so we do not
+/// re-walk the filesystem on every refresh tick. The locator hits
+/// 4-12 candidate paths; running it inline would tax the refresh
+/// budget. Cache invalidates only on app restart, which is fine —
+/// the embedded constants change when the user upgrades the CLI, and
+/// the next launch will pick up the new ones.
+#[derive(Default)]
+struct CachedGeminiClientLocator {
+    cached: parking_lot::Mutex<Option<Option<GeminiOAuthClient>>>,
+}
+
+#[async_trait::async_trait]
+impl ClientCredentialsProvider for CachedGeminiClientLocator {
+    async fn resolve(&self) -> Result<Option<GeminiOAuthClient>, ProviderFetchError> {
+        if let Some(cached) = self.cached.lock().clone() {
+            return Ok(cached);
+        }
+        // Run the FS walk on a blocking thread.
+        let resolved = tokio::task::spawn_blocking(|| {
+            let env = OsEnv;
+            let fs = OsFilesystem;
+            locate_gemini_client(&env, &fs).ok()
+        })
+        .await
+        .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        *self.cached.lock() = Some(resolved.clone());
+        Ok(resolved)
     }
 }
 
@@ -838,14 +872,30 @@ pub fn run() {
     });
 
     let gemini_provider = Arc::new(GeminiProvider::default());
-    let gemini_http: Arc<dyn GoogleHttp> = match ReqwestGoogleClient::new() {
-        Ok(c) => Arc::new(c),
-        Err(_) => Arc::new(NullGeminiHttp),
+    let gemini_reqwest = ReqwestGoogleClient::new().ok().map(Arc::new);
+    let gemini_http: Arc<dyn GoogleHttp> = match gemini_reqwest.clone() {
+        Some(c) => c,
+        None => Arc::new(NullGeminiHttp),
     };
-    gemini_provider.install_wiring(GeminiWiring {
+    let gemini_wiring = GeminiWiring {
         http: gemini_http,
         credentials: Arc::new(FilesystemGeminiCredentials),
-    });
+    };
+    // Install the refresh hook when reqwest is available + we have a
+    // home dir to write the refreshed token back to. The OAuth client
+    // credentials are located lazily on first refresh; if @google/gemini-cli
+    // is not installed the strategy gracefully falls back to Unauthorized.
+    match (gemini_reqwest, dirs_home_dir()) {
+        (Some(refresh_http), Some(home)) => {
+            let refresh_hook = RefreshHook {
+                http: refresh_http,
+                client: Arc::new(CachedGeminiClientLocator::default()),
+                home_dir: home,
+            };
+            gemini_provider.install_wiring_with_refresh(gemini_wiring, refresh_hook);
+        }
+        _ => gemini_provider.install_wiring(gemini_wiring),
+    }
 
     let openrouter_provider = Arc::new(OpenRouterProvider::default());
     let openrouter_http: Arc<dyn OpenRouterHttp> = match ReqwestOpenRouterClient::new() {

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use reqwest::{Client, Method};
 
 use super::strategy::{GoogleHttp, GoogleResponse, HttpMethod, PER_REQUEST_TIMEOUT};
+use super::token_refresh::{RefreshHttp, RefreshResponse};
 use crate::providers::errors::ProviderFetchError;
 
 pub struct ReqwestGoogleClient {
@@ -62,6 +63,34 @@ impl GoogleHttp for ReqwestGoogleClient {
             .await
             .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
         Ok(GoogleResponse {
+            status,
+            body: body.to_vec(),
+        })
+    }
+}
+
+#[async_trait]
+impl RefreshHttp for ReqwestGoogleClient {
+    async fn post_form(
+        &self,
+        url: &str,
+        body: &str,
+    ) -> Result<RefreshResponse, ProviderFetchError> {
+        let response = self
+            .client
+            .post(url)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body.to_string())
+            .send()
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        let status = response.status().as_u16();
+        let body = response
+            .bytes()
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        Ok(RefreshResponse {
             status,
             body: body.to_vec(),
         })

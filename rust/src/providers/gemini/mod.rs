@@ -35,6 +35,14 @@ impl GeminiProvider {
     pub fn install_wiring(&self, wiring: GeminiWiring) {
         *self.wiring.lock() = Some(wiring.into_strategies());
     }
+
+    pub fn install_wiring_with_refresh(
+        &self,
+        wiring: GeminiWiring,
+        refresh: self::oauth::strategy::RefreshHook,
+    ) {
+        *self.wiring.lock() = Some(wiring.into_strategies_with_refresh(refresh));
+    }
 }
 
 #[async_trait]

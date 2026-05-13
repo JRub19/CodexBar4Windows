@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::providers::fetch_plan_runtime::Strategy;
 use crate::providers::gemini::oauth::strategy::{
-    GeminiCredentialsResolver, GeminiOAuthStrategy, GoogleHttp,
+    GeminiCredentialsResolver, GeminiOAuthStrategy, GoogleHttp, RefreshHook,
 };
 
 #[derive(Clone)]
@@ -20,5 +20,17 @@ impl GeminiWiring {
         vec![
             Arc::new(GeminiOAuthStrategy::new(self.http, self.credentials)) as Arc<dyn Strategy>
         ]
+    }
+
+    /// Same as `into_strategies` but installs a token-refresh hook so
+    /// expired access_tokens are refreshed inline instead of surfacing
+    /// `Unauthorized`.
+    pub fn into_strategies_with_refresh(
+        self,
+        refresh: RefreshHook,
+    ) -> Vec<Arc<dyn Strategy>> {
+        vec![Arc::new(
+            GeminiOAuthStrategy::new(self.http, self.credentials).with_refresh(refresh),
+        ) as Arc<dyn Strategy>]
     }
 }
