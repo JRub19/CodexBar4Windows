@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { KeyShortcutRecorder } from "../components/KeyShortcutRecorder";
 
 import "../styles/popup.css";
 import "../styles/settings.css";
@@ -59,8 +61,62 @@ function isProviderKvKey(key: string): boolean {
   return PROVIDER_KV_PREFIXES.some((p) => key.startsWith(p));
 }
 
+interface FirstRunStateDto {
+  last_settings_pane: string | null;
+}
+
 export function SettingsApp() {
   const [pane, setPane] = useState<PaneId>("general");
+
+  // Restore the last-active pane and current window geometry on
+  // mount; persist subsequent changes back to state.json so the
+  // user lands on the same pane / same window position next time.
+  useEffect(() => {
+    void invoke<FirstRunStateDto>("first_run_state").then((s) => {
+      const restored = s.last_settings_pane as PaneId | null;
+      if (restored && PANES.some((p) => p.id === restored)) {
+        setPane(restored);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    void invoke("save_last_settings_pane", { pane }).catch(() => {});
+  }, [pane]);
+
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const persist = async () => {
+      try {
+        const pos = await win.outerPosition();
+        const size = await win.outerSize();
+        await invoke("save_settings_window_geometry", {
+          x: pos.x,
+          y: pos.y,
+          width: size.width,
+          height: size.height,
+        });
+      } catch {
+        // best-effort; OS errors are non-fatal here.
+      }
+    };
+    const debounced = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void persist(), 500);
+    };
+    const unlistenResize = win.onResized(debounced);
+    const unlistenMove = win.onMoved(debounced);
+    const onUnload = () => void persist();
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onUnload);
+      void unlistenResize.then((f) => f());
+      void unlistenMove.then((f) => f());
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   return (
     <div className="settings-app">
       <aside className="settings-app__sidebar" aria-label="Preferences sections">
@@ -374,12 +430,18 @@ function NotificationsPane() {
 
 function ShortcutsPane() {
   const [registered, setRegistered] = useState<boolean | null>(null);
+  const [chord, setChord] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     void invoke<boolean>("hotkey_is_registered")
       .then(setRegistered)
       .catch((e) => setError(String(e)));
+    void invoke<Settings>("get_settings").then((s) => {
+      setChord(s.popup_toggle_hotkey ?? "");
+    });
   }, []);
+
   const toggle = async () => {
     try {
       const next = !registered;
@@ -393,16 +455,46 @@ function ShortcutsPane() {
       setError(String(e));
     }
   };
+
+  const onChordChange = async (next: string) => {
+    try {
+      await invoke("hotkey_set_chord", { chord: next });
+      await invoke("update_settings", {
+        patch: { popup_toggle_hotkey: next },
+      });
+      setChord(next);
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const onChordClear = async () => {
+    try {
+      // Restore the platform default: re-register the built-in
+      // shortcut and clear the persisted override.
+      await invoke("hotkey_unregister");
+      await invoke("hotkey_register");
+      await invoke("update_settings", {
+        patch: { popup_toggle_hotkey: null },
+      });
+      setChord("");
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   return (
     <>
       <p className="settings-app__pane-intro">
         Global hotkey toggles the tray popup from anywhere on the desktop.
       </p>
       <label className="settings-row settings-row--toggle">
-        <span className="settings-row__title">Toggle popup</span>
+        <span className="settings-row__title">Enable global hotkey</span>
         <span className="settings-row__subtitle">
-          Default: <kbd>Win+Shift+U</kbd>. Rebinding lands in a future
-          release; on conflict you can disable this.
+          Default: <kbd>Win+Shift+U</kbd>. Disable on conflict with another
+          app.
         </span>
         <input
           type="checkbox"
@@ -410,6 +502,13 @@ function ShortcutsPane() {
           onChange={() => void toggle()}
         />
       </label>
+      <KeyShortcutRecorder
+        label="Toggle popup"
+        value={chord}
+        onChange={(c) => void onChordChange(c)}
+        onClear={() => void onChordClear()}
+        disabled={registered !== true}
+      />
       {error ? <p className="settings-row__error">{error}</p> : null}
     </>
   );

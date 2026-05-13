@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tracing::info;
 
-use crate::first_run::{FirstRunState, FirstRunStore};
+use crate::first_run::{FirstRunState, FirstRunStore, WindowGeometry};
 
 pub const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 
@@ -299,9 +299,19 @@ pub async fn toggle_pause(
 }
 
 #[tauri::command]
-pub async fn open_preferences(app: AppHandle) -> Result<(), String> {
-    // Phase 8: show + focus the Mica-effect Settings window.
+pub async fn open_preferences(
+    app: AppHandle,
+    store: State<'_, FirstRunHandle>,
+) -> Result<(), String> {
+    let persisted = store.0.read().settings_window;
+    // Phase 8: show + focus the Mica-effect Settings window. Apply
+    // the persisted geometry on every show so the window lands where
+    // the user left it; clamp negative coordinates to (0, 0) so a
+    // disconnected monitor doesn't strand the window off-screen.
     if let Some(window) = app.get_webview_window("settings") {
+        if let Some(g) = persisted {
+            apply_geometry(&window, g);
+        }
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
         window.unminimize().ok();
@@ -310,7 +320,7 @@ pub async fn open_preferences(app: AppHandle) -> Result<(), String> {
     }
     // The settings window is declared in `tauri.conf.json`. If it
     // disappeared for any reason (uncaught close), recreate it.
-    let _ = tauri::WebviewWindowBuilder::new(
+    let mut builder = tauri::WebviewWindowBuilder::new(
         &app,
         "settings",
         tauri::WebviewUrl::App("index.html#/settings".into()),
@@ -319,11 +329,24 @@ pub async fn open_preferences(app: AppHandle) -> Result<(), String> {
     .inner_size(880.0, 620.0)
     .min_inner_size(720.0, 480.0)
     .resizable(true)
-    .visible(true)
-    .build()
-    .map_err(|e| e.to_string())?;
+    .visible(true);
+    if let Some(g) = persisted {
+        builder = builder
+            .position(g.x.max(0) as f64, g.y.max(0) as f64)
+            .inner_size(g.width as f64, g.height as f64);
+    }
+    let _ = builder.build().map_err(|e| e.to_string())?;
     info!(target: "codexbar::commands", "open_preferences.recreated");
     Ok(())
+}
+
+fn apply_geometry<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, g: WindowGeometry) {
+    use tauri::{LogicalPosition, LogicalSize};
+    let _ = window.set_position(LogicalPosition::new(
+        g.x.max(0) as f64,
+        g.y.max(0) as f64,
+    ));
+    let _ = window.set_size(LogicalSize::new(g.width as f64, g.height as f64));
 }
 
 #[tauri::command]
@@ -405,6 +428,31 @@ pub async fn onboarding_reset(
     let _ = app.emit("onboarding:state", state.clone());
     info!(target: "codexbar::onboarding", "onboarding.reset");
     Ok(state)
+}
+
+#[tauri::command]
+pub async fn save_settings_window_geometry(
+    store: State<'_, FirstRunHandle>,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    store
+        .0
+        .save_settings_window(WindowGeometry { x, y, width, height })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn save_last_settings_pane(
+    store: State<'_, FirstRunHandle>,
+    pane: String,
+) -> Result<(), String> {
+    store
+        .0
+        .save_last_settings_pane(pane)
+        .map_err(|e| e.to_string())
 }
 
 /// Helper for the Tauri builder to register the State once paths are known.

@@ -51,6 +51,18 @@ impl OnboardingStep {
     }
 }
 
+/// Persisted geometry for the Preferences window so re-opening lands
+/// in the same spot. Coordinates are in physical pixels (Tauri's
+/// `outer_position` / `outer_size`); the consumer must clamp to a
+/// visible monitor before applying.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WindowGeometry {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct FirstRunState {
     #[serde(default)]
@@ -59,6 +71,14 @@ pub struct FirstRunState {
     pub onboarding_completed: bool,
     #[serde(default)]
     pub onboarding_step: OnboardingStep,
+    /// Last-known geometry of the Preferences window. `None` until
+    /// the user moves or resizes it for the first time.
+    #[serde(default)]
+    pub settings_window: Option<WindowGeometry>,
+    /// Last-active Preferences pane (e.g. "general", "providers").
+    /// `None` until the user has navigated to any pane.
+    #[serde(default)]
+    pub last_settings_pane: Option<String>,
 }
 
 #[derive(Clone)]
@@ -124,6 +144,18 @@ impl FirstRunStore {
         s.onboarding_step = OnboardingStep::Done;
         self.write(&s)?;
         Ok(s)
+    }
+
+    pub fn save_settings_window(&self, geom: WindowGeometry) -> std::io::Result<()> {
+        let mut s = self.read();
+        s.settings_window = Some(geom);
+        self.write(&s)
+    }
+
+    pub fn save_last_settings_pane(&self, pane: String) -> std::io::Result<()> {
+        let mut s = self.read();
+        s.last_settings_pane = Some(pane);
+        self.write(&s)
     }
 
     pub fn reset_onboarding(&self) -> std::io::Result<FirstRunState> {
@@ -199,6 +231,32 @@ mod tests {
         let _ = store.rewind_onboarding().unwrap();
         let s = store.rewind_onboarding().unwrap();
         assert_eq!(s.onboarding_step, OnboardingStep::Welcome);
+    }
+
+    #[test]
+    fn window_geometry_round_trips_through_state_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FirstRunStore::new(dir.path());
+        let g = WindowGeometry {
+            x: 100,
+            y: 200,
+            width: 880,
+            height: 620,
+        };
+        store.save_settings_window(g).unwrap();
+        let back = store.read();
+        assert_eq!(back.settings_window, Some(g));
+    }
+
+    #[test]
+    fn last_settings_pane_persists() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FirstRunStore::new(dir.path());
+        store.save_last_settings_pane("providers".into()).unwrap();
+        assert_eq!(
+            store.read().last_settings_pane.as_deref(),
+            Some("providers")
+        );
     }
 
     #[test]

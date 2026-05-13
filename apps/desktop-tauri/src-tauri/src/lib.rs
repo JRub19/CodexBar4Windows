@@ -1376,6 +1376,8 @@ pub fn run() {
             commands::onboarding_rewind,
             commands::onboarding_complete,
             commands::onboarding_reset,
+            commands::save_settings_window_geometry,
+            commands::save_last_settings_pane,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,
