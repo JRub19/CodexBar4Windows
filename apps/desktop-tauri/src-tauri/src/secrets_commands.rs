@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use codexbar::cookies::auto_import::{auto_import_and_save, AutoImportError};
 use codexbar::cookies::{CookieImporter, CookieSource, ImportSuccess};
 use codexbar::secrets::token_account::{TokenAccount, TokenAccountStore, TokenKind};
 use serde::Serialize;
@@ -186,5 +187,61 @@ fn parse_kind(raw: &str) -> Result<TokenKind, String> {
         other => Err(format!(
             "unknown token kind: {other} (expected cookie, oauth_token, api_key)"
         )),
+    }
+}
+
+#[derive(Serialize)]
+pub struct AutoImportOutcomeDto {
+    pub provider_id: String,
+    pub account_id: String,
+    pub label: String,
+    pub source: String,
+}
+
+/// Run the per-provider auto-import config (Cursor / Factory currently)
+/// and persist the resulting `Cookie:` header into the DPAPI-wrapped
+/// `TokenAccountStore` so the next refresh tick uses it. The returned
+/// label distinguishes browser-sourced auto-imports from cache hits
+/// so the popup can give the user useful provenance.
+#[tauri::command]
+pub async fn auto_import_cookies(
+    provider_id: String,
+    importer: State<'_, CookieImporterHandle>,
+    tokens: State<'_, TokenAccountHandle>,
+) -> Result<AutoImportOutcomeDto, String> {
+    let importer = importer.0.clone();
+    let store = tokens.0.clone();
+    let provider_for_thread = provider_id.clone();
+    let outcome = tokio::task::spawn_blocking(move || {
+        auto_import_and_save(&provider_for_thread, importer, store)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(map_auto_import_error)?;
+    info!(
+        target: "codexbar::secrets_commands",
+        provider = %outcome.provider_id,
+        label = %outcome.label,
+        "cookie_auto_import.saved",
+    );
+    Ok(AutoImportOutcomeDto {
+        provider_id: outcome.provider_id,
+        account_id: outcome.account_id,
+        label: outcome.label,
+        source: match outcome.source {
+            CookieSource::Cache => "cache".into(),
+            CookieSource::Manual => "manual".into(),
+            CookieSource::Browser(b) => format!("browser:{}", b.as_str()),
+        },
+    })
+}
+
+fn map_auto_import_error(err: AutoImportError) -> String {
+    match err {
+        AutoImportError::UnknownProvider(p) => {
+            format!("No auto-import is configured for provider `{p}`.")
+        }
+        AutoImportError::Import(inner) => inner.to_string(),
+        AutoImportError::Secrets(inner) => inner.to_string(),
     }
 }

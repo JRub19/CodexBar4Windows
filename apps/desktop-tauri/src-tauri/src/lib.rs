@@ -1131,6 +1131,7 @@ pub fn run() {
             secrets_commands::set_manual_cookie,
             secrets_commands::import_cookies_for,
             secrets_commands::clear_cookie_cache,
+            secrets_commands::auto_import_cookies,
             login_commands::start_copilot_device_login,
             login_commands::poll_copilot_device_login,
         ])

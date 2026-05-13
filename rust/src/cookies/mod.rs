@@ -11,6 +11,7 @@
 //! Phase 2.6 lands the trait, the error taxonomy, and the browser
 //! detection probe. Phase 2.7 onwards fills in the implementations.
 
+pub mod auto_import;
 pub mod chromium;
 pub mod detect;
 pub mod errors;
