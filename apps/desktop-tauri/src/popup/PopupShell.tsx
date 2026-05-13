@@ -10,6 +10,7 @@ import type {
 } from "../bindings";
 import { useUsageStore } from "./state/usageStore";
 import { useKeyboardNav } from "./a11y/useKeyboardNav";
+import { useAutoResize } from "./state/useAutoResize";
 import { PopupHeader } from "./header/PopupHeader";
 import { CardStack } from "./cards/CardStack";
 import { PopupFooter } from "./footer/PopupFooter";
@@ -53,6 +54,7 @@ export function PopupShell() {
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
   const [onboardingActive, setOnboardingActive] = useState<boolean | null>(null);
   useKeyboardNav();
+  const rootRef = useAutoResize();
 
   // Fetch settings + listen for live changes so the popup filters to
   // the providers the user has actually enabled. Empty `providers`
@@ -84,6 +86,53 @@ export function PopupShell() {
       void unlisten.then((f) => f());
     };
   }, [setEnabledProviderIds]);
+
+  // Boot auto-import: kick off the browser-cookie auto-import for the
+  // providers that support it (Cursor, Factory). The Tauri command
+  // walks Edge/Chrome/Brave/Firefox DPAPI-decoded cookie jars, finds
+  // the provider's session cookie, and stores it in the DPAPI-wrapped
+  // TokenAccountStore so the next refresh tick can fetch usage data
+  // without the user pasting anything. Errors are logged but never
+  // shown — auto-import is opportunistic, not required.
+  //
+  // After auto-import settles we trigger a manual refresh so the
+  // cards populate immediately instead of waiting for the 5-minute
+  // cadence tick.
+  useEffect(() => {
+    let cancelled = false;
+    const AUTO_IMPORT_PROVIDERS = ["cursor", "factory"];
+
+    async function bootstrap() {
+      try {
+        const s = await invoke<{ allow_browser_cookie_import: boolean }>(
+          "get_settings",
+        );
+        if (!s.allow_browser_cookie_import || cancelled) return;
+      } catch {
+        // If get_settings fails we still attempt the refresh — the
+        // backend gates auto-import internally per provider anyway.
+      }
+      // Fire each provider's auto-import in parallel.
+      await Promise.allSettled(
+        AUTO_IMPORT_PROVIDERS.map((id) =>
+          invoke("auto_import_cookies", { providerId: id }),
+        ),
+      );
+      if (cancelled) return;
+      // Trigger an immediate refresh so the cards aren't stuck in
+      // the loading skeleton waiting for the cadence tick.
+      try {
+        await invoke("refresh_now");
+      } catch {
+        /* swallow — refresh errors surface via refresh_error events */
+      }
+    }
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,6 +215,7 @@ export function PopupShell() {
       className="popup-root"
       role="application"
       aria-label="CodexBar4Windows"
+      ref={rootRef}
     >
       <PopupHeader />
       <main className="popup-body">

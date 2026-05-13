@@ -189,7 +189,11 @@ kbd {
 /* ============================================================ */
 
 .popup-root {
-  height: 100vh;
+  /* Window auto-resizes to content height via `useAutoResize`. The
+     root fills the window (the OS already clipped width to 360px).
+     overflow:hidden ensures we never produce an OS-level scroll bar
+     even briefly during a resize-frame race. */
+  min-height: 100vh;
   width: 100vw;
   display: flex;
   flex-direction: column;
@@ -200,6 +204,14 @@ kbd {
   box-shadow: var(--shadow-popup);
   -webkit-app-region: drag;
   animation: popup-in var(--d-popup-in) var(--ease-out) both;
+}
+
+/* Defensive — the WebView2 host occasionally adds horizontal scroll
+   bars when sub-pixel layout rounding produces a 360.5px child. We
+   nuke any horizontal overflow at every layer; vertical is handled
+   by the auto-resize hook + capped max-height. */
+html, body {
+  overflow: hidden;
 }
 
 @supports not (backdrop-filter: blur(20px)) {
@@ -244,22 +256,33 @@ kbd {
 .popup-body {
   flex: 1;
   min-height: 0;
+  /* Window auto-resizes to content height — vertical overflow only
+     happens when the content exceeds MAX_HEIGHT (600 px). In that
+     case we still want a clean inner scroll, but the scrollbar is
+     thin + accent-themed so it doesn't drown the popup. */
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--bg-hover) transparent;
   -webkit-app-region: no-drag;
 }
 
 .popup-body::-webkit-scrollbar {
-  width: 6px;
+  width: 0;
+  height: 0;
 }
 .popup-body::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+/* Only show the scrollbar when the body is actively scrollable
+   (content overflows the max height). */
+.popup-body:hover::-webkit-scrollbar {
+  width: 6px;
+}
+.popup-body:hover::-webkit-scrollbar-thumb {
   background: var(--bg-hover);
   border-radius: 999px;
-}
-.popup-body::-webkit-scrollbar-thumb:hover {
-  background: var(--bg-press);
 }
 
 /* ============================================================ */
@@ -274,16 +297,21 @@ kbd {
   background: var(--bg-card);
   border-radius: var(--r-pill);
   -webkit-app-region: no-drag;
+  box-sizing: border-box;
 }
 
+/* Stacked grid for 5+ providers. Two columns (rare 7+ wraps to 3
+   rows). Each tab gets a min-width so labels never truncate to
+   illegible 2-char abbreviations. */
 .switcher--stacked {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   grid-auto-rows: 28px;
+  gap: var(--space-1);
 }
 
 .switcher-tab {
-  flex: 1;
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -300,6 +328,11 @@ kbd {
               color var(--d-hover-in) var(--ease-out);
   position: relative;
   overflow: hidden;
+}
+
+.switcher--stacked .switcher-tab {
+  flex: unset;
+  width: 100%;
 }
 
 .switcher-tab:hover {
