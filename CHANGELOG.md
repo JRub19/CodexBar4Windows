@@ -1,12 +1,22 @@
 # Changelog
 
-## [Unreleased], Windows port
+## [1.0.0] — Windows port GA
 
-This release marks the cut from the macOS Swift project to a Windows Rust plus Tauri rewrite. CodexBar4Windows is a ground up Windows native port of `steipete/CodexBar`. Entries below this line are the upstream macOS history, preserved for attribution. The pre wipe state of the macOS sources is tagged `mac-archive-2026-05-12` for archaeology.
+This release cuts CodexBar4Windows from the macOS Swift project to a ground-up Windows Rust + Tauri rewrite. It is a port of `steipete/CodexBar`; entries below the `[Pre-Windows-fork]` heading are the upstream macOS history, preserved for attribution. The pre-wipe state of the macOS sources is tagged `mac-archive-2026-05-12` for archaeology.
 
-Tracking the Windows refactor: see `docs/windows/plan/00-master-plan.md` for the 10 phase execution plan.
+Tracking the Windows refactor: `docs/windows/plan/00-master-plan.md` for the 10-phase execution plan; v1.0 is the deliverable for phases 0 through 9.
 
-### Phase 9, packaging and auto-update (in progress)
+### Pre-tag polish (Phase 9 wrap-up)
+
+- **Appearance** pane with live-apply language picker (en / zh-Hans / pt-BR / system).
+- **Cost & Storage** pane rendering per-provider on-disk byte counts with "Open folder" navigation.
+- **About** pane "Run onboarding again" button + version readout.
+- Per-provider focus routing from the onboarding wizard into the Providers pane.
+- Runtime guard that refuses to invoke the updater plugin when the build was compiled with the placeholder minisign pubkey.
+- `scripts/generate-minisign-keypair.ps1` automates first-time minisign key generation + in-place patch of `tauri.conf.json`.
+- `docs/RELEASE.md` release runbook (cert procurement, GitHub secrets, tag push, SmartScreen reputation seeding).
+
+### Phase 9, packaging and auto-update
 
 - Inno Setup installer at `installer/codexbar.iss` produces a per-user
   `.exe` bundle with WebView2 evergreen bootstrap, launch-at-login
@@ -55,6 +65,12 @@ Tracking the Windows refactor: see `docs/windows/plan/00-master-plan.md` for the
   WorkOS paste-cookie (Factory), Google CLI-extracted OAuth refresh
   (Gemini), env-var stub for API-key providers, DPAPI-backed
   TokenAccountStore for all.
+
+---
+
+## [Pre-Windows-fork] — macOS upstream history
+
+Everything below this line is the original `steipete/CodexBar` macOS history, kept for attribution. Version numbers are macOS release tags; they don't correspond to the Windows port.
 
 ## 0.26 — Unreleased (macOS upstream)
 

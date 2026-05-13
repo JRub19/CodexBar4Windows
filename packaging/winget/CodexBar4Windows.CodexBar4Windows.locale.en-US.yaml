@@ -1,7 +1,7 @@
 # Winget default-locale manifest seed for CodexBar4Windows. Phase 9 §G.
 
 PackageIdentifier: CodexBar4Windows.CodexBar4Windows
-PackageVersion: 0.1.0
+PackageVersion: 1.0.0
 PackageLocale: en-US
 Publisher: CodexBar4Windows
 PublisherUrl: https://github.com/JRub19/CodexBar4Windows
@@ -29,6 +29,6 @@ Tags:
   - quota
   - tokens
   - tray
-ReleaseNotesUrl: https://github.com/JRub19/CodexBar4Windows/releases/tag/v0.1.0
+ReleaseNotesUrl: https://github.com/JRub19/CodexBar4Windows/releases/tag/v1.0.0
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0
