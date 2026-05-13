@@ -43,6 +43,15 @@ pub struct Settings {
     /// on Windows).
     #[serde(default)]
     pub popup_toggle_hotkey: Option<String>,
+    /// Phase 9 §G-4: opt-in crash + error reporting (Sentry).
+    /// **Default OFF.** When false, the app never makes any
+    /// telemetry-bound network call. When true, panics + caught
+    /// errors are reported to the configured Sentry DSN. The
+    /// reporting backend itself is a follow-up; this flag exists
+    /// today so the UI can wire the toggle and so the setting
+    /// round-trips through settings serde.
+    #[serde(default)]
+    pub telemetry_enabled: bool,
 }
 
 const fn default_notifications_enabled() -> bool {
@@ -63,6 +72,7 @@ impl Default for Settings {
             provider_kv: BTreeMap::new(),
             notifications_enabled: true,
             popup_toggle_hotkey: None,
+            telemetry_enabled: false,
         }
     }
 }
@@ -153,6 +163,7 @@ pub struct SettingsPatch {
     /// chord string, where `None` clears the override and restores the
     /// platform default.
     pub popup_toggle_hotkey: Option<Option<String>>,
+    pub telemetry_enabled: Option<bool>,
 }
 
 impl Settings {
@@ -192,6 +203,9 @@ impl Settings {
         }
         if let Some(v) = patch.popup_toggle_hotkey {
             self.popup_toggle_hotkey = v;
+        }
+        if let Some(v) = patch.telemetry_enabled {
+            self.telemetry_enabled = v;
         }
         self
     }

@@ -781,10 +781,14 @@ function CostPane() {
 
 function AdvancedPane() {
   const [launchAtSignIn, setLaunchAtSignIn] = useState<boolean | null>(null);
+  const [telemetry, setTelemetry] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     void invoke<boolean>("launch_at_signin_is_enabled")
       .then(setLaunchAtSignIn)
+      .catch((e) => setError(String(e)));
+    void invoke<Settings>("get_settings")
+      .then((s) => setTelemetry(s.telemetry_enabled))
       .catch((e) => setError(String(e)));
   }, []);
   const toggleLaunch = async () => {
@@ -792,6 +796,17 @@ function AdvancedPane() {
       const next = !launchAtSignIn;
       await invoke(next ? "launch_at_signin_enable" : "launch_at_signin_disable");
       setLaunchAtSignIn(next);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const toggleTelemetry = async () => {
+    try {
+      const next = !telemetry;
+      await invoke("update_settings", {
+        patch: { telemetry_enabled: next },
+      });
+      setTelemetry(next);
     } catch (e) {
       setError(String(e));
     }
@@ -810,6 +825,19 @@ function AdvancedPane() {
           type="checkbox"
           checked={launchAtSignIn ?? false}
           onChange={() => void toggleLaunch()}
+        />
+      </label>
+      <label className="settings-row settings-row--toggle">
+        <span className="settings-row__title">Share anonymous crash reports</span>
+        <span className="settings-row__subtitle">
+          Off by default. When on, panics + caught errors are reported
+          to the maintainer&apos;s Sentry instance. No usage data, no
+          provider tokens — only the crash backtrace + Windows build.
+        </span>
+        <input
+          type="checkbox"
+          checked={telemetry ?? false}
+          onChange={() => void toggleTelemetry()}
         />
       </label>
       {error ? <p className="settings-row__error">{error}</p> : null}

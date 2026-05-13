@@ -42,6 +42,7 @@ export interface Settings {
   provider_kv: Record<string, string>;
   notifications_enabled: boolean;
   popup_toggle_hotkey: string | null;
+  telemetry_enabled: boolean;
 }
 
 export interface SettingsPatch {
@@ -55,6 +56,7 @@ export interface SettingsPatch {
   provider_kv?: Record<string, string>;
   notifications_enabled?: boolean;
   popup_toggle_hotkey?: string | null;
+  telemetry_enabled?: boolean;
 }
 
 export interface SettingsChangedPayload {
