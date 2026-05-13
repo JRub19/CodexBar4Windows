@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { usePopupVisibility } from "../state/usePopupVisibility";
 
 // Update banner. Phase 9 §F.
 //
@@ -29,8 +30,13 @@ type Phase =
 
 export function UpdateBanner() {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const visible = usePopupVisibility();
 
   useEffect(() => {
+    // Phase 9 §A-2: only check for updates when the popup is open;
+    // a hidden popup has no UI surface for the banner anyway, so
+    // skipping the network call here is pure savings.
+    if (!visible) return;
     let cancelled = false;
     void invoke<UpdateInfoDto>("check_for_update")
       .then((info) => {

@@ -1265,10 +1265,27 @@ pub fn run() {
                 ],
             )?;
 
-            let icon = app
-                .default_window_icon()
-                .cloned()
-                .ok_or("default window icon missing; bundle is misconfigured")?;
+            // Phase 9 §B-1: render the tray icon synchronously *before*
+            // `Shell_NotifyIcon NIM_ADD` so the user never sees a default
+            // bundle icon flicker into the placeholder bar. The render
+            // call is pure CPU + ~3 ms; falls back to the default
+            // window icon if the renderer fails (defensive — should
+            // never trip in production).
+            let icon = match crate::tray_renderer::render_icon(
+                crate::tray_renderer::TrayRenderInputs::default(),
+            ) {
+                Ok(img) => img,
+                Err(err) => {
+                    tracing::warn!(
+                        target: "codexbar::tray",
+                        error = %err,
+                        "tray.icon.render_failed_using_bundle_default",
+                    );
+                    app.default_window_icon()
+                        .cloned()
+                        .ok_or("default window icon missing; bundle is misconfigured")?
+                }
+            };
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(icon)
                 .tooltip("CodexBar4Windows\nAI coding limits in your Windows tray")
@@ -1412,9 +1429,29 @@ pub fn run() {
             // Auto-dismiss the popup on focus loss to match the spec 80
             // behavior: the popover disappears whenever the user clicks
             // outside it or alt-tabs to another app.
+            //
+            // Phase 9 §A-2: emit a `popup:visibility` event on every
+            // show/hide so the React side can pause its polling loops
+            // (UpdateBanner, usage refetch, etc.) when the popup is
+            // hidden. Tauri 2 doesn't yet expose
+            // `ICoreWebView2Controller3::TrySuspend`; pausing JS work
+            // is the closest approximation we can do today.
             if window.label() == "main" {
-                if let WindowEvent::Focused(false) = event {
-                    let _ = window.hide();
+                match event {
+                    WindowEvent::Focused(false) => {
+                        let _ = window.hide();
+                        let _ = window.app_handle().emit(
+                            "popup:visibility",
+                            serde_json::json!({ "visible": false }),
+                        );
+                    }
+                    WindowEvent::Focused(true) => {
+                        let _ = window.app_handle().emit(
+                            "popup:visibility",
+                            serde_json::json!({ "visible": true }),
+                        );
+                    }
+                    _ => {}
                 }
             }
         })

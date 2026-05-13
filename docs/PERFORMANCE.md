@@ -38,7 +38,7 @@ The refresh-loop bursts to ~5-15% CPU for ~200 ms per provider during a refresh.
 ### Why these specifically?
 
 - **Budget 1** ships from spec 80 §1 (no white flash on cold launch). The tray icon must be rendered synchronously in Rust before `NIM_ADD` is called, never relying on an async paint.
-- **Budgets 2-4** are the WebView2-related triad. WebView2 is the largest single dependency in the bundle (~120 MB DLL footprint) and the easiest place to bleed memory + CPU. Suspending the process when the popup is hidden is the only way to hit Budget 4.
+- **Budgets 2-4** are the WebView2-related triad. WebView2 is the largest single dependency in the bundle (~120 MB DLL footprint) and the easiest place to bleed memory + CPU. Suspending the process when the popup is hidden is the only way to hit Budget 4. Today we approximate via the `popup:visibility` event + the React `usePopupVisibility()` hook: components subscribe and skip their work when hidden. Full process suspension via `ICoreWebView2Controller3::TrySuspend` awaits Tauri 2 surfacing the API.
 - **Budget 5** honours the explicit user intent of selecting Manual cadence. Power users (laptop on battery, lab machines, kiosks) pick Manual precisely to stop the refresh-write-refresh cycle; we must respect that.
 - **Budget 6** is the silent killer — GDI handle leaks via the tray-icon rebuild path are notorious. A single missed `DeleteObject` per refresh adds up to hundreds in an 8-hour day.
 
