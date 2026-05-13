@@ -17,23 +17,15 @@
       <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
     </windowsSettings>
   </application>
-  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
-    <application>
-      <!-- Supported OS list per Microsoft docs. -->
-      <!-- Windows 10 / Windows 11 -->
-      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
-      <!-- Windows 8.1 (legacy compatibility for downstream binaries) -->
-      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
-    </application>
-  </compatibility>
   <!-- REQUIRED for any process that touches comctl32 v6 APIs like
        TaskDialogIndirect, modern themed controls, etc. Without this
-       <dependency>, Windows loads the legacy comctl32 v5 and
-       LoadLibrary/GetProcAddress against the v6 entry points fails
-       at process start with "Der Prozedureinsprungpunkt
-       'TaskDialogIndirect' wurde in der DLL ... nicht gefunden".
-       Tauri 2's runtime imports TaskDialogIndirect indirectly via
-       webview2-com on certain dialog paths. -->
+       <dependency>, Windows loads the legacy comctl32 v5 and the
+       static import of TaskDialogIndirect fails at process load
+       time with STATUS_ENTRYPOINT_NOT_FOUND.
+
+       This block MUST come before <compatibility> — some Windows
+       resource compilers and manifest parsers truncate elements
+       they don't understand from the end of the assembly. -->
   <dependency>
     <dependentAssembly>
       <assemblyIdentity
@@ -46,4 +38,13 @@
       />
     </dependentAssembly>
   </dependency>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Supported OS list per Microsoft docs. -->
+      <!-- Windows 10 / Windows 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+      <!-- Windows 8.1 (legacy compatibility for downstream binaries) -->
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
+    </application>
+  </compatibility>
 </assembly>
