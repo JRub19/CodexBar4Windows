@@ -196,17 +196,11 @@ kbd {
   /* Locked to window dimensions so there's never a transient gap
      between the popup chrome and the window edge while
      `useAutoResize` is converging the OS window to the React
-     content. The hook measures children via `scrollHeight` (not
-     bounding rect) so the flex layout doesn't mislead it.
-
-     Flex ROW so the optional CostSidePanel can sit beside the
-     popup-main column. Side panel renders nothing when no cost
-     row is hovered, collapsing the shell to a single column. */
+     content. */
   height: 100vh;
   width: 100vw;
   display: flex;
-  flex-direction: row;
-  align-items: stretch;
+  flex-direction: column;
   background: var(--bg-popup);
   border-radius: var(--r-popup);
   overflow: hidden;
@@ -1824,4 +1818,90 @@ kbd {
   color: var(--text-tertiary);
   margin-left: 4px;
   font-size: 10px;
+}
+
+/* ============================================================ */
+/* COST POPOVER WINDOW (separate Tauri window, route /#cost-popover) */
+/* ============================================================ */
+
+/* When this entry runs the URL hash is `#/cost-popover` so the
+   render tree is just <CostPopoverApp /> mounted directly under
+   the root div. We use html/body backgrounds to clear the default
+   white flash before the React content paints. */
+html:has(.cost-popover),
+body:has(.cost-popover) {
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.cost-popover {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.cost-popover--in {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.cost-popover__chrome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-popup-fallback);
+  border: 1px solid var(--border);
+  border-radius: var(--r-popup);
+  box-shadow: var(--shadow-popup);
+  overflow: hidden;
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+}
+
+@supports (backdrop-filter: blur(20px)) {
+  .cost-popover__chrome {
+    background: rgba(28, 28, 30, 0.78);
+    backdrop-filter: blur(28px) saturate(140%);
+  }
+  @media (prefers-color-scheme: light) {
+    .cost-popover__chrome {
+      background: rgba(247, 247, 249, 0.78);
+    }
+  }
+}
+
+.cost-popover__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cost-popover__title {
+  font-size: var(--fs-section);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.cost-popover__subtitle {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cost-popover__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Strip the top divider from the in-card chart styling — the
+   popover already provides visual separation. */
+.cost-popover__body .cost-chart {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
 }

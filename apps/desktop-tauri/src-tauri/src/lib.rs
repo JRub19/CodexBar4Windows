@@ -1205,6 +1205,9 @@ pub fn run() {
         .manage(commands::CostHandle(Arc::new(
             codexbar::cost::CostStore::new(),
         )))
+        .manage(commands::CostPopoverHandle(Arc::new(
+            commands::CostPopoverState::default(),
+        )))
         .manage(hotkey_commands::HotkeyHandle(Arc::new(
             hotkey_commands::HotkeyRegistry::default(),
         )))
@@ -1368,6 +1371,19 @@ pub fn run() {
                         if let Some(w) = app.get_webview_window("main") {
                             if w.is_visible().unwrap_or(false) {
                                 let _ = w.hide();
+                                // Also dismiss the cost popover if it
+                                // was floating beside the main popup.
+                                if let Some(pop) = app.get_webview_window("cost-popover") {
+                                    let _ = pop.hide();
+                                }
+                                if let Some(handle) =
+                                    app.try_state::<commands::CostPopoverHandle>()
+                                {
+                                    handle.0.visible.store(
+                                        false,
+                                        std::sync::atomic::Ordering::SeqCst,
+                                    );
+                                }
                             } else {
                                 // Position the popup just above the tray
                                 // icon (which is at `position` in physical
@@ -1453,6 +1469,10 @@ pub fn run() {
             commands::log_from_ui,
             commands::cost_snapshots,
             commands::refresh_cost_history,
+            commands::show_cost_popover,
+            commands::hide_cost_popover,
+            commands::schedule_cost_popover_close,
+            commands::cancel_cost_popover_close,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,
@@ -1491,7 +1511,30 @@ pub fn run() {
             if window.label() == "main" {
                 match event {
                     WindowEvent::Focused(false) => {
-                        let _ = window.hide();
+                        // Skip auto-hide when the cost popover is up.
+                        // Showing the popover briefly steals focus on
+                        // Windows; without this guard the main popup
+                        // would slam shut every time the user hovers
+                        // a Cost row.
+                        let popover_visible = window
+                            .app_handle()
+                            .try_state::<commands::CostPopoverHandle>()
+                            .map(|h| {
+                                h.0.visible
+                                    .load(std::sync::atomic::Ordering::SeqCst)
+                            })
+                            .unwrap_or(false);
+                        // Also check whether the cost-popover window
+                        // itself is up (covers race between Rust
+                        // setting the flag and a focus event firing).
+                        let popover_window_visible = window
+                            .app_handle()
+                            .get_webview_window("cost-popover")
+                            .and_then(|w| w.is_visible().ok())
+                            .unwrap_or(false);
+                        if !popover_visible && !popover_window_visible {
+                            let _ = window.hide();
+                        }
                         let _ = window
                             .app_handle()
                             .emit("popup:visibility", serde_json::json!({ "visible": false }));

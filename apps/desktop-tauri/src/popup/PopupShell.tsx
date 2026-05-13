@@ -20,7 +20,6 @@ import {
   type OnboardingStateDto,
 } from "./onboarding/OnboardingShell";
 import { Icon } from "../components/Icon";
-import { CostSidePanel } from "./cards/CostSidePanel";
 import { debugLog } from "./debug/logger";
 import "../styles/popup.css";
 import "../styles/focus.css";
@@ -209,27 +208,18 @@ export function PopupShell() {
       role="application"
       aria-label="CodexBar4Windows"
     >
-      {/* Side panel sits left of the main column when active. It
-          renders nothing when costPanelProviderId is null, so the
-          shell collapses to single-column. The window resizes to
-          match via useAutoResize, pinning its right edge so the
-          popup stays anchored above the tray icon while expanding
-          into available screen space on the left. */}
-      <CostSidePanel />
-      <div className="popup-main">
-        <PopupHeader />
-        <main className="popup-body">
-          {onboardingActive ? (
-            <OnboardingShell onFinish={() => setOnboardingActive(false)} />
-          ) : descriptors.length === 0 ? (
-            <PopupEmpty />
-          ) : (
-            <CardStack />
-          )}
-        </main>
-        <PopupFooter />
-        <FirstRunToast />
-      </div>
+      <PopupHeader />
+      <main className="popup-body">
+        {onboardingActive ? (
+          <OnboardingShell onFinish={() => setOnboardingActive(false)} />
+        ) : descriptors.length === 0 ? (
+          <PopupEmpty />
+        ) : (
+          <CardStack />
+        )}
+      </main>
+      <PopupFooter />
+      <FirstRunToast />
     </div>
   );
 }

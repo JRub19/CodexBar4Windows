@@ -29,6 +29,25 @@
         }
       },
       {
+        "label": "cost-popover",
+        "title": "Cost history",
+        "url": "index.html#/cost-popover",
+        "width": 360,
+        "height": 320,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "focus": false,
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["mica", "acrylic"],
+          "state": "active"
+        }
+      },
+      {
         "label": "settings",
         "title": "CodexBar4Windows Preferences",
         "url": "index.html#/settings",

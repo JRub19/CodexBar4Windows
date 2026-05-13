@@ -1,21 +1,23 @@
-import { useEffect, useRef } from "react";
-import { useUsageStore } from "../state/usageStore";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { ProviderCostSnapshot } from "./useCostHistory";
 
 // The macOS "Cost" section that sits inside the provider card:
 //
-//   Cost
-//   Today: $0.42 · 18.4K tokens
-//   Last 30 days: $4.21 · 184K tokens
+//   Cost                                  Hover for 30-day chart
+//   Today          $0.42 · 18.4K tokens
+//   Last 30 days   $4.21 · 184K tokens
 //
-// Hovering the row pops a side panel (see PopupShell + CostSidePanel)
-// with the full 30-day chart. The submenu hover delay matches the
-// macOS AppKit cascade: ~200 ms to open, ~400 ms grace before closing
-// so the cursor has time to bridge the gap from the trigger to the
-// panel content.
+// On hover, invoke `show_cost_popover` (Rust) which positions the
+// floating cost-popover Tauri window beside the main popup (left
+// edge, falling back to right if no room) and reveals it. On
+// mouseleave we invoke `schedule_cost_popover_close` so the Rust
+// side runs a 360 ms cancellable close timer — the popover's own
+// content invokes `cancel_cost_popover_close` while the cursor is
+// over it, keeping it alive across the gap between trigger and
+// panel.
 
 const HOVER_OPEN_DELAY_MS = 180;
-const HOVER_CLOSE_DELAY_MS = 360;
 
 interface Props {
   providerId: string;
@@ -38,25 +40,15 @@ function formatTokens(n: number | undefined): string {
 }
 
 export function CostOverviewRow({ providerId, snapshot }: Props) {
-  const showCostPanel = useUsageStore((s) => s.showCostPanel);
-  const hideCostPanel = useUsageStore((s) => s.hideCostPanel);
-  const activePanelId = useUsageStore((s) => s.costPanelProviderId);
+  const [active, setActive] = useState(false);
   const openTimer = useRef<number | null>(null);
-  const closeTimer = useRef<number | null>(null);
 
-  // Cancel any pending timers on unmount so a stale callback can't
-  // try to update store state after the card has gone away.
   useEffect(() => {
     return () => {
       if (openTimer.current) window.clearTimeout(openTimer.current);
-      if (closeTimer.current) window.clearTimeout(closeTimer.current);
     };
   }, []);
 
-  const isActive = activePanelId === providerId;
-
-  // Pull today/30d from snapshot. `daily` is oldest→newest, so the
-  // last element is today.
   const today = snapshot?.daily?.[snapshot.daily.length - 1] ?? null;
   const todayCost = today?.cost_usd ?? 0;
   const todayTokens = today?.total_tokens ?? 0;
@@ -65,14 +57,13 @@ export function CostOverviewRow({ providerId, snapshot }: Props) {
     snapshot?.daily?.reduce((acc, d) => acc + d.total_tokens, 0) ?? 0;
 
   const handleEnter = () => {
-    if (closeTimer.current) {
-      window.clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
+    // Cancel any pending close that the Rust side scheduled.
+    void invoke("cancel_cost_popover_close").catch(() => {});
     if (openTimer.current) return;
     openTimer.current = window.setTimeout(() => {
       openTimer.current = null;
-      showCostPanel(providerId);
+      setActive(true);
+      void invoke("show_cost_popover", { providerId }).catch(() => {});
     }, HOVER_OPEN_DELAY_MS);
   };
 
@@ -81,17 +72,14 @@ export function CostOverviewRow({ providerId, snapshot }: Props) {
       window.clearTimeout(openTimer.current);
       openTimer.current = null;
     }
-    if (closeTimer.current) return;
-    closeTimer.current = window.setTimeout(() => {
-      closeTimer.current = null;
-      hideCostPanel();
-    }, HOVER_CLOSE_DELAY_MS);
+    setActive(false);
+    void invoke("schedule_cost_popover_close").catch(() => {});
   };
 
   return (
     <div
       className={
-        "cost-overview" + (isActive ? " cost-overview--active" : "")
+        "cost-overview" + (active ? " cost-overview--active" : "")
       }
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
@@ -100,7 +88,7 @@ export function CostOverviewRow({ providerId, snapshot }: Props) {
       tabIndex={0}
       role="button"
       aria-label="Cost history — hover to see 30 day chart"
-      aria-expanded={isActive}
+      aria-expanded={active}
     >
       <div className="cost-overview__header">
         <span className="cost-overview__title">Cost</span>

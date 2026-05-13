@@ -2,15 +2,17 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { PopupShell } from "./popup";
 import { SettingsApp } from "./settings/SettingsApp";
+import { CostPopoverApp } from "./popup/cost/CostPopoverApp";
 import { I18nProvider } from "./i18n";
 import { ErrorBoundary } from "./popup/debug/ErrorBoundary";
 import { debugLog } from "./popup/debug/logger";
 
-// Phase 8 task 1: route by URL hash. The Tauri shell opens the
-// preferences window with `index.html#/settings`; the tray popup
-// continues to load on bare `index.html`. Two-window apps don't
-// need react-router.
+// Route by URL hash. Three top-level entry points share index.html:
+//   #/settings        → preferences window
+//   #/cost-popover    → floating cost-history side panel
+//   <no hash>         → main tray popup
 const isSettingsRoute = window.location.hash.startsWith("#/settings");
+const isCostPopoverRoute = window.location.hash.startsWith("#/cost-popover");
 
 debugLog.info(
   "main.tsx",
@@ -27,7 +29,13 @@ if (!rootEl) {
       <React.StrictMode>
         <ErrorBoundary>
           <I18nProvider>
-            {isSettingsRoute ? <SettingsApp /> : <PopupShell />}
+            {isSettingsRoute ? (
+              <SettingsApp />
+            ) : isCostPopoverRoute ? (
+              <CostPopoverApp />
+            ) : (
+              <PopupShell />
+            )}
           </I18nProvider>
         </ErrorBoundary>
       </React.StrictMode>,

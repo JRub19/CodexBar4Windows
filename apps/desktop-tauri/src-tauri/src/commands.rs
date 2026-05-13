@@ -611,6 +611,193 @@ pub async fn refresh_cost_history(cost: State<'_, CostHandle>) -> Result<(), Str
     Ok(())
 }
 
+// ---- Cost popover window control ----------------------------------
+//
+// The cost-popover is a separate Tauri window declared in
+// tauri.conf.json (visible: false initially). The main popup's per-
+// provider Cost row invokes `show_cost_popover` on hover to position
+// the window beside the main popup and reveal it; mouseleave invokes
+// `schedule_cost_popover_close` after a grace period. The popover
+// window itself invokes `cancel_cost_popover_close` while the cursor
+// is over its content so the close timer never fires while the user
+// is interacting with it.
+
+use parking_lot::Mutex;
+use std::time::Duration;
+
+/// Shared state tracking whether the cost popover is currently
+/// shown. Read by the main-popup focus handler to suppress its
+/// auto-hide-on-blur while the popover is up (otherwise the
+/// popover gaining focus would close the main popup).
+#[derive(Default)]
+pub struct CostPopoverState {
+    pub visible: std::sync::atomic::AtomicBool,
+    /// Generation counter for the scheduled-close timer. Every
+    /// `schedule_cost_popover_close` invocation increments this;
+    /// the spawned task only acts when the generation it captured
+    /// still matches at fire time. This is how we cancel pending
+    /// closes from `cancel_cost_popover_close`.
+    pub close_generation: std::sync::atomic::AtomicU64,
+    /// Last provider id requested. The popover React side reads
+    /// this via the `cost-popover:set-provider` event, but we keep
+    /// the value so the Rust side can be authoritative when the
+    /// popover is re-shown for a different provider.
+    pub current_provider: Mutex<Option<String>>,
+}
+
+/// Show the cost popover for the given provider, positioned beside
+/// the main popup. Prefers the LEFT side of the main popup; falls
+/// back to the right edge when the screen has no room on the left.
+#[tauri::command]
+pub async fn show_cost_popover(
+    app: AppHandle,
+    state: State<'_, CostPopoverHandle>,
+    provider_id: String,
+) -> Result<(), String> {
+    use tauri::{Manager, PhysicalPosition};
+
+    let main = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let popover = app
+        .get_webview_window("cost-popover")
+        .ok_or_else(|| "cost-popover window not found".to_string())?;
+
+    // Cancel any pending close — the user is interacting again.
+    state
+        .0
+        .close_generation
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    *state.0.current_provider.lock() = Some(provider_id.clone());
+    state
+        .0
+        .visible
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+
+    // Tell the popover which provider's data to show. Emit BEFORE
+    // making the window visible so the React side has provider data
+    // queued by the time the window paints — avoids a "no provider
+    // selected" flash.
+    let _ = app.emit("cost-popover:set-provider", serde_json::json!({
+        "provider_id": provider_id,
+    }));
+
+    // Position. The main popup is anchored bottom-right of the
+    // screen (above the tray icon). We prefer placing the popover
+    // to its left, gap of 6 px; if that would land off-screen,
+    // place to its right.
+    let main_pos = main.outer_position().map_err(|e| e.to_string())?;
+    let main_size = main.outer_size().map_err(|e| e.to_string())?;
+    let scale = main.scale_factor().unwrap_or(1.0);
+
+    // Logical popover size, matching tauri.conf.json.
+    let pop_logical_w: f64 = 360.0;
+    let pop_logical_h: f64 = 320.0;
+    let pop_physical_w = (pop_logical_w * scale) as i32;
+    let pop_physical_h = (pop_logical_h * scale) as i32;
+    let gap = (6.0 * scale) as i32;
+
+    let monitor = main
+        .current_monitor()
+        .ok()
+        .flatten()
+        .ok_or_else(|| "no monitor for main window".to_string())?;
+    let mon_pos = monitor.position();
+    let mon_size = monitor.size();
+
+    // Candidate: to the left of main.
+    let left_x = main_pos.x - pop_physical_w - gap;
+    let right_x = main_pos.x + main_size.width as i32 + gap;
+    let prefer_left = left_x >= mon_pos.x + 4;
+    let x = if prefer_left {
+        left_x
+    } else if right_x + pop_physical_w <= mon_pos.x + mon_size.width as i32 - 4 {
+        right_x
+    } else {
+        // Neither side fits — pin to whichever side has more room.
+        if left_x >= mon_pos.x { left_x } else { right_x }
+    };
+
+    // Vertical alignment: top of popover aligns with top of main.
+    // Clamp to monitor.
+    let mut y = main_pos.y;
+    let max_y = mon_pos.y + mon_size.height as i32 - pop_physical_h - 4;
+    let min_y = mon_pos.y + 4;
+    if y > max_y { y = max_y; }
+    if y < min_y { y = min_y; }
+
+    let _ = popover.set_position(PhysicalPosition::new(x, y));
+    // Set size explicitly each show in case DPI changed between monitors.
+    let _ = popover.set_size(tauri::LogicalSize::new(pop_logical_w, pop_logical_h));
+    let _ = popover.show();
+    Ok(())
+}
+
+/// Hide the cost popover immediately. Used internally and exposed
+/// for completeness; React callers usually go through
+/// `schedule_cost_popover_close` so the hover bridge can cancel it.
+#[tauri::command]
+pub async fn hide_cost_popover(
+    app: AppHandle,
+    state: State<'_, CostPopoverHandle>,
+) -> Result<(), String> {
+    use tauri::Manager;
+    state
+        .0
+        .visible
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    *state.0.current_provider.lock() = None;
+    if let Some(popover) = app.get_webview_window("cost-popover") {
+        let _ = popover.hide();
+    }
+    Ok(())
+}
+
+/// Schedule a close after a grace period. If
+/// `cancel_cost_popover_close` is invoked before the timer fires,
+/// this close is cancelled by generation-counter mismatch.
+#[tauri::command]
+pub async fn schedule_cost_popover_close(
+    app: AppHandle,
+    state: State<'_, CostPopoverHandle>,
+) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+    use tauri::Manager;
+
+    let gen = state.0.close_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    let state_for_task = state.0.clone();
+    let app_clone = app.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(360)).await;
+        // Only act if generation is still current (no cancel happened).
+        if state_for_task.close_generation.load(Ordering::SeqCst) != gen {
+            return;
+        }
+        state_for_task.visible.store(false, Ordering::SeqCst);
+        *state_for_task.current_provider.lock() = None;
+        if let Some(popover) = app_clone.get_webview_window("cost-popover") {
+            let _ = popover.hide();
+        }
+    });
+    Ok(())
+}
+
+/// Cancel any pending scheduled close. Invoked by both the trigger
+/// row (on re-hover) and the popover content (on mouseenter).
+#[tauri::command]
+pub async fn cancel_cost_popover_close(
+    state: State<'_, CostPopoverHandle>,
+) -> Result<(), String> {
+    state
+        .0
+        .close_generation
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+}
+
+/// State wrapper, registered with `app.manage` in lib.rs setup().
+pub struct CostPopoverHandle(pub std::sync::Arc<CostPopoverState>);
+
 /// Helper for the Tauri builder to register the State once paths are known.
 pub fn build_settings_handle(config_path: std::path::PathBuf) -> SettingsHandle {
     Arc::new(codexbar::settings::SettingsStore::load(config_path))
