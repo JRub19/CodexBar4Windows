@@ -67,6 +67,12 @@ interface UsageStoreState {
   applyStatusEvent: (event: StatusEventPayload) => void;
   setTheme: (theme: Theme) => void;
   selectProvider: (id: string | null) => void;
+  /** Provider id whose cost-history side panel is currently shown,
+   *  or `null` when no panel is open. Driven by the per-card cost
+   *  row's hover state in `ProviderCard`. */
+  costPanelProviderId: string | null;
+  showCostPanel: (id: string) => void;
+  hideCostPanel: () => void;
 }
 
 export const useUsageStore = create<UsageStoreState>((set) => ({
@@ -106,6 +112,9 @@ export const useUsageStore = create<UsageStoreState>((set) => ({
   applyStatusEvent: (event) => set({ lastStatusEvent: event }),
   setTheme: (theme) => set({ theme }),
   selectProvider: (id) => set({ selectedProviderId: id }),
+  costPanelProviderId: null,
+  showCostPanel: (id) => set({ costPanelProviderId: id }),
+  hideCostPanel: () => set({ costPanelProviderId: null }),
 }));
 
 /** Helper selector — returns descriptors filtered by the

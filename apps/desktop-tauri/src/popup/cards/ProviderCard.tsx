@@ -6,8 +6,8 @@ import { CardHeader } from "./CardHeader";
 import { HeroMetric } from "./HeroMetric";
 import { MetricRow } from "./MetricRow";
 import { Icon } from "../../components/Icon";
-import { CostHistoryChart } from "./CostHistoryChart";
 import { useCostHistory } from "./useCostHistory";
+import { CostOverviewRow } from "./CostOverviewRow";
 import type { Metric, ProviderSnapshot } from "./snapshot";
 
 // The popup's per-provider card. Top to bottom:
@@ -167,11 +167,7 @@ export function ProviderCard({ descriptor }: Props) {
         </div>
       ) : null}
       {showCostChart ? (
-        <CostHistoryChart
-          snapshot={costSnap}
-          brandColor={descriptor.branding.accent_hex}
-          visible={!cost.loading}
-        />
+        <CostOverviewRow providerId={descriptor.id} snapshot={costSnap} />
       ) : null}
     </article>
   );

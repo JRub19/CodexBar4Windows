@@ -197,11 +197,16 @@ kbd {
      between the popup chrome and the window edge while
      `useAutoResize` is converging the OS window to the React
      content. The hook measures children via `scrollHeight` (not
-     bounding rect) so the flex layout doesn't mislead it. */
+     bounding rect) so the flex layout doesn't mislead it.
+
+     Flex ROW so the optional CostSidePanel can sit beside the
+     popup-main column. Side panel renders nothing when no cost
+     row is hovered, collapsing the shell to a single column. */
   height: 100vh;
   width: 100vw;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   background: var(--bg-popup);
   border-radius: var(--r-popup);
   overflow: hidden;
@@ -1690,4 +1695,133 @@ kbd {
 .cost-chart__detail-cost {
   color: var(--text-tertiary);
   flex-shrink: 0;
+}
+
+/* ============================================================ */
+/* POPUP MAIN COLUMN + COST SIDE PANEL                          */
+/* ============================================================ */
+
+/* The main column is the original popup body — header, cards,
+   footer. Fixed-ish width (380px) inherited from the original
+   layout. The cost side panel, when active, sits to its LEFT. */
+.popup-main {
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.cost-side-panel {
+  width: 360px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  animation: cost-panel-in 200ms var(--ease-out) both;
+  -webkit-app-region: no-drag;
+}
+
+@keyframes cost-panel-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.cost-side-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cost-side-panel__title {
+  font-size: var(--fs-section);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.cost-side-panel__subtitle {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cost-side-panel__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The chart inside the side panel doesn't need the top divider
+   the in-card version uses, since the panel already provides
+   visual separation. */
+.cost-side-panel__body .cost-chart {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+/* ============================================================ */
+/* COST OVERVIEW ROW (in-card)                                  */
+/* ============================================================ */
+
+.cost-overview {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+  margin-right: calc(-1 * var(--space-2));
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+  -webkit-app-region: no-drag;
+  transition: background-color var(--d-hover-in) var(--ease-out);
+}
+
+.cost-overview:hover,
+.cost-overview--active {
+  background: var(--bg-hover);
+}
+
+.cost-overview__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.cost-overview__title {
+  font-size: var(--fs-section);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+.cost-overview__hint {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--d-hover-in) var(--ease-out);
+}
+.cost-overview:hover .cost-overview__hint,
+.cost-overview--active .cost-overview__hint {
+  opacity: 1;
+}
+
+.cost-overview__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+.cost-overview__line-label {
+  color: var(--text-tertiary);
+}
+.cost-overview__line-value {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.cost-overview__line-tokens {
+  color: var(--text-tertiary);
+  margin-left: 4px;
+  font-size: 10px;
 }

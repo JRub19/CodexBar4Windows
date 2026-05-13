@@ -37,70 +37,91 @@ import {
 
 const MIN_H = 240;
 const MAX_H = 900;
+const MIN_W = 380;
+const MAX_W = 1200;
 const DELTA_PX = 2;
 
 export function useAutoResize(rootRef: React.RefObject<HTMLElement | null>) {
   const lastHeightRef = useRef<number | null>(null);
+  const lastWidthRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
 
-    const measure = (): number => {
-      let total = 0;
-      for (const child of Array.from(root.children) as HTMLElement[]) {
-        // Skip pinned-overlay-style children (FirstRunToast etc.).
-        // They have position:absolute/fixed and shouldn't contribute
-        // to the flow height.
-        const cs = window.getComputedStyle(child);
+    // Measures the popup root's natural content size. Returns
+    // [width, height]. The root is a flex row (`popup-main` + optional
+    // side panel) so total width = sum of column widths and total
+    // height = max of column heights. For each column we sum the
+    // scrollHeight of its children (not the bounding rect) because
+    // flex: 1 elements would otherwise report viewport height.
+    const measure = (): { width: number; height: number } => {
+      let totalWidth = 0;
+      let maxHeight = 0;
+      for (const column of Array.from(root.children) as HTMLElement[]) {
+        const cs = window.getComputedStyle(column);
         if (cs.position === "absolute" || cs.position === "fixed") continue;
-        // Use `scrollHeight` instead of the bounding rect so we get
-        // the child's CONTENT height, not its current flex-stretched
-        // box. The popup body has `flex: 1` which would otherwise
-        // make the measurement track the window height instead of
-        // the cards inside it.
-        const mt = parseFloat(cs.marginTop) || 0;
-        const mb = parseFloat(cs.marginBottom) || 0;
-        total += child.scrollHeight + mt + mb;
+        if (cs.display === "none") continue;
+        const colWidth = column.getBoundingClientRect().width;
+        let colHeight = 0;
+        for (const child of Array.from(column.children) as HTMLElement[]) {
+          const ccs = window.getComputedStyle(child);
+          if (ccs.position === "absolute" || ccs.position === "fixed")
+            continue;
+          const mt = parseFloat(ccs.marginTop) || 0;
+          const mb = parseFloat(ccs.marginBottom) || 0;
+          colHeight += child.scrollHeight + mt + mb;
+        }
+        // If the column has no children (rare), fall back to its
+        // own scrollHeight.
+        if (colHeight === 0) colHeight = column.scrollHeight;
+        totalWidth += colWidth;
+        maxHeight = Math.max(maxHeight, colHeight);
       }
-      return Math.ceil(total);
+      return { width: Math.ceil(totalWidth), height: Math.ceil(maxHeight) };
     };
 
     const apply = async () => {
       rafRef.current = null;
       const target = measure();
-      if (target < MIN_H || target > MAX_H + 1000) {
+      if (target.height < MIN_H || target.height > MAX_H + 1000) {
         // Either too small (mid-mount with nothing rendered yet) or
         // suspiciously huge (we'd rather not commit to a window that
         // covers the screen). Skip this tick.
         return;
       }
-      const clamped = Math.min(MAX_H, Math.max(MIN_H, target));
-      if (
-        lastHeightRef.current != null &&
-        Math.abs(clamped - lastHeightRef.current) < DELTA_PX
-      ) {
-        return;
-      }
-      lastHeightRef.current = clamped;
+      const clampedH = Math.min(MAX_H, Math.max(MIN_H, target.height));
+      const clampedW = Math.min(MAX_W, Math.max(MIN_W, target.width));
+      const heightChanged =
+        lastHeightRef.current == null ||
+        Math.abs(clampedH - lastHeightRef.current) >= DELTA_PX;
+      const widthChanged =
+        lastWidthRef.current == null ||
+        Math.abs(clampedW - lastWidthRef.current) >= DELTA_PX;
+      if (!heightChanged && !widthChanged) return;
+      lastHeightRef.current = clampedH;
+      lastWidthRef.current = clampedW;
       try {
         const w = getCurrentWindow();
         // Capture current position + size BEFORE resizing so we can
-        // pin the popup's BOTTOM edge to its current spot (it's
-        // anchored above the tray icon — losing height should shrink
-        // toward the top, not push the bottom away from the icon).
+        // pin the popup's BOTTOM-RIGHT corner to its current spot
+        // (the popup is anchored above the tray icon — losing
+        // height should shrink toward the top, gaining width should
+        // grow toward the left).
         const [prevPos, prevSize, dpi] = await Promise.all([
           w.outerPosition(),
           w.outerSize(),
           w.scaleFactor(),
         ]);
-        await w.setSize(new LogicalSize(380, clamped));
-        const newPhysicalHeight = Math.round(clamped * dpi);
+        await w.setSize(new LogicalSize(clampedW, clampedH));
+        const newPhysicalHeight = Math.round(clampedH * dpi);
+        const newPhysicalWidth = Math.round(clampedW * dpi);
         const deltaY = prevSize.height - newPhysicalHeight;
-        if (deltaY !== 0) {
+        const deltaX = prevSize.width - newPhysicalWidth;
+        if (deltaX !== 0 || deltaY !== 0) {
           await w.setPosition(
-            new PhysicalPosition(prevPos.x, prevPos.y + deltaY),
+            new PhysicalPosition(prevPos.x + deltaX, prevPos.y + deltaY),
           );
         }
       } catch {
