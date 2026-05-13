@@ -8,6 +8,7 @@
 //! supervision here.
 
 pub mod binary_locator;
+pub mod conpty_transport;
 pub mod rpc_client;
 pub mod rpc_framer;
 pub mod strategy;

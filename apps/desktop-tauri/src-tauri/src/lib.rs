@@ -9,6 +9,7 @@ pub mod commands;
 #[cfg(feature = "dev")]
 pub mod dev;
 pub mod first_run;
+pub mod login_commands;
 pub mod perf;
 pub mod secrets_commands;
 pub mod tray_renderer;
@@ -31,7 +32,58 @@ use codexbar::providers::codex::cli::rpc_client::{
 use codexbar::providers::codex::cli::strategy::TransportFactory as CodexTransportFactory;
 use codexbar::providers::codex::planner::CodexWiring;
 use codexbar::providers::codex::CodexProvider;
+use codexbar::providers::copilot::oauth::strategy::{
+    CopilotCredentials, CopilotCredentialsResolver, GithubHttp as CopilotGithubHttp,
+    GithubResponse as CopilotGithubResponse,
+};
+use codexbar::providers::copilot::oauth::transport::ReqwestGithubClient;
+use codexbar::providers::copilot::planner::CopilotWiring;
+use codexbar::providers::copilot::CopilotProvider;
+use codexbar::providers::cursor::planner::CursorWiring;
+use codexbar::providers::cursor::CursorProvider;
+use codexbar::providers::deepseek::api::strategy::{
+    DeepSeekCredentialsResolver, DeepSeekHttp, DeepSeekResponse,
+};
+use codexbar::providers::deepseek::api::transport::ReqwestDeepSeekClient;
+use codexbar::providers::deepseek::planner::DeepSeekWiring;
+use codexbar::providers::deepseek::DeepSeekProvider;
 use codexbar::providers::errors::ProviderFetchError;
+use codexbar::providers::factory::api::strategy::{
+    FactoryCredentials, FactoryCredentialsResolver, FactoryHttp, FactoryResponse,
+};
+use codexbar::providers::factory::api::transport::ReqwestFactoryClient;
+use codexbar::providers::factory::planner::FactoryWiring;
+use codexbar::providers::factory::FactoryProvider;
+use codexbar::providers::gemini::oauth::credentials::{
+    load_auth_type, load_credentials, GeminiAuthType,
+};
+use codexbar::providers::gemini::oauth::strategy::{
+    GeminiCredentialsResolver, GeminiCredentialsState, GoogleHttp,
+    GoogleResponse as GeminiGoogleResponse, HttpMethod as GeminiHttpMethod,
+};
+use codexbar::providers::gemini::oauth::transport::ReqwestGoogleClient;
+use codexbar::providers::gemini::planner::GeminiWiring;
+use codexbar::providers::gemini::GeminiProvider;
+use codexbar::providers::moonshot::api::strategy::{
+    MoonshotCredentials, MoonshotCredentialsResolver, MoonshotHttp, MoonshotResponse,
+};
+use codexbar::providers::moonshot::api::transport::ReqwestMoonshotClient;
+use codexbar::providers::moonshot::descriptor::MoonshotRegion;
+use codexbar::providers::moonshot::planner::MoonshotWiring;
+use codexbar::providers::moonshot::MoonshotProvider;
+use codexbar::providers::openrouter::api::strategy::{
+    OpenRouterCredentials, OpenRouterCredentialsResolver, OpenRouterHttp, OpenRouterResponse,
+};
+use codexbar::providers::openrouter::api::transport::ReqwestOpenRouterClient;
+use codexbar::providers::openrouter::planner::OpenRouterWiring;
+use codexbar::providers::openrouter::OpenRouterProvider;
+use codexbar::providers::zai::api::strategy::{
+    ZaiCredentials, ZaiCredentialsResolver, ZaiHttp, ZaiResponse,
+};
+use codexbar::providers::zai::api::transport::ReqwestZaiClient;
+use codexbar::providers::zai::descriptor::ZaiRegion;
+use codexbar::providers::zai::planner::ZaiWiring;
+use codexbar::providers::zai::ZaiProvider;
 use codexbar::providers::ProviderImplementation;
 use codexbar::secrets::token_account::TokenAccountStore;
 use codexbar::settings::SettingsHandle;
@@ -68,22 +120,47 @@ impl CredentialsResolver for FilesystemCredentialsResolver {
     }
 }
 
-/// Pulls a Claude cookie header from the shared cookie cache.
-struct CookieCacheResolver {
+/// Tries the DPAPI-wrapped token store first, then falls back to the
+/// shared cookie cache. Lets a user paste a Cookie header in the
+/// Preferences pane without losing the auto-imported browser cookie
+/// pathway.
+struct StoredCookieResolver {
+    tokens: Arc<TokenAccountStore>,
     cache: Arc<CookieHeaderCache>,
+    provider_id: &'static str,
 }
 
-impl CookieCacheResolver {
-    fn new(cache: Arc<CookieHeaderCache>) -> Self {
-        Self { cache }
+impl StoredCookieResolver {
+    fn new(
+        tokens: Arc<TokenAccountStore>,
+        cache: Arc<CookieHeaderCache>,
+        provider_id: &'static str,
+    ) -> Self {
+        Self {
+            tokens,
+            cache,
+            provider_id,
+        }
     }
 }
 
 #[async_trait::async_trait]
-impl CookieResolver for CookieCacheResolver {
+impl CookieResolver for StoredCookieResolver {
     async fn cookie(&self) -> Result<Option<String>, ProviderFetchError> {
+        let store = self.tokens.clone();
+        let provider_id = self.provider_id;
+        let stored = tokio::task::spawn_blocking(move || store.active_for(provider_id))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        if let Some(account) = stored {
+            let value = account.value.trim();
+            if !value.is_empty() {
+                return Ok(Some(value.to_string()));
+            }
+        }
         let cache = self.cache.clone();
-        let result = tokio::task::spawn_blocking(move || cache.read("claude"))
+        let result = tokio::task::spawn_blocking(move || cache.read(provider_id))
             .await
             .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
         match result {
@@ -95,7 +172,8 @@ impl CookieResolver for CookieCacheResolver {
 
     async fn invalidate(&self) -> Result<(), ProviderFetchError> {
         let cache = self.cache.clone();
-        tokio::task::spawn_blocking(move || cache.invalidate("claude"))
+        let provider_id = self.provider_id;
+        tokio::task::spawn_blocking(move || cache.invalidate(provider_id))
             .await
             .map_err(|e| ProviderFetchError::Network(e.to_string()))?
             .map_err(|e| ProviderFetchError::Network(e.to_string()))
@@ -237,6 +315,332 @@ impl codexbar::providers::codex::oauth::strategy::OAuthCredentialsResolver
     }
 }
 
+// ── Tier-1 provider transports + credential placeholders ─────────────
+//
+// These follow the same pattern as the Claude/Codex shims above: when
+// reqwest cannot build we fall back to a null transport that always
+// reports `Network`, and credential resolvers default to `NoToken`
+// until the secret-storage UI lands. The strategies stay wired so the
+// refresh loop walks each provider on every tick.
+
+struct NullCopilotGithubHttp;
+#[async_trait::async_trait]
+impl CopilotGithubHttp for NullCopilotGithubHttp {
+    async fn get(
+        &self,
+        _: &str,
+        _: &[(&str, &str)],
+    ) -> Result<CopilotGithubResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; Copilot OAuth disabled".into(),
+        ))
+    }
+}
+
+/// Reads the active Copilot/GitHub OAuth token from the DPAPI-wrapped
+/// `TokenAccountStore`. The optional GHE host is read from the
+/// `CODEXBAR_COPILOT_HOST` env var until the settings UI exposes it as
+/// a stored field.
+struct StoredCopilotCredentials {
+    tokens: Arc<TokenAccountStore>,
+}
+#[async_trait::async_trait]
+impl CopilotCredentialsResolver for StoredCopilotCredentials {
+    async fn resolve(&self) -> Result<Option<CopilotCredentials>, ProviderFetchError> {
+        let store = self.tokens.clone();
+        let active = tokio::task::spawn_blocking(move || store.active_for("copilot"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        let Some(account) = active else {
+            return Ok(None);
+        };
+        let token = account.value.trim();
+        if token.is_empty() {
+            return Ok(None);
+        }
+        let enterprise_host = std::env::var("CODEXBAR_COPILOT_HOST")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+        Ok(Some(CopilotCredentials {
+            access_token: token.to_string(),
+            enterprise_host,
+        }))
+    }
+}
+
+struct NullGeminiHttp;
+#[async_trait::async_trait]
+impl GoogleHttp for NullGeminiHttp {
+    async fn request(
+        &self,
+        _: GeminiHttpMethod,
+        _: &str,
+        _: &str,
+        _: Option<&[u8]>,
+    ) -> Result<GeminiGoogleResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; Gemini OAuth disabled".into(),
+        ))
+    }
+}
+
+/// Resolves Gemini OAuth credentials from `~/.gemini/oauth_creds.json`
+/// (`%USERPROFILE%\.gemini` on Windows) and `~/.gemini/settings.json`.
+struct FilesystemGeminiCredentials;
+#[async_trait::async_trait]
+impl GeminiCredentialsResolver for FilesystemGeminiCredentials {
+    async fn resolve(&self) -> Result<GeminiCredentialsState, ProviderFetchError> {
+        let Some(home) = dirs_home_dir() else {
+            return Ok(GeminiCredentialsState {
+                auth_type: GeminiAuthType::Unknown,
+                credentials: None,
+            });
+        };
+        let auth_type = load_auth_type(&home);
+        let credentials = match load_credentials(&home) {
+            Ok(c) => Some(c),
+            Err(ProviderFetchError::NoToken(_)) => None,
+            Err(other) => return Err(other),
+        };
+        Ok(GeminiCredentialsState {
+            auth_type,
+            credentials,
+        })
+    }
+}
+
+fn dirs_home_dir() -> Option<std::path::PathBuf> {
+    if let Ok(home) = std::env::var("USERPROFILE") {
+        return Some(std::path::PathBuf::from(home));
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        return Some(std::path::PathBuf::from(home));
+    }
+    None
+}
+
+struct NullOpenRouterHttp;
+#[async_trait::async_trait]
+impl OpenRouterHttp for NullOpenRouterHttp {
+    async fn get(
+        &self,
+        _: &str,
+        _: &str,
+        _: &[(&str, &str)],
+        _: std::time::Duration,
+    ) -> Result<OpenRouterResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; OpenRouter disabled".into(),
+        ))
+    }
+}
+
+/// Reads the active OpenRouter API key from the DPAPI-wrapped token
+/// store. Falls back to `OPENROUTER_API_KEY` when no stored account
+/// exists, so headless smoke tests still work.
+struct StoredOpenRouterCredentials {
+    tokens: Arc<TokenAccountStore>,
+}
+#[async_trait::async_trait]
+impl OpenRouterCredentialsResolver for StoredOpenRouterCredentials {
+    async fn resolve(&self) -> Result<Option<OpenRouterCredentials>, ProviderFetchError> {
+        let store = self.tokens.clone();
+        let active = tokio::task::spawn_blocking(move || store.active_for("openrouter"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        let api_key = match active.map(|a| a.value).filter(|v| !v.trim().is_empty()) {
+            Some(value) => value,
+            None => match std::env::var("OPENROUTER_API_KEY") {
+                Ok(t) if !t.trim().is_empty() => t,
+                _ => return Ok(None),
+            },
+        };
+        Ok(Some(OpenRouterCredentials {
+            api_key,
+            base_url: std::env::var("OPENROUTER_BASE_URL").ok(),
+            http_referer: std::env::var("OPENROUTER_HTTP_REFERER").ok(),
+            client_title: std::env::var("OPENROUTER_X_TITLE").ok(),
+        }))
+    }
+}
+
+struct NullFactoryHttp;
+#[async_trait::async_trait]
+impl FactoryHttp for NullFactoryHttp {
+    async fn get(
+        &self,
+        _: &str,
+        _: &[(&str, &str)],
+    ) -> Result<FactoryResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; Factory disabled".into(),
+        ))
+    }
+}
+
+/// Reads the active Factory credential from the token store. The
+/// account `kind` decides whether the value goes into the
+/// `Authorization: Bearer` header or the `Cookie` header. Falls back
+/// to the legacy `CODEXBAR_FACTORY_BEARER` / `CODEXBAR_FACTORY_COOKIE`
+/// env vars when no stored account exists.
+struct StoredFactoryCredentials {
+    tokens: Arc<TokenAccountStore>,
+}
+#[async_trait::async_trait]
+impl FactoryCredentialsResolver for StoredFactoryCredentials {
+    async fn resolve(&self) -> Result<FactoryCredentials, ProviderFetchError> {
+        use codexbar::secrets::token_account::TokenKind;
+        let store = self.tokens.clone();
+        let active = tokio::task::spawn_blocking(move || store.active_for("factory"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+
+        let mut bearer: Option<String> = None;
+        let mut cookie: Option<String> = None;
+        if let Some(account) = active {
+            let value = account.value.trim().to_string();
+            if !value.is_empty() {
+                match account.kind {
+                    TokenKind::Cookie => cookie = Some(value),
+                    TokenKind::OauthToken | TokenKind::ApiKey => {
+                        bearer = Some(if value.starts_with("Bearer ") {
+                            value
+                        } else {
+                            format!("Bearer {value}")
+                        });
+                    }
+                }
+            }
+        }
+
+        if bearer.is_none() {
+            bearer = std::env::var("CODEXBAR_FACTORY_BEARER")
+                .ok()
+                .filter(|s| !s.trim().is_empty())
+                .map(|raw| {
+                    if raw.starts_with("Bearer ") {
+                        raw
+                    } else {
+                        format!("Bearer {raw}")
+                    }
+                });
+        }
+        if cookie.is_none() {
+            cookie = std::env::var("CODEXBAR_FACTORY_COOKIE")
+                .ok()
+                .filter(|s| !s.trim().is_empty());
+        }
+        Ok(FactoryCredentials { bearer, cookie })
+    }
+}
+
+// ── Tier-2 provider transports + credential placeholders ─────────────
+
+struct NullDeepSeekHttp;
+#[async_trait::async_trait]
+impl DeepSeekHttp for NullDeepSeekHttp {
+    async fn get(&self, _: &str, _: &str) -> Result<DeepSeekResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; DeepSeek disabled".into(),
+        ))
+    }
+}
+
+struct StoredDeepSeekCredentials {
+    tokens: Arc<TokenAccountStore>,
+}
+#[async_trait::async_trait]
+impl DeepSeekCredentialsResolver for StoredDeepSeekCredentials {
+    async fn resolve(&self) -> Result<Option<String>, ProviderFetchError> {
+        let store = self.tokens.clone();
+        let active = tokio::task::spawn_blocking(move || store.active_for("deepseek"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        Ok(active.map(|a| a.value).filter(|v| !v.trim().is_empty()))
+    }
+}
+
+struct NullMoonshotHttp;
+#[async_trait::async_trait]
+impl MoonshotHttp for NullMoonshotHttp {
+    async fn get(&self, _: &str, _: &str) -> Result<MoonshotResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; Moonshot disabled".into(),
+        ))
+    }
+}
+
+struct StoredMoonshotCredentials {
+    tokens: Arc<TokenAccountStore>,
+}
+#[async_trait::async_trait]
+impl MoonshotCredentialsResolver for StoredMoonshotCredentials {
+    async fn resolve(&self) -> Result<Option<MoonshotCredentials>, ProviderFetchError> {
+        let store = self.tokens.clone();
+        let active = tokio::task::spawn_blocking(move || store.active_for("moonshot"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        let Some(account) = active else {
+            return Ok(None);
+        };
+        let api_key = account.value.trim().to_string();
+        if api_key.is_empty() {
+            return Ok(None);
+        }
+        let region = match std::env::var("CODEXBAR_MOONSHOT_REGION").as_deref() {
+            Ok("china") | Ok("cn") => MoonshotRegion::China,
+            _ => MoonshotRegion::International,
+        };
+        Ok(Some(MoonshotCredentials { api_key, region }))
+    }
+}
+
+struct NullZaiHttp;
+#[async_trait::async_trait]
+impl ZaiHttp for NullZaiHttp {
+    async fn get(&self, _: &str, _: &str) -> Result<ZaiResponse, ProviderFetchError> {
+        Err(ProviderFetchError::Network(
+            "reqwest unavailable; Z.ai disabled".into(),
+        ))
+    }
+}
+
+struct StoredZaiCredentials {
+    tokens: Arc<TokenAccountStore>,
+}
+#[async_trait::async_trait]
+impl ZaiCredentialsResolver for StoredZaiCredentials {
+    async fn resolve(&self) -> Result<Option<ZaiCredentials>, ProviderFetchError> {
+        let store = self.tokens.clone();
+        let active = tokio::task::spawn_blocking(move || store.active_for("zai"))
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        let Some(account) = active else {
+            return Ok(None);
+        };
+        let api_key = account.value.trim().to_string();
+        if api_key.is_empty() {
+            return Ok(None);
+        }
+        let region = match std::env::var("CODEXBAR_ZAI_REGION").as_deref() {
+            Ok("bigmodel-cn") | Ok("cn") => ZaiRegion::BigmodelCN,
+            _ => ZaiRegion::Global,
+        };
+        Ok(Some(ZaiCredentials {
+            api_key,
+            region,
+            host_override: std::env::var("Z_AI_API_HOST").ok(),
+            quota_url_override: std::env::var("Z_AI_QUOTA_URL").ok(),
+        }))
+    }
+}
+
 /// Locate the `claude` binary on PATH. Returns `None` when the user has
 /// not installed the CLI.
 fn claude_cli_binary() -> Option<String> {
@@ -330,8 +734,11 @@ pub fn run() {
         Ok(c) => Arc::new(c),
         Err(_) => Arc::new(NullWebClient),
     };
-    let web_cookies: Arc<dyn CookieResolver> =
-        Arc::new(CookieCacheResolver::new(cookie_cache.clone()));
+    let web_cookies: Arc<dyn CookieResolver> = Arc::new(StoredCookieResolver::new(
+        token_store.clone(),
+        cookie_cache.clone(),
+        "claude",
+    ));
     let cli_runner: Arc<dyn CliRunner> = match claude_cli_binary() {
         Some(_) => codexbar::providers::claude::planner::default_cli_runner(),
         None => Arc::new(RecordedRunner {
@@ -374,15 +781,149 @@ pub fn run() {
             cookie_importer.clone(),
         ),
     );
+    // Codex CLI: when a `codex` binary is locatable on the host, wire
+    // the real ConPTY-backed transport so the JSON-RPC strategy can
+    // talk to it. Otherwise fall back to the unavailable stub so the
+    // rest of the plan still runs.
+    let codex_cli_factory: Arc<dyn CodexTransportFactory> =
+        match codexbar::providers::codex::cli::binary_locator::locate() {
+            Ok(path) => {
+                let binary = path.to_string_lossy().to_string();
+                info!(target: "codexbar::app", binary = %binary, "codex.cli.conpty.installed");
+                Arc::new(
+                    codexbar::providers::codex::cli::conpty_transport::ConPtyTransportFactory::new(
+                        binary,
+                    ),
+                )
+            }
+            Err(_) => Arc::new(UnavailableCodexTransport),
+        };
     codex_provider.install_wiring(CodexWiring {
         oauth_http: codex_oauth_http,
         oauth_credentials: codex_oauth_credentials,
         web_client: codex_web_client,
         web_cookies: codex_cookie_resolver,
-        cli_transport_factory: Arc::new(UnavailableCodexTransport),
+        cli_transport_factory: codex_cli_factory,
     });
-    let providers: Vec<Arc<dyn ProviderImplementation>> =
-        vec![claude_provider.clone(), codex_provider.clone()];
+
+    // Phase 6.5: Tier-1 providers ported from the macOS Swift source.
+    // Each gets its own reqwest transport plus an env-driven credential
+    // resolver as a placeholder. The settings UI will swap these out
+    // for keychain-backed resolvers in a follow-up.
+    let cursor_provider = Arc::new(CursorProvider::default());
+    let cursor_web_client: Arc<dyn WebClient> = match ReqwestWebClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullWebClient),
+    };
+    let cursor_cookie_resolver: Arc<dyn CookieResolver> = Arc::new(StoredCookieResolver::new(
+        token_store.clone(),
+        cookie_cache.clone(),
+        "cursor",
+    ));
+    cursor_provider.install_wiring(CursorWiring {
+        web_client: cursor_web_client,
+        web_cookies: cursor_cookie_resolver,
+    });
+
+    let copilot_provider = Arc::new(CopilotProvider::default());
+    let copilot_http: Arc<dyn CopilotGithubHttp> = match ReqwestGithubClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullCopilotGithubHttp),
+    };
+    copilot_provider.install_wiring(CopilotWiring {
+        http: copilot_http,
+        credentials: Arc::new(StoredCopilotCredentials {
+            tokens: token_store.clone(),
+        }),
+    });
+
+    let gemini_provider = Arc::new(GeminiProvider::default());
+    let gemini_http: Arc<dyn GoogleHttp> = match ReqwestGoogleClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullGeminiHttp),
+    };
+    gemini_provider.install_wiring(GeminiWiring {
+        http: gemini_http,
+        credentials: Arc::new(FilesystemGeminiCredentials),
+    });
+
+    let openrouter_provider = Arc::new(OpenRouterProvider::default());
+    let openrouter_http: Arc<dyn OpenRouterHttp> = match ReqwestOpenRouterClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullOpenRouterHttp),
+    };
+    openrouter_provider.install_wiring(OpenRouterWiring {
+        http: openrouter_http,
+        credentials: Arc::new(StoredOpenRouterCredentials {
+            tokens: token_store.clone(),
+        }),
+    });
+
+    let factory_provider = Arc::new(FactoryProvider::default());
+    let factory_http: Arc<dyn FactoryHttp> = match ReqwestFactoryClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullFactoryHttp),
+    };
+    factory_provider.install_wiring(FactoryWiring {
+        http: factory_http,
+        credentials: Arc::new(StoredFactoryCredentials {
+            tokens: token_store.clone(),
+        }),
+    });
+
+    // Tier-2 providers. Each one follows the same template: a reqwest
+    // transport (with a null fallback when reqwest cannot build) plus a
+    // `TokenAccountStore`-backed credential resolver. Region/host
+    // overrides come from env vars until the settings UI grows the
+    // dedicated controls.
+    let deepseek_provider = Arc::new(DeepSeekProvider::default());
+    let deepseek_http: Arc<dyn DeepSeekHttp> = match ReqwestDeepSeekClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullDeepSeekHttp),
+    };
+    deepseek_provider.install_wiring(DeepSeekWiring {
+        http: deepseek_http,
+        credentials: Arc::new(StoredDeepSeekCredentials {
+            tokens: token_store.clone(),
+        }),
+    });
+
+    let moonshot_provider = Arc::new(MoonshotProvider::default());
+    let moonshot_http: Arc<dyn MoonshotHttp> = match ReqwestMoonshotClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullMoonshotHttp),
+    };
+    moonshot_provider.install_wiring(MoonshotWiring {
+        http: moonshot_http,
+        credentials: Arc::new(StoredMoonshotCredentials {
+            tokens: token_store.clone(),
+        }),
+    });
+
+    let zai_provider = Arc::new(ZaiProvider::default());
+    let zai_http: Arc<dyn ZaiHttp> = match ReqwestZaiClient::new() {
+        Ok(c) => Arc::new(c),
+        Err(_) => Arc::new(NullZaiHttp),
+    };
+    zai_provider.install_wiring(ZaiWiring {
+        http: zai_http,
+        credentials: Arc::new(StoredZaiCredentials {
+            tokens: token_store.clone(),
+        }),
+    });
+
+    let providers: Vec<Arc<dyn ProviderImplementation>> = vec![
+        claude_provider.clone(),
+        codex_provider.clone(),
+        cursor_provider.clone(),
+        copilot_provider.clone(),
+        gemini_provider.clone(),
+        openrouter_provider.clone(),
+        factory_provider.clone(),
+        deepseek_provider.clone(),
+        moonshot_provider.clone(),
+        zai_provider.clone(),
+    ];
     refresh.install_providers(providers, usage.clone(), token_store.clone());
 
     tauri::Builder::default()
@@ -394,6 +935,9 @@ pub fn run() {
         .manage(FirstRunHandle(first_run_store))
         .manage(secrets_commands::TokenAccountHandle(token_store))
         .manage(secrets_commands::CookieImporterHandle(cookie_importer))
+        .manage(login_commands::CopilotLoginHandle(Arc::new(
+            login_commands::CopilotLoginRegistry::default(),
+        )))
         .setup(move |app| {
             // Hand the live AppHandle to the usage-event bridge.
             *app_handle_for_setup.lock() = Some(app.handle().clone());
@@ -537,6 +1081,8 @@ pub fn run() {
             secrets_commands::set_manual_cookie,
             secrets_commands::import_cookies_for,
             secrets_commands::clear_cookie_cache,
+            login_commands::start_copilot_device_login,
+            login_commands::poll_copilot_device_login,
         ])
         .on_window_event(|window, event| {
             // Auto-dismiss the popup on focus loss to match the spec 80

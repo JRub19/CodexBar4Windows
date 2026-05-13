@@ -1,14 +1,14 @@
 //! Live smoke test for the Codex web strategy.
 //!
 //! Usage:
-//!   1. In Brave/Chrome DevTools (F12) open Application → Cookies →
-//!      https://chatgpt.com and copy the value of
-//!      `__Secure-next-auth.session-token`.
-//!   2. Set the env var:
-//!        $env:CODEX_PROBE_COOKIE = "__Secure-next-auth.session-token=<paste>"
-//!      You can include multiple cookies separated by `; `.
-//!   3. Run:
-//!        cargo run --example codex_web_smoke --manifest-path rust/Cargo.toml
+//! 1. In Brave/Chrome DevTools (F12) open Application → Cookies →
+//!    https://chatgpt.com and copy the value of
+//!    `__Secure-next-auth.session-token`.
+//! 2. Set the env var:
+//!    `$env:CODEX_PROBE_COOKIE = "__Secure-next-auth.session-token=<paste>"`
+//!    You can include multiple cookies separated by `; `.
+//! 3. Run:
+//!    `cargo run --example codex_web_smoke --manifest-path rust/Cargo.toml`
 //!
 //! The test calls /backend-api/me and /backend-api/wham/usage and
 //! prints the decoded snapshot. Tokens are never echoed verbatim.

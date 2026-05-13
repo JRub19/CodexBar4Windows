@@ -167,6 +167,14 @@ pub async fn provider_settings_descriptors(
     let snap = codexbar::providers::ProviderSettingsSnapshot::builder()
         .with_section(codexbar::providers::claude::settings::contribution())
         .with_section(codexbar::providers::codex::settings::contribution())
+        .with_section(codexbar::providers::cursor::settings::contribution())
+        .with_section(codexbar::providers::copilot::settings::contribution())
+        .with_section(codexbar::providers::gemini::settings::contribution())
+        .with_section(codexbar::providers::openrouter::settings::contribution())
+        .with_section(codexbar::providers::factory::settings::contribution())
+        .with_section(codexbar::providers::deepseek::settings::contribution())
+        .with_section(codexbar::providers::moonshot::settings::contribution())
+        .with_section(codexbar::providers::zai::settings::contribution())
         .build();
     Ok(snap)
 }

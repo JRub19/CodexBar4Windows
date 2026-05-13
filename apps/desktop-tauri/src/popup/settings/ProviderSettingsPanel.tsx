@@ -4,6 +4,8 @@ import type {
   ProviderSettingsSnapshot,
   SettingsDescriptor,
 } from "../../bindings";
+import { TokenAccountsRow } from "./TokenAccountsRow";
+import { CopilotLoginButton } from "./CopilotLoginButton";
 
 // Phase 4 P4-19: renders the per-provider settings rows produced by the
 // `provider_settings_descriptors` Tauri command. Each descriptor variant
@@ -63,6 +65,11 @@ export function ProviderSettingsPanel({ onClose }: Props) {
                 {section.rows.map((row, idx) => (
                   <DescriptorRow key={idx} descriptor={row} />
                 ))}
+                {section.provider_id === "copilot" ? (
+                  <div className="settings-row settings-row--login">
+                    <CopilotLoginButton />
+                  </div>
+                ) : null}
               </section>
             ))
           )
@@ -138,16 +145,11 @@ function DescriptorRow({ descriptor }: { descriptor: SettingsDescriptor }) {
       );
     case "token_accounts":
       return (
-        <div className="settings-row settings-row--accounts">
-          <span className="settings-row__title">{descriptor.title}</span>
-          {descriptor.subtitle ? (
-            <span className="settings-row__subtitle">{descriptor.subtitle}</span>
-          ) : null}
-          <p className="settings-row__empty">
-            Account management lands in phase 8. For now, store tokens via
-            the CLI.
-          </p>
-        </div>
+        <TokenAccountsRow
+          providerId={descriptor.provider_id}
+          title={descriptor.title}
+          subtitle={descriptor.subtitle}
+        />
       );
   }
 }
