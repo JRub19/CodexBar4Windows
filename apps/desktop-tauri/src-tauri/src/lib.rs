@@ -1382,6 +1382,8 @@ pub fn run() {
             commands::onboarding_reset,
             commands::save_settings_window_geometry,
             commands::save_last_settings_pane,
+            commands::storage_footprint_scan,
+            commands::open_in_explorer,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,

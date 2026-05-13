@@ -36,6 +36,7 @@ type PaneId =
   | "providers"
   | "notifications"
   | "shortcuts"
+  | "cost"
   | "advanced"
   | "about";
 
@@ -45,6 +46,7 @@ const PANES: ReadonlyArray<{ id: PaneId; label: string }> = [
   { id: "providers", label: "Providers" },
   { id: "notifications", label: "Notifications" },
   { id: "shortcuts", label: "Shortcuts" },
+  { id: "cost", label: "Cost & Storage" },
   { id: "advanced", label: "Advanced" },
   { id: "about", label: "About" },
 ];
@@ -177,6 +179,7 @@ export function SettingsApp() {
           ) : null}
           {pane === "notifications" ? <NotificationsPane /> : null}
           {pane === "shortcuts" ? <ShortcutsPane /> : null}
+          {pane === "cost" ? <CostPane /> : null}
           {pane === "advanced" ? <AdvancedPane /> : null}
           {pane === "about" ? <AboutPane /> : null}
         </div>
@@ -639,6 +642,139 @@ function ShortcutsPane() {
         disabled={registered !== true}
       />
       {error ? <p className="settings-row__error">{error}</p> : null}
+    </>
+  );
+}
+
+interface StorageComponent {
+  id: string;
+  path: string;
+  total_bytes: number;
+}
+
+interface ProviderStorageFootprint {
+  provider: string;
+  total_bytes: number;
+  paths: string[];
+  missing_paths: string[];
+  unreadable_paths: string[];
+  components: StorageComponent[];
+  updated_at: string;
+}
+
+export function formatBytes(n: number): string {
+  if (n === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const k = 1024;
+  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(k)));
+  const value = n / Math.pow(k, i);
+  const rounded = i === 0 ? value.toFixed(0) : value.toFixed(value >= 10 ? 1 : 2);
+  return `${rounded} ${units[i]}`;
+}
+
+function CostPane() {
+  const [reports, setReports] = useState<ProviderStorageFootprint[] | null>(
+    null,
+  );
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const runScan = async () => {
+    setScanning(true);
+    setError(null);
+    try {
+      const next = await invoke<ProviderStorageFootprint[]>(
+        "storage_footprint_scan",
+      );
+      setReports(next);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // Trigger an initial scan on mount; the spec §11.5 throttle is
+  // pinned at 5 minutes upstream but the React side just kicks it
+  // off optimistically.
+  useEffect(() => {
+    void runScan();
+  }, []);
+
+  return (
+    <>
+      <p className="settings-app__pane-intro">
+        Provider-owned disk usage. Surfaces only — nothing here ever
+        deletes anything. Click <kbd>Open folder</kbd> on any row to
+        explore it in Windows Explorer.
+      </p>
+      <div className="settings-row settings-row--actions">
+        <span className="settings-row__title">Scan</span>
+        <div className="settings-row__actions">
+          <button
+            type="button"
+            className="settings-action"
+            onClick={() => void runScan()}
+            disabled={scanning}
+          >
+            {scanning ? "Scanning…" : "Re-scan"}
+          </button>
+        </div>
+      </div>
+      {error ? <p className="settings-row__error">{error}</p> : null}
+      {reports?.map((r) => (
+        <section key={r.provider} className="storage-footprint">
+          <header className="storage-footprint__header">
+            <h3 className="storage-footprint__provider">{r.provider}</h3>
+            <span className="storage-footprint__total">
+              {formatBytes(r.total_bytes)}
+            </span>
+          </header>
+          {r.paths.length === 0 && r.components.length === 0 ? (
+            <p className="storage-footprint__empty">
+              No on-disk data found for this provider.
+            </p>
+          ) : null}
+          {r.components.length > 0 ? (
+            <ul className="storage-footprint__components">
+              {r.components.map((c) => (
+                <li key={c.path} className="storage-footprint__component">
+                  <span className="storage-footprint__component-name">
+                    {c.id}
+                  </span>
+                  <span className="storage-footprint__component-size">
+                    {formatBytes(c.total_bytes)}
+                  </span>
+                  <button
+                    type="button"
+                    className="storage-footprint__component-open"
+                    onClick={() =>
+                      void invoke("open_in_explorer", {
+                        path: c.path,
+                      }).catch(() => {})
+                    }
+                  >
+                    Open folder
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {r.unreadable_paths.length > 0 ? (
+            <details className="storage-footprint__unreadable">
+              <summary>
+                {r.unreadable_paths.length} unreadable
+                {r.unreadable_paths.length === 1 ? " path" : " paths"}
+              </summary>
+              <ul>
+                {r.unreadable_paths.slice(0, 10).map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </section>
+      ))}
     </>
   );
 }

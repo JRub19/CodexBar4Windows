@@ -482,6 +482,48 @@ pub async fn save_last_settings_pane(
         .map_err(|e| e.to_string())
 }
 
+/// Polish A3: surface the provider storage footprint scanner to the
+/// Cost pane. Runs on a blocking task because `walkdir` is sync; the
+/// AtomicBool cancel token is unused for now (the UI doesn't expose
+/// a cancel button yet — 5-minute throttle in `UsageStore` will
+/// eventually carry that responsibility).
+#[tauri::command]
+pub async fn storage_footprint_scan(
+) -> Result<Vec<codexbar::cost::storage::ProviderStorageFootprint>, String> {
+    tokio::task::spawn_blocking(|| {
+        use codexbar::cost::storage::{scan_all, OsStorageFs};
+        use codexbar::cost::walker::OsEnv;
+        use std::sync::atomic::AtomicBool;
+        let cancel = AtomicBool::new(false);
+        scan_all(&OsEnv, &OsStorageFs, &cancel)
+    })
+    .await
+    .map_err(|e| format!("scan join error: {e}"))
+}
+
+/// Open a filesystem path in Windows Explorer. Used by the Cost pane
+/// "Open folder" buttons — never deletes anything, just navigates.
+///
+/// Implemented by spawning `explorer.exe <path>` directly: Explorer
+/// treats the path argument as "open this folder" when it's a
+/// directory, and "select this item in its parent folder" when it's
+/// a file. Both are safe surfaces for the Cost pane.
+#[tauri::command]
+pub async fn open_in_explorer(path: String) -> Result<(), String> {
+    use std::path::PathBuf;
+    use std::process::Command;
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("path does not exist: {path}"));
+    }
+    Command::new("explorer.exe")
+        .arg(&p)
+        .spawn()
+        .map_err(|e| format!("explorer.exe spawn failed: {e}"))?;
+    info!(target: "codexbar::commands", path = %path, "open_in_explorer");
+    Ok(())
+}
+
 /// Helper for the Tauri builder to register the State once paths are known.
 pub fn build_settings_handle(config_path: std::path::PathBuf) -> SettingsHandle {
     Arc::new(codexbar::settings::SettingsStore::load(config_path))

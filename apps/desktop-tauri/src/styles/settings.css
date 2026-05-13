@@ -172,3 +172,83 @@ kbd {
     background: rgba(255, 255, 255, 0.1);
   }
 }
+
+/* Polish A3: Cost & Storage pane (provider storage footprint cards) */
+.storage-footprint {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+}
+.storage-footprint__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.storage-footprint__provider {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  text-transform: capitalize;
+}
+.storage-footprint__total {
+  font-size: 13px;
+  color: rgba(60, 60, 60, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.storage-footprint__empty {
+  font-size: 12.5px;
+  color: rgba(120, 120, 120, 0.85);
+  font-style: italic;
+  margin: 0;
+}
+.storage-footprint__components {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.storage-footprint__component {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.storage-footprint__component:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+.storage-footprint__component-name {
+  font-size: 13px;
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+}
+.storage-footprint__component-size {
+  font-size: 12.5px;
+  color: rgba(60, 60, 60, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.storage-footprint__component-open {
+  background: none;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: rgba(0, 100, 195, 1);
+}
+.storage-footprint__component-open:hover {
+  background: rgba(0, 120, 215, 0.08);
+}
+.storage-footprint__unreadable {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: rgba(120, 120, 120, 0.85);
+}
+.storage-footprint__unreadable summary {
+  cursor: pointer;
+}
