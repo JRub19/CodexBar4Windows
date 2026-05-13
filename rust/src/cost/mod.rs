@@ -30,6 +30,7 @@ pub mod codex_parser;
 pub mod dedup;
 pub mod pi_parser;
 pub mod pricing;
+pub mod storage;
 pub mod walker;
 
 pub use aggregator::{aggregate_rows, AggregatedCost};
@@ -42,4 +43,8 @@ pub use codex_parser::{
 pub use dedup::{canonical_row_key, dedup_in_file, RowWinsOver};
 pub use pi_parser::{PiFileScanner, PiModelContext, PiUsageRow};
 pub use pricing::{cost_for_row, PricingTable, RatePerMTok};
+pub use storage::{
+    footprint_signature, resolve_provider_roots, scan_all, scan_provider, FilesystemSize,
+    OsStorageFs, ProviderStorageFootprint, StorageComponent, StorageProvider,
+};
 pub use walker::{discover, resolve_roots, DiscoveredFile, JsonlFamily};
