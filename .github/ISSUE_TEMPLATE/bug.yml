@@ -1,0 +1,85 @@
+name: Bug report
+description: Something doesn't work as expected on Windows.
+title: "[Bug] "
+labels: ["bug", "windows-only"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing! For **P0 issues** (crash on launch, data loss,
+        credential exfiltration), please also prefix the title with `[P0]`
+        and read [SUPPORT.md](https://github.com/JRub19/CodexBar4Windows/blob/main/SUPPORT.md)
+        first.
+
+        Security issues — please do NOT file a public bug. Use
+        [SECURITY.md](https://github.com/JRub19/CodexBar4Windows/blob/main/SECURITY.md)
+        instead.
+  - type: input
+    id: version
+    attributes:
+      label: CodexBar4Windows version
+      description: From Preferences → About, or the filename of the installer you ran.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: windows-build
+    attributes:
+      label: Windows build
+      description: Output of `winver` (Win+R, type winver, enter).
+      placeholder: "Windows 11 24H2 (build 26100.1234)"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install?
+      options:
+        - Inno installer (per-user)
+        - Portable ZIP
+        - Winget
+        - Built from source
+        - Other (please specify in steps)
+    validations:
+      required: true
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        One bullet per action. Be specific: "click X" beats "open settings".
+        Include any provider you're signing in to + the auth path
+        (cookie / OAuth / API key).
+      placeholder: |
+        1. Launch the app from a fresh install.
+        2. Open the popup from the tray icon.
+        3. Click the Settings cog → Providers → Claude.
+        4. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include any error toast, console message, or visible UI symptom.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Paste the relevant tail of `%LOCALAPPDATA%\CodexBar4Windows\logs\codexbar.log`.
+        Please redact provider tokens / cookies before pasting.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, GIFs, or context about your machine setup.

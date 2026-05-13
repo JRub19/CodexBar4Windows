@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest a new capability or polish item.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the
+        [10-phase plan](https://github.com/JRub19/CodexBar4Windows/blob/main/docs/windows/plan/00-master-plan.md)
+        and the [provider catalog](https://github.com/JRub19/CodexBar4Windows/blob/main/docs/windows/spec/43-providers-catalog.md)
+        — many feature requests are already scoped into Phase 10
+        (long-tail providers, post-1.0 features). If so, please add a
+        comment to the existing issue instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: |
+        Describe the friction you're hitting. Skip the proposed solution
+        here — that's the next field. "I want to see my Anthropic Console
+        spend without opening a browser tab" is a great problem statement;
+        "Add an Anthropic Console card" is a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: |
+        How would you like this to work in the app? Sketches / mocks /
+        rough wireframes are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you ruled out, and why.
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Is this provider-specific?
+      options:
+        - "No — cross-cutting"
+        - "Claude"
+        - "Codex"
+        - "Cursor"
+        - "Copilot"
+        - "Gemini"
+        - "OpenRouter"
+        - "Factory"
+        - "DeepSeek"
+        - "Moonshot"
+        - "Z.ai"
+        - "Venice"
+        - "A long-tail provider (see catalog)"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, GIFs of similar apps, links to existing implementations.

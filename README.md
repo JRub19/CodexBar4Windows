@@ -3,40 +3,65 @@
 > Every AI coding limit, in your Windows tray.
 
 [![CI](https://github.com/JRub19/CodexBar4Windows/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JRub19/CodexBar4Windows/actions/workflows/ci.yml)
+[![Release](https://github.com/JRub19/CodexBar4Windows/actions/workflows/release.yml/badge.svg)](https://github.com/JRub19/CodexBar4Windows/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6e5aff?style=flat-square)](LICENSE)
 
-CodexBar4Windows is the Windows native port of [`steipete/CodexBar`](https://github.com/steipete/CodexBar), built on Tauri 2 plus React plus a shared Rust core. It lives in the Windows notification area (tray) and keeps AI coding provider limits visible at a glance: Claude, Codex, Cursor, Copilot, Gemini, OpenRouter, Factory at v1, with the long tail to follow.
+CodexBar4Windows is the Windows-native port of [`steipete/CodexBar`](https://github.com/steipete/CodexBar), built on Tauri 2 + React + a shared Rust core. It lives in the system tray and keeps your AI coding quota visible at a glance — across **eleven providers**: Claude, Codex, Cursor, Copilot, Gemini, OpenRouter, Factory, DeepSeek, Moonshot, Z.ai, and Venice.
 
-> **Status: Phase 0 baseline.** The workspace builds a green Tauri tray app. Real providers, popup cards, preferences, cost scanning, status overlays, signed installer all land in later phases. See `docs/windows/plan/00-master-plan.md` for the 10 phase execution plan.
+## Features
+
+- **Live tray icon** that morphs between a primary bar (session quota) and a secondary bar (weekly quota) per provider — and aggregates across providers when several are active.
+- **Mica-effect popup** opens from the tray. One card per provider, each with the same primary/secondary breakdown, plan utilization, credits remaining, and pace.
+- **Cost scanning** of local JSONL session logs for Claude Code, Codex CLI, and pi — daily / monthly totals, model breakdown, fork inheritance subtraction.
+- **Storage footprint** report under Preferences → Cost & Storage: shows how much disk each provider uses with one-click "Open folder" navigation.
+- **Smart toasts** at 50% / 25% / 10% session-quota remaining, with per-provider thresholds.
+- **Status overlay** chips for incidents — pulls Statuspage.io feeds for Anthropic, OpenAI, GitHub, Google Workspace.
+- **Global hotkey** (Win+Shift+U by default, rebindable via the KeyShortcutRecorder in the Shortcuts pane).
+- **Onboarding wizard** for fresh installs: welcome → provider picker → per-provider sign-in → done.
+- **i18n** for English, Simplified Chinese (`zh-Hans`), Brazilian Portuguese (`pt-BR`), live-applied from the Appearance pane.
+- **Auto-update** via Tauri's signed manifest pipeline. Stable and Beta channels.
+- **Launch-at-sign-in** via the HKCU Run registry key (no scheduled-task spaghetti).
+- **No telemetry** by default. Crash reports are opt-in.
 
 ## Install
 
-Not shipping yet. Install paths land in Phase 9. Tracked targets:
+### Winget (recommended once GA)
 
-- Inno Setup installer signed with Authenticode, per user install at `%LOCALAPPDATA%\Programs\CodexBar4Windows`.
-- Portable EXE (no install, just run from any folder).
-- Winget: `winget install CodexBar4Windows` (placeholder, ships at GA).
+```powershell
+winget install CodexBar4Windows.CodexBar4Windows
+```
 
-For now, build from source.
+### Inno Setup installer
+
+Download `CodexBar4Windows-<version>-x64.exe` from the [Releases page](https://github.com/JRub19/CodexBar4Windows/releases). Per-user install at `%LOCALAPPDATA%\Programs\CodexBar4Windows`. Authenticode-signed.
+
+### Portable
+
+`CodexBar4Windows-<version>-portable-x64.zip` is a no-install build. Unzip anywhere; the marker file `portable.marker` makes the app read/write config next to the EXE instead of `%APPDATA%`.
+
+### Beta channel
+
+See [`BETA.md`](BETA.md).
+
+## Requirements
+
+- Windows 10 build 17763 (1809) or newer; Windows 11 recommended.
+- WebView2 Evergreen runtime (preinstalled on Windows 11; the installer bootstraps it on Windows 10).
+- ~80 MB RAM steady-state. ~22 MB disk.
 
 ## Build from source
 
-Requirements:
-
-- Windows 10 1903 or newer, Windows 11 recommended.
-- WebView2 evergreen runtime (preinstalled on Win 11, install from Microsoft on Win 10).
-- Rust stable (`rustup install stable`, `x86_64-pc-windows-msvc` target).
-- Node 22 or newer.
-- MSVC Build Tools 2019 or 2022 with the C++ desktop workload.
-
 ```powershell
+# Prerequisites:
+#   - Rust stable (rustup install stable)
+#   - Node 22 or newer
+#   - MSVC Build Tools 2019/2022 with the C++ desktop workload
+
 git clone https://github.com/JRub19/CodexBar4Windows.git
 cd CodexBar4Windows\apps\desktop-tauri
 npm install
 npm run tauri dev
 ```
-
-On first run the tray icon may live in the overflow flyout. Click the chevron on the taskbar to find it, then drag it next to the Wi Fi icon to pin it. Phase 3 adds an automatic first run nudge.
 
 Release build:
 
@@ -45,30 +70,26 @@ cd apps\desktop-tauri
 npm run tauri build
 ```
 
-The release EXE lands at `target\release\codexbar4windows-desktop.exe` (cargo workspace puts all member binaries in the workspace target dir).
-
-## Project layout
-
-- `rust/`, shared core crate (`codexbar`). Providers, settings, secrets, refresh loop. Grows through Phases 1 to 7.
-- `apps/desktop-tauri/`, Tauri 2 desktop shell. React TypeScript popup, Rust tray host. Renders to WebView2.
-- `docs/windows/`, the planning and behavioral spec for the Windows port. `docs/windows/README.md` is the index.
-- `docs/windows/plan/`, the 10 phase execution plan plus the cross phase test strategy.
-- `docs/windows/spec/`, 14 subsystem blueprints derived from a deep read of the macOS sources.
+The release EXE lands at `target\release\codexbar4windows-desktop.exe`.
 
 ## Documentation
 
-- [`docs/windows/README.md`](docs/windows/README.md), index of all Windows port docs.
-- [`docs/windows/00-recommendation.md`](docs/windows/00-recommendation.md), one page summary.
-- [`docs/windows/04-recommended-architecture.md`](docs/windows/04-recommended-architecture.md), the target shape.
-- [`docs/windows/plan/00-master-plan.md`](docs/windows/plan/00-master-plan.md), the 10 phase execution plan.
-- [`CLAUDE.md`](CLAUDE.md), git and workflow rules contributors must follow.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md), contributor guide.
-- [`SECURITY.md`](SECURITY.md), security policy.
+| Surface | Doc |
+|---|---|
+| Architecture overview | [`docs/windows/04-recommended-architecture.md`](docs/windows/04-recommended-architecture.md) |
+| 10-phase execution plan | [`docs/windows/plan/00-master-plan.md`](docs/windows/plan/00-master-plan.md) |
+| Subsystem specs (14 docs) | [`docs/windows/spec/`](docs/windows/spec/) |
+| Performance budgets | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
+| Release runbook | [`docs/RELEASE.md`](docs/RELEASE.md) |
+| Beta channel | [`BETA.md`](BETA.md) |
+| Support + escalation | [`SUPPORT.md`](SUPPORT.md) |
+| Contributor guide | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Security policy | [`SECURITY.md`](SECURITY.md) |
 
 ## Acknowledgements
 
-- [`steipete/CodexBar`](https://github.com/steipete/CodexBar), the original macOS project. MIT. Every line of behavior in CodexBar4Windows is sourced from a deep read of the Swift code, then re implemented for Windows.
-- [`Finesssee/Win-CodexBar`](https://github.com/Finesssee/Win-CodexBar), a community Windows port that proved the Tauri plus Rust shape on Windows. We do not import their source, but the shape of the stack is theirs.
+- [`steipete/CodexBar`](https://github.com/steipete/CodexBar) — the original macOS project. MIT. Every behaviour in CodexBar4Windows is sourced from a deep read of the Swift code, then re-implemented for Windows-native semantics.
+- [`Finesssee/Win-CodexBar`](https://github.com/Finesssee/Win-CodexBar) — a community Windows port that proved the Tauri-plus-Rust shape. We don't import their source; the shape of the stack is theirs.
 
 ## License
 

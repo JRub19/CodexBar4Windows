@@ -1,0 +1,67 @@
+name: Beta bug report
+description: Bug found in a beta / RC build. Use the regular Bug template for stable.
+title: "[Beta bug] "
+labels: ["bug", "windows-only", "beta-channel"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing the Beta. See [BETA.md](https://github.com/JRub19/CodexBar4Windows/blob/main/BETA.md)
+        for context. **P0** (crash on launch / data loss / credential
+        exposure) still goes to the regular Bug template with `[P0]` in
+        the title — see [SUPPORT.md](https://github.com/JRub19/CodexBar4Windows/blob/main/SUPPORT.md).
+  - type: input
+    id: beta-version
+    attributes:
+      label: Beta version
+      description: From Preferences → About, the full string including the `-beta.N` or `-rc.N` suffix.
+      placeholder: "1.1.0-beta.2"
+    validations:
+      required: true
+  - type: input
+    id: previous-version
+    attributes:
+      label: Previous version
+      description: |
+        What version were you on before this beta? Helps us spot regressions
+        introduced between two specific betas vs between beta-and-stable.
+      placeholder: "1.0.0 (stable) or 1.1.0-beta.1"
+    validations:
+      required: true
+  - type: input
+    id: windows-build
+    attributes:
+      label: Windows build
+      placeholder: "Windows 11 24H2 (build 26100.1234)"
+    validations:
+      required: true
+  - type: textarea
+    id: regression
+    attributes:
+      label: Is this a regression?
+      description: |
+        Did this work in the previous stable / earlier beta? If yes, please
+        say so explicitly — regression markers help triage prioritize.
+    validations:
+      required: true
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Tail of `%LOCALAPPDATA%\CodexBar4Windows\logs\codexbar.log`. Please
+        redact tokens / cookies.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?

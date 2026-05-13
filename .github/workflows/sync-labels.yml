@@ -1,0 +1,31 @@
+name: Sync issue labels
+
+# Phase 9 §G-3: keep the repo's label catalog in lockstep with
+# `.github/labels.yml`. Triggered on pushes to the canon file so a
+# maintainer who edits the file gets the catalog applied without
+# touching the GitHub UI.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/labels.yml"
+      - ".github/workflows/sync-labels.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EndBug/label-sync@v2
+        with:
+          config-file: .github/labels.yml
+          # Keep manually-added labels around so external integrations
+          # (Dependabot, CodeQL) that auto-create labels don't get
+          # wiped on every sync. Only adds + edits canonical entries.
+          delete-other-labels: false

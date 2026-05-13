@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/JRub19/CodexBar4Windows/discussions
+    about: General questions are best in Discussions — please don't open an issue.
+  - name: Security disclosure
+    url: https://github.com/JRub19/CodexBar4Windows/security/advisories/new
+    about: Credential exposure or other security concerns — use a private advisory, not a public issue.
+  - name: macOS bug
+    url: https://github.com/steipete/CodexBar/issues
+    about: This is the Windows port. For macOS, file upstream against steipete/CodexBar.

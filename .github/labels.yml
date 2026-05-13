@@ -1,0 +1,77 @@
+# Label catalog for CodexBar4Windows. Sync with
+# `.github/workflows/sync-labels.yml` so every repo state has a
+# canonical label set.
+
+- name: bug
+  color: d73a4a
+  description: Something doesn't work as expected.
+
+- name: enhancement
+  color: a2eeef
+  description: New feature or capability request.
+
+- name: windows-only
+  color: 0e8a16
+  description: Issue specific to the Windows port (the common case).
+
+- name: P0
+  color: b60205
+  description: |
+    Crash on launch, data loss, or credential exposure. Same-day
+    acknowledgement, hotfix within ~1 week. See SUPPORT.md.
+
+- name: beta-channel
+  color: fbca04
+  description: Reported against a beta / RC build (see BETA.md).
+
+- name: provider:claude
+  color: 6e5aff
+  description: Anthropic Claude provider.
+
+- name: provider:codex
+  color: 6e5aff
+  description: OpenAI Codex provider (paid ChatGPT plan).
+
+- name: provider:cursor
+  color: 6e5aff
+  description: Cursor provider.
+
+- name: provider:copilot
+  color: 6e5aff
+  description: GitHub Copilot provider.
+
+- name: provider:gemini
+  color: 6e5aff
+  description: Google Gemini provider.
+
+- name: provider:openrouter
+  color: 6e5aff
+  description: OpenRouter provider.
+
+- name: provider:factory
+  color: 6e5aff
+  description: Factory (Droid) provider.
+
+- name: provider:other
+  color: 6e5aff
+  description: A Tier-2 or long-tail provider (deepseek, moonshot, zai, venice, etc.).
+
+- name: docs
+  color: 0075ca
+  description: Documentation-only change or doc bug.
+
+- name: i18n
+  color: 5319e7
+  description: Localization / translation issue.
+
+- name: a11y
+  color: 5319e7
+  description: Accessibility (Narrator, focus ring, High Contrast, reduced motion).
+
+- name: perf
+  color: 5319e7
+  description: Performance regression or budget overshoot (see PERFORMANCE.md).
+
+- name: good first issue
+  color: 7057ff
+  description: Approachable for new contributors.
