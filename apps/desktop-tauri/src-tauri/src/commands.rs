@@ -524,6 +524,53 @@ pub async fn open_in_explorer(path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Append a line to %APPDATA%\CodexBar4Windows\popup.log so the React
+/// popup can leave breadcrumbs even when DevTools isn't open. Used
+/// while diagnosing the blank-popup regression — every component
+/// boot, store update, and error funnels through here.
+///
+/// File is opened in append mode on every call; we don't keep an open
+/// handle so concurrent invokes from multiple components stay safe.
+/// Failure to write is swallowed (returning OK) — we never want a
+/// logger error to take down the UI further.
+#[tauri::command]
+pub async fn log_from_ui(level: String, scope: String, message: String) -> Result<(), String> {
+    use std::io::Write;
+
+    // Mirror to tracing so it also lands in the rolling log file the
+    // Rust side already maintains.
+    info!(target: "codexbar::ui", level = %level, scope = %scope, "{}", message);
+
+    let appdata = match std::env::var_os("APPDATA") {
+        Some(v) => std::path::PathBuf::from(v),
+        None => return Ok(()),
+    };
+    let dir = appdata.join("CodexBar4Windows");
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        eprintln!("log_from_ui: mkdir failed: {e}");
+        return Ok(());
+    }
+    let path = dir.join("popup.log");
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let line = format!("[{now}] [{level}] [{scope}] {message}\n");
+    let mut f = match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("log_from_ui: open failed: {e}");
+            return Ok(());
+        }
+    };
+    let _ = f.write_all(line.as_bytes());
+    Ok(())
+}
+
 /// Helper for the Tauri builder to register the State once paths are known.
 pub fn build_settings_handle(config_path: std::path::PathBuf) -> SettingsHandle {
     Arc::new(codexbar::settings::SettingsStore::load(config_path))

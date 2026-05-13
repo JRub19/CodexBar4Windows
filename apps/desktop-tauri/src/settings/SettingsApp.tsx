@@ -1078,16 +1078,98 @@ function AdvancedPane() {
   );
 }
 
+interface UpdateInfo {
+  current_version: string;
+  available_version: string | null;
+  release_notes: string | null;
+  release_date: string | null;
+}
+
+type UpdateUiStage =
+  | "idle"
+  | "checking"
+  | "current"
+  | "available"
+  | "downloading"
+  | "installing"
+  | "relaunching"
+  | "error";
+
 function AboutPane() {
   const [version, setVersion] = useState<string>("");
   const [reonboardError, setReonboardError] = useState<string | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
-  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  // Update state — single state machine drives the entire Update card.
+  const [stage, setStage] = useState<UpdateUiStage>("idle");
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [progress, setProgress] = useState<{
+    downloaded: number;
+    total: number | null;
+  } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [stageDetail, setStageDetail] = useState<string | null>(null);
 
   useEffect(() => {
     void invoke<string>("current_version")
       .then(setVersion)
       .catch(() => setVersion(""));
+  }, []);
+
+  // Auto-check on mount so the user sees "Update available" immediately
+  // without having to hit a button. Failure is silent — we just stay
+  // in `idle`.
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setStage("checking");
+      try {
+        const info = await invoke<UpdateInfo>("check_for_update");
+        if (cancelled) return;
+        setUpdateInfo(info);
+        setStage(info.available_version ? "available" : "current");
+      } catch (e) {
+        if (cancelled) return;
+        setErrorMessage(String(e));
+        setStage("error");
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Subscribe to Rust-side progress + stage events emitted by
+  // `install_update`. They drive the UI from "downloading" through
+  // "installing" → "relaunching" without us needing to poll.
+  useEffect(() => {
+    const unlistenProgress = listen<{
+      downloaded: number;
+      total: number | null;
+    }>("updater:progress", (e) => setProgress(e.payload));
+    const unlistenStage = listen<{
+      stage: string;
+      detail: string | null;
+    }>("updater:stage", (e) => {
+      const { stage: s, detail } = e.payload;
+      setStageDetail(detail ?? null);
+      if (
+        s === "checking" ||
+        s === "downloading" ||
+        s === "installing" ||
+        s === "relaunching"
+      ) {
+        setStage(s);
+      } else if (s === "error") {
+        setErrorMessage(detail ?? "Update failed");
+        setStage("error");
+      } else if (s === "done") {
+        setStage("current");
+      }
+    });
+    return () => {
+      void unlistenProgress.then((f) => f());
+      void unlistenStage.then((f) => f());
+    };
   }, []);
 
   const rerunOnboarding = async () => {
@@ -1104,24 +1186,45 @@ function AboutPane() {
   };
 
   const checkForUpdates = async () => {
-    setCheckingUpdate(true);
-    setUpdateStatus(null);
+    setStage("checking");
+    setErrorMessage(null);
     try {
-      const info = await invoke<{
-        current_version: string;
-        available_version: string | null;
-      }>("check_for_update");
-      setUpdateStatus(
-        info.available_version
-          ? `Update available: v${info.available_version}`
-          : "You're up to date.",
-      );
+      const info = await invoke<UpdateInfo>("check_for_update");
+      setUpdateInfo(info);
+      setStage(info.available_version ? "available" : "current");
     } catch (e) {
-      setUpdateStatus(String(e));
-    } finally {
-      setCheckingUpdate(false);
+      setErrorMessage(String(e));
+      setStage("error");
     }
   };
+
+  const installUpdate = async () => {
+    setStage("downloading");
+    setProgress(null);
+    setErrorMessage(null);
+    try {
+      await invoke("install_update");
+      // On success the Rust side restarts the process, so this line
+      // is usually unreachable. Set a safe state in case the restart
+      // is deferred (e.g. installer prompts the user).
+      setStage("relaunching");
+    } catch (e) {
+      setErrorMessage(String(e));
+      setStage("error");
+    }
+  };
+
+  // Formatted progress text — null when total unknown.
+  const progressPercent =
+    progress && progress.total && progress.total > 0
+      ? Math.min(100, Math.round((progress.downloaded / progress.total) * 100))
+      : null;
+  const progressLabel =
+    progress != null
+      ? progressPercent != null
+        ? `${progressPercent}% · ${formatBytes(progress.downloaded)} / ${formatBytes(progress.total ?? 0)}`
+        : `${formatBytes(progress.downloaded)} downloaded`
+      : null;
 
   return (
     <div className="settings-about">
@@ -1144,27 +1247,120 @@ function AboutPane() {
         <div className="settings-section__card">
           <div className="settings-row">
             <div className="settings-row__text">
-              <span className="settings-row__title">Check for updates</span>
-              {updateStatus ? (
-                <span className="settings-row__subtitle">{updateStatus}</span>
-              ) : (
-                <span className="settings-row__subtitle">
-                  Verify you're on the latest signed release.
-                </span>
-              )}
+              <span className="settings-row__title">
+                {stage === "available" && updateInfo?.available_version
+                  ? `Update available: v${updateInfo.available_version}`
+                  : stage === "downloading"
+                    ? "Downloading update"
+                    : stage === "installing"
+                      ? "Installing update"
+                      : stage === "relaunching"
+                        ? "Restarting CodexBar4Windows…"
+                        : stage === "error"
+                          ? "Update failed"
+                          : "Check for updates"}
+              </span>
+              <span className="settings-row__subtitle">
+                {stage === "available" && updateInfo?.release_date
+                  ? `Released ${new Date(updateInfo.release_date).toLocaleDateString()}`
+                  : stage === "downloading"
+                    ? (progressLabel ?? "Starting…")
+                    : stage === "installing"
+                      ? (stageDetail ?? "Running installer…")
+                      : stage === "relaunching"
+                        ? (stageDetail ?? "Hang tight…")
+                        : stage === "error"
+                          ? (errorMessage ?? "Try again later")
+                          : stage === "current"
+                            ? "You're on the latest release."
+                            : stage === "checking"
+                              ? "Looking for a newer version…"
+                              : "Verify you're on the latest signed release."}
+              </span>
+              {/* Progress bar — visible while downloading when we
+                  have a total content length. */}
+              {stage === "downloading" && progressPercent != null ? (
+                <div
+                  style={{
+                    height: 4,
+                    width: "100%",
+                    background: "var(--bar-track)",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                    marginTop: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${progressPercent}%`,
+                      background: "var(--accent)",
+                      transition: "width 120ms linear",
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="settings-row__control">
-              <button
-                type="button"
-                className="settings-action"
-                onClick={() => void checkForUpdates()}
-                disabled={checkingUpdate}
-              >
-                <Icon name="download" size={14} />
-                {checkingUpdate ? "Checking…" : "Check now"}
-              </button>
+              {stage === "available" ? (
+                <button
+                  type="button"
+                  className="settings-action settings-action--primary"
+                  onClick={() => void installUpdate()}
+                >
+                  <Icon name="download" size={14} />
+                  Install &amp; restart
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="settings-action"
+                  onClick={() => void checkForUpdates()}
+                  disabled={
+                    stage === "checking" ||
+                    stage === "downloading" ||
+                    stage === "installing" ||
+                    stage === "relaunching"
+                  }
+                >
+                  <Icon name="refresh" size={14} />
+                  {stage === "checking" ? "Checking…" : "Check now"}
+                </button>
+              )}
             </div>
           </div>
+          {/* Release notes for the available version. */}
+          {stage === "available" && updateInfo?.release_notes ? (
+            <details
+              style={{
+                padding: "0 var(--space-3) var(--space-3)",
+                color: "var(--text-secondary)",
+                fontSize: "var(--fs-caption)",
+              }}
+            >
+              <summary
+                style={{
+                  cursor: "pointer",
+                  color: "var(--text-tertiary)",
+                  marginBottom: 4,
+                }}
+              >
+                Release notes
+              </summary>
+              <pre
+                style={{
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontFamily: "inherit",
+                  margin: 0,
+                  maxHeight: 200,
+                  overflowY: "auto",
+                }}
+              >
+                {updateInfo.release_notes}
+              </pre>
+            </details>
+          ) : null}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
@@ -9,6 +9,7 @@ import type {
   UsageEventPayload,
 } from "../bindings";
 import { useUsageStore } from "./state/usageStore";
+import { useAutoResize } from "./state/useAutoResize";
 import { useKeyboardNav } from "./a11y/useKeyboardNav";
 import { PopupHeader } from "./header/PopupHeader";
 import { CardStack } from "./cards/CardStack";
@@ -19,6 +20,7 @@ import {
   type OnboardingStateDto,
 } from "./onboarding/OnboardingShell";
 import { Icon } from "../components/Icon";
+import { debugLog } from "./debug/logger";
 import "../styles/popup.css";
 import "../styles/focus.css";
 import "../styles/reduced-motion.css";
@@ -52,7 +54,9 @@ export function PopupShell() {
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
   const [onboardingActive, setOnboardingActive] = useState<boolean | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   useKeyboardNav();
+  useAutoResize(rootRef);
 
   // Fetch settings + listen for live changes so the popup filters to
   // the providers the user has actually enabled. Empty `providers`
@@ -70,9 +74,17 @@ export function PopupShell() {
         toggles.filter((t) => t.enabled).map((t) => t.id),
       );
     };
-    void invoke<SettingsForPopup>("get_settings").then((s) =>
-      applyToggles(s.providers ?? []),
-    );
+    void invoke<SettingsForPopup>("get_settings")
+      .then((s) => {
+        debugLog.info(
+          "PopupShell",
+          `get_settings ok: providers=${(s.providers ?? []).length}`,
+        );
+        applyToggles(s.providers ?? []);
+      })
+      .catch((err) => {
+        debugLog.error("PopupShell", `get_settings failed: ${String(err)}`);
+      });
     const unlisten = listen<{ settings: SettingsForPopup }>(
       "settings:changed",
       (event) => {
@@ -87,9 +99,17 @@ export function PopupShell() {
 
   useEffect(() => {
     let cancelled = false;
-    void invoke<OnboardingStateDto>("first_run_state").then((s) => {
-      if (!cancelled) setOnboardingActive(!s.onboarding_completed);
-    });
+    void invoke<OnboardingStateDto>("first_run_state")
+      .then((s) => {
+        debugLog.info(
+          "PopupShell",
+          `first_run_state ok: onboarding_completed=${String(s.onboarding_completed)}`,
+        );
+        if (!cancelled) setOnboardingActive(!s.onboarding_completed);
+      })
+      .catch((err) => {
+        debugLog.error("PopupShell", `first_run_state failed: ${String(err)}`);
+      });
     const unlisten = listen<OnboardingStateDto>(
       "onboarding:state",
       (event) => {
@@ -104,17 +124,37 @@ export function PopupShell() {
 
   useEffect(() => {
     let cancelled = false;
-    void invoke<ProviderDescriptorDto[]>("provider_descriptors").then(
-      (next) => {
+    void invoke<ProviderDescriptorDto[]>("provider_descriptors")
+      .then((next) => {
+        debugLog.info(
+          "PopupShell",
+          `provider_descriptors ok: count=${next.length} ids=[${next.map((d) => d.id).join(",")}]`,
+        );
         if (!cancelled) setDescriptors(next);
-      },
-    );
+      })
+      .catch((err) => {
+        debugLog.error(
+          "PopupShell",
+          `provider_descriptors failed: ${String(err)}`,
+        );
+      });
     const refetchSnapshots = () =>
       invoke<Record<string, import("./state/usageStore").ProviderSlot>>(
         "provider_snapshots",
-      ).then((next) => {
-        if (!cancelled) setSnapshots(next);
-      });
+      )
+        .then((next) => {
+          debugLog.info(
+            "PopupShell",
+            `provider_snapshots ok: keys=${Object.keys(next).length}`,
+          );
+          if (!cancelled) setSnapshots(next);
+        })
+        .catch((err) => {
+          debugLog.error(
+            "PopupShell",
+            `provider_snapshots failed: ${String(err)}`,
+          );
+        });
     void refetchSnapshots();
     const unlistenUsage = listen<UsageEventPayload>(
       EVENTS.USAGE_UPDATED,
@@ -163,6 +203,7 @@ export function PopupShell() {
 
   return (
     <div
+      ref={rootRef}
       className="popup-root"
       role="application"
       aria-label="CodexBar4Windows"

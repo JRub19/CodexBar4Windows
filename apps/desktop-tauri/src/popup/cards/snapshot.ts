@@ -20,6 +20,15 @@ export interface Metric {
   detailLeft: string | null;
   // Reset hint shown above the bar on the right.
   resetText: string | null;
+  // Raw absolute reset time (unix seconds, UTC). Used by the pace
+  // calculator to project ideal vs actual usage; null when the
+  // provider doesn't expose a reset clock.
+  resetAtUnixSecs: number | null;
+  // Original window label, used by the pace calculator to infer the
+  // window's nominal duration (5h, week, day, …). The `title` field
+  // is the display version which may be transformed; we keep the
+  // unmodified label separately.
+  windowLabel: string;
 }
 
 export interface ProviderSnapshot {

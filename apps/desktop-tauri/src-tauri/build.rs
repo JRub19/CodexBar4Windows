@@ -12,6 +12,11 @@ fn main() {
     // resource.rc; editing app.manifest then rebuilding does NOT
     // re-embed the new content, even though the Rust code recompiles.
     println!("cargo:rerun-if-changed=app.manifest");
+    // Re-embed bundled frontend assets when dist/ changes. Without
+    // this, cargo's incremental cache keeps the old JS/CSS baked into
+    // the EXE even after `npm run build` regenerates dist/.
+    println!("cargo:rerun-if-changed=../dist/index.html");
+    println!("cargo:rerun-if-changed=../dist/assets");
 
     let manifest = std::fs::read_to_string("app.manifest")
         .expect("app.manifest must be present alongside build.rs");

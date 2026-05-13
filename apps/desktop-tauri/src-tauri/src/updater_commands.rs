@@ -18,9 +18,14 @@
 //! the banner, never panics.
 
 use serde::Serialize;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
 use tracing::{info, warn};
+
+/// Events emitted by `install_update` so the React side can render a
+/// progress bar and final-state UI.
+pub const EVENT_UPDATE_PROGRESS: &str = "updater:progress";
+pub const EVENT_UPDATE_STAGE: &str = "updater:stage";
 
 /// Sentinel value that lives in `tauri.conf.json` until a real
 /// minisign public key is generated via
@@ -103,46 +108,112 @@ pub async fn check_for_update(app: AppHandle) -> Result<UpdateInfoDto, String> {
     }
 }
 
+#[derive(Serialize, Clone)]
+struct UpdateProgress {
+    /// Total bytes received so far.
+    downloaded: u64,
+    /// Total expected bytes (from Content-Length); `None` when unknown.
+    total: Option<u64>,
+}
+
+#[derive(Serialize, Clone)]
+struct UpdateStage<'a> {
+    /// One of: "checking" | "downloading" | "installing" | "relaunching" | "done" | "error".
+    stage: &'a str,
+    /// Optional human-readable status (error message, version, etc.).
+    detail: Option<String>,
+}
+
+fn emit_stage(app: &AppHandle, stage: &str, detail: Option<String>) {
+    let _ = app.emit(EVENT_UPDATE_STAGE, UpdateStage { stage, detail });
+}
+
+/// Download and apply the latest update, emitting progress events
+/// throughout, then relaunch the app. The Tauri updater plugin runs
+/// the bundled installer which kills the running process; on Windows
+/// the NSIS/MSI installer relaunches us after install. As a belt-
+/// and-braces safety net we also call `app.restart()` ourselves —
+/// whichever wins, the user lands in the new version.
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
     if updater_misconfigured() {
-        return Err(
-            "Updater is disabled: this build was compiled with a placeholder \
-             minisign public key. Run scripts/generate-minisign-keypair.ps1 -Apply \
-             and rebuild before enabling auto-update."
-                .to_string(),
-        );
+        let msg = "Updater is disabled: this build was compiled with a placeholder \
+            minisign public key. Run scripts/generate-minisign-keypair.ps1 -Apply \
+            and rebuild before enabling auto-update.";
+        emit_stage(&app, "error", Some(msg.to_string()));
+        return Err(msg.to_string());
     }
-    let updater = app.updater().map_err(|e| e.to_string())?;
-    let update = updater
-        .check()
-        .await
-        .map_err(|e| format!("update check failed: {e}"))?
-        .ok_or_else(|| "no update available".to_string())?;
+    emit_stage(&app, "checking", None);
+    let updater = app.updater().map_err(|e| {
+        emit_stage(&app, "error", Some(e.to_string()));
+        e.to_string()
+    })?;
+    let update = match updater.check().await {
+        Ok(Some(u)) => u,
+        Ok(None) => {
+            emit_stage(&app, "done", Some("Already up to date".into()));
+            return Ok(());
+        }
+        Err(err) => {
+            let msg = format!("update check failed: {err}");
+            emit_stage(&app, "error", Some(msg.clone()));
+            return Err(msg);
+        }
+    };
 
+    emit_stage(
+        &app,
+        "downloading",
+        Some(format!("Downloading v{}", update.version)),
+    );
+
+    let app_for_progress = app.clone();
+    let mut downloaded: u64 = 0;
     // The plugin downloads + verifies the minisign signature against
     // the pubkey baked into tauri.conf.json before invoking the
     // installer. A tampered installer fails here, never reaches the
     // user's machine.
-    update
+    let install_result = update
         .download_and_install(
-            |chunk_length, content_length| {
-                info!(
-                    target: "codexbar::updater",
-                    chunk = chunk_length,
-                    total = content_length.unwrap_or(0),
-                    "update.download_progress",
+            move |chunk_length, content_length| {
+                downloaded = downloaded.saturating_add(chunk_length as u64);
+                let _ = app_for_progress.emit(
+                    EVENT_UPDATE_PROGRESS,
+                    UpdateProgress {
+                        downloaded,
+                        total: content_length,
+                    },
                 );
             },
-            || {
-                info!(target: "codexbar::updater", "update.download_finished");
+            {
+                let app = app.clone();
+                move || {
+                    info!(target: "codexbar::updater", "update.download_finished");
+                    emit_stage(&app, "installing", Some("Running installer…".into()));
+                }
             },
         )
-        .await
-        .map_err(|e| format!("install failed: {e}"))?;
+        .await;
 
-    info!(target: "codexbar::updater", "update.installed");
-    Ok(())
+    match install_result {
+        Ok(()) => {
+            info!(target: "codexbar::updater", "update.installed");
+            emit_stage(
+                &app,
+                "relaunching",
+                Some("Restarting CodexBar4Windows…".into()),
+            );
+            // Give the React side ~250ms to render the "Restarting…"
+            // toast before we kill the process.
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            app.restart();
+        }
+        Err(err) => {
+            let msg = format!("install failed: {err}");
+            emit_stage(&app, "error", Some(msg.clone()));
+            Err(msg)
+        }
+    }
 }
 
 #[cfg(test)]

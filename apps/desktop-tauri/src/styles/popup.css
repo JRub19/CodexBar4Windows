@@ -38,10 +38,14 @@
   --text-warning: #f5a623;
   --text-success: #34c759;
 
-  /* Accent — read the user's Windows accent. Modern WebView2 resolves
-     `AccentColor` to the OS value automatically; the static fallback
-     is Fluent blue. */
-  --accent: var(--win-accent, AccentColor, #0078d4);
+  /* Accent — Fluent blue by default. We tried to chain into the OS
+     accent via `AccentColor` but CSS `var()` only accepts ONE fallback
+     value; `var(--x, AccentColor, #0078d4)` parses the fallback as
+     the comma-separated list "AccentColor, #0078d4" which is invalid
+     for a <color> and silently became transparent — making every
+     bar fill invisible. Use a fixed hex; a future hook can write
+     `--win-accent` from the OS value if we want true theming. */
+  --accent: var(--win-accent, #0078d4);
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --accent-glow: color-mix(in srgb, var(--accent) 28%, transparent);
 
@@ -189,6 +193,11 @@ kbd {
 /* ============================================================ */
 
 .popup-root {
+  /* Locked to window dimensions so there's never a transient gap
+     between the popup chrome and the window edge while
+     `useAutoResize` is converging the OS window to the React
+     content. The hook measures children via `scrollHeight` (not
+     bounding rect) so the flex layout doesn't mislead it. */
   height: 100vh;
   width: 100vw;
   display: flex;
@@ -241,25 +250,21 @@ kbd {
 /* 5. POPUP BODY (scrollable card area)                         */
 /* ============================================================ */
 
+/* The popup body never scrolls — the window auto-resizes to fit its
+   content via `useAutoResize` in PopupShell. We keep overflow hidden
+   so any transient measurement glitch doesn't briefly show a
+   scrollbar, and we kill the scrollbar styling entirely. */
 .popup-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--bg-hover) transparent;
+  overflow: hidden;
+  scrollbar-width: none;
   -webkit-app-region: no-drag;
 }
-
 .popup-body::-webkit-scrollbar {
-  width: 6px;
-}
-.popup-body::-webkit-scrollbar-thumb {
-  background: var(--bg-hover);
-  border-radius: 999px;
-}
-.popup-body::-webkit-scrollbar-thumb:hover {
-  background: var(--bg-press);
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* ============================================================ */
@@ -476,15 +481,29 @@ kbd {
   flex-shrink: 0;
 }
 
+/* Sentiment colours — match the macOS source semantics:
+   `ahead`  = ahead of the spend curve (overspending → red)
+   `behind` = behind the spend curve (in reserve → green). */
 .hero-metric__pace--ahead .hero-metric__pace-dot {
-  background: var(--text-success);
+  background: var(--text-error);
 }
 .hero-metric__pace--behind .hero-metric__pace-dot {
-  background: var(--text-warning);
+  background: var(--text-success);
 }
 .hero-metric__pace--neutral .hero-metric__pace-dot {
   background: var(--text-tertiary);
 }
+.hero-metric__pace--ahead { color: var(--text-error); }
+.hero-metric__pace--behind { color: var(--text-success); }
+
+/* Compact pace caption shown under MetricRow bars. */
+.metric-row__pace {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.metric-row__pace--ahead { color: var(--text-error); }
+.metric-row__pace--behind { color: var(--text-success); }
 
 /* Metric row — secondary metric (weekly), credits, etc. */
 .metric-row {
@@ -578,29 +597,39 @@ kbd {
 .usage-bar {
   position: relative;
   width: 100%;
-  height: 6px;
+  height: 8px;
   background: var(--bar-track);
-  border-radius: var(--r-card);
+  border-radius: 999px;
   overflow: hidden;
   margin: var(--space-1) 0;
 }
 
 .usage-bar--compact {
-  height: 4px;
+  height: 6px;
 }
 
+/* Bar fill — anchored top-left and sized via WIDTH only (not via
+   right offset) so the explicit `width` is unambiguous regardless of
+   how the browser resolves the over-constrained "left + right + width"
+   case. Animation: bar grows from 0 to its width on first paint by
+   transitioning the width itself — no transform, no scaleX. */
 .usage-bar__fill {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  bottom: 0;
   width: var(--usage-percent, 0%);
   background: var(--accent);
   border-radius: inherit;
-  transition: width var(--d-bar-update) var(--ease-out);
-  transform-origin: left;
+  transition: width var(--d-bar-fill, 320ms) var(--ease-out);
 }
 
+/* When the bar paints with the first-paint class we override the
+   transition duration so the initial growth animates from 0 → target
+   instead of snapping. The fill width is the *target*; the start
+   width of 0 comes from the JS-controlled CSS variable. */
 .usage-bar__fill--first-paint {
-  animation: bar-grow var(--d-bar-fill) var(--ease-out) both;
+  transition: width var(--d-bar-fill, 320ms) var(--ease-out);
 }
 
 .usage-bar__fill--warning {
@@ -609,11 +638,6 @@ kbd {
 
 .usage-bar__fill--critical {
   background: var(--text-error);
-}
-
-@keyframes bar-grow {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
 }
 
 .usage-bar__marker {
@@ -632,8 +656,22 @@ kbd {
   bottom: -2px;
   width: 2px;
   background: var(--text-primary);
-  opacity: 0.5;
+  opacity: 0.85;
   transform: translateX(-1px);
+  border-radius: 1px;
+  /* Subtle outer ring so the tick stays legible against any fill colour. */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  z-index: 1;
+}
+
+/* Green tick = user is in reserve (underspending, healthy). */
+.usage-bar__pace-tip--behind {
+  background: var(--text-success, #4ade80);
+}
+
+/* Red tick = user is in deficit (overspending, will run out early). */
+.usage-bar__pace-tip--ahead {
+  background: var(--text-error, #f87171);
 }
 
 /* ============================================================ */

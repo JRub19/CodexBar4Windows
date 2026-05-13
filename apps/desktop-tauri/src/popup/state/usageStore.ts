@@ -4,6 +4,7 @@
 // real provider snapshots; for now we hold the descriptor list plus the
 // most recent `UsageEventPayload` so the UI can render skeleton states.
 
+import { useMemo } from "react";
 import { create } from "zustand";
 import type {
   ProviderDescriptorDto,
@@ -108,11 +109,22 @@ export const useUsageStore = create<UsageStoreState>((set) => ({
 }));
 
 /** Helper selector — returns descriptors filtered by the
- *  enabledProviderIds set (or all of them when no preference exists). */
+ *  enabledProviderIds set (or all of them when no preference exists).
+ *
+ *  Implementation note: the filtered array is derived in a `useMemo`
+ *  outside the Zustand selector so we never hand React a fresh array
+ *  reference from `getSnapshot`. The previous inline-filter version
+ *  produced a new array on every call to the selector, which made
+ *  `useSyncExternalStore` see "the snapshot changed" on every render
+ *  and triggered "Maximum update depth exceeded" the moment
+ *  `enabledProviderIds` became non-null (i.e. as soon as the user
+ *  toggled any provider in Preferences). */
 export function useEnabledDescriptors(): ProviderDescriptorDto[] {
-  return useUsageStore((s) => {
-    if (s.enabledProviderIds == null) return s.descriptors;
-    const enabled = new Set(s.enabledProviderIds);
-    return s.descriptors.filter((d) => enabled.has(d.id));
-  });
+  const descriptors = useUsageStore((s) => s.descriptors);
+  const enabledIds = useUsageStore((s) => s.enabledProviderIds);
+  return useMemo(() => {
+    if (enabledIds == null) return descriptors;
+    const enabled = new Set(enabledIds);
+    return descriptors.filter((d) => enabled.has(d.id));
+  }, [descriptors, enabledIds]);
 }

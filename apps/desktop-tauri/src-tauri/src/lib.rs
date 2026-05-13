@@ -1447,6 +1447,7 @@ pub fn run() {
             commands::save_last_settings_pane,
             commands::storage_footprint_scan,
             commands::open_in_explorer,
+            commands::log_from_ui,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,

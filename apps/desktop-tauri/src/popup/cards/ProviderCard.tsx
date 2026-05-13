@@ -59,6 +59,8 @@ function metricFromWindow(w: ProviderSlot["snapshot"]["windows"][number]): Metri
     detailLeft: null,
     detailRight,
     resetText,
+    resetAtUnixSecs: reset_at_unix_secs ?? null,
+    windowLabel: w.window.label,
   };
 }
 

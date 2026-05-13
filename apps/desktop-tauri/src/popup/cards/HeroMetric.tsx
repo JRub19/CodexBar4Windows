@@ -1,28 +1,32 @@
 import { useEffect, useState } from "react";
 import type { Metric } from "./snapshot";
+import { computeWindowPace } from "../format/pace";
 
 // Hero metric — the single most important number on the card.
 //
-//   62%               ← 36px tabular, the visual anchor
+//   81%               ← 36px tabular, the visual anchor
 //   remaining         ← 11px caption
 //
-//   ━━━━━━━━━━━━━━     ← 6px bar
+//   ━━━━━━━━━━━━━━     ← 6px bar; FILL represents REMAINING. The
+//                       fill width matches the displayed number so
+//                       "81% remaining" shows a bar 81% full.
+//                       A vertical pace tick overlays the bar at the
+//                       *expected remaining* position (i.e. where
+//                       the user "should" be at this moment). When
+//                       the actual remaining is greater than expected
+//                       the user is "in reserve" (tick is green); when
+//                       less, they are "in deficit" (tick is red).
 //
-//   Resets in 3h 12m  ← compact reset text
+//   Resets in 3h 12m  ← reset hint
 //   On pace · ahead 4% (when pace data is present)
 //
 // Critical state thresholds bias the bar fill color:
-//   - >= 25%: accent (the default)
+//   - remaining ≥ 25%: accent (the default)
 //   - 10-25%: warning amber
 //   - <  10%: error red
 
 interface Props {
   metric: Metric;
-  /** Pace text for "ahead/behind/on pace" hint. */
-  pace?: {
-    text: string;
-    sentiment: "ahead" | "behind" | "neutral";
-  } | null;
 }
 
 function colorClassFor(remainingPercent: number | null): string {
@@ -32,7 +36,7 @@ function colorClassFor(remainingPercent: number | null): string {
   return "";
 }
 
-export function HeroMetric({ metric, pace }: Props) {
+export function HeroMetric({ metric }: Props) {
   const [isFirstPaint, setIsFirstPaint] = useState(true);
 
   // Bar grows from 0 to its value on first paint, then transitions
@@ -46,23 +50,30 @@ export function HeroMetric({ metric, pace }: Props) {
   const remainingPercent =
     usedPercent != null ? Math.max(0, 100 - usedPercent) : null;
 
-  // The hero number shows REMAINING (what users care about). When the
-  // setting `usage_bars_show_used` is on in future, this can flip.
-  const displayPercent = remainingPercent;
+  // Pace overlay — only when we have enough data to compute it
+  // (a known window duration, a future reset time, and a used%).
+  const pace =
+    usedPercent != null
+      ? computeWindowPace({
+          usedPercent,
+          label: metric.windowLabel,
+          resetAtUnixSecs: metric.resetAtUnixSecs,
+        })
+      : null;
 
   return (
     <div className="hero-metric">
       <div>
         <div className="hero-metric__value">
-          {displayPercent != null ? `${Math.round(displayPercent)}%` : "—"}
+          {remainingPercent != null ? `${Math.round(remainingPercent)}%` : "—"}
         </div>
         <div className="hero-metric__label">remaining</div>
       </div>
       <div
         className="usage-bar"
         role="progressbar"
-        aria-label={`${metric.title} usage`}
-        aria-valuenow={usedPercent ?? undefined}
+        aria-label={`${metric.title} remaining`}
+        aria-valuenow={remainingPercent ?? undefined}
         aria-valuemin={0}
         aria-valuemax={100}
       >
@@ -74,19 +85,32 @@ export function HeroMetric({ metric, pace }: Props) {
           }
           style={
             {
-              "--usage-percent": `${usedPercent ?? 0}%`,
+              "--usage-percent": `${remainingPercent ?? 0}%`,
             } as React.CSSProperties
           }
         />
+        {pace && pace.sentiment !== "neutral" ? (
+          <div
+            className={`usage-bar__pace-tip usage-bar__pace-tip--${pace.sentiment}`}
+            style={{ left: `${pace.expectedRemainingPercent}%` }}
+            aria-hidden="true"
+            title={pace.text.left ?? undefined}
+          />
+        ) : null}
       </div>
       <div className="hero-metric__footer">
         {metric.resetText ? (
           <div className="hero-metric__reset">Resets {metric.resetText}</div>
         ) : null}
-        {pace ? (
-          <div className={`hero-metric__pace hero-metric__pace--${pace.sentiment}`}>
+        {pace?.text.left ? (
+          <div
+            className={`hero-metric__pace hero-metric__pace--${pace.sentiment}`}
+          >
             <span className="hero-metric__pace-dot" aria-hidden="true" />
-            <span>{pace.text}</span>
+            <span>
+              {pace.text.left}
+              {pace.text.right ? ` · ${pace.text.right}` : ""}
+            </span>
           </div>
         ) : null}
       </div>

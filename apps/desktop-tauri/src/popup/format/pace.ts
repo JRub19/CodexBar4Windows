@@ -75,3 +75,115 @@ function buildRight(input: PaceTextInput): string | null {
 export function buildPaceText(input: PaceTextInput): PaceText {
   return { left: buildLeft(input), right: buildRight(input) };
 }
+
+// ============================================================
+// Window-level pace computation (ports UsagePace.weekly from
+// the macOS source).
+//
+// We infer the window's nominal duration from its label, project a
+// linear ideal `expected = elapsed / duration`, and surface the
+// signed delta plus a run-out ETA. Returns null when pace cannot be
+// computed (no reset time, unknown label, window already over).
+// ============================================================
+
+const DURATION_TABLE_SECS: Array<[RegExp, number]> = [
+  // Session-style 5-hour windows (Claude session, Codex 5h).
+  [/^\s*session\s*$/i, 5 * 3600],
+  [/\b5\s*h(?:our)?s?\b/i, 5 * 3600],
+  // Weekly windows. Match common labels: "Week", "WEEK", "Weekly",
+  // "WEEK (SONNET)", etc.
+  [/\bweek(?:ly)?\b/i, 7 * 24 * 3600],
+  // Monthly.
+  [/\bmonth(?:ly)?\b/i, 30 * 24 * 3600],
+  // Daily / 24-hour.
+  [/\bday(?:ly)?\b/i, 24 * 3600],
+  [/\b24\s*h(?:our)?s?\b/i, 24 * 3600],
+  // Hourly.
+  [/\b1\s*h(?:our)?\b/i, 3600],
+  [/^\s*hour(?:ly)?\b/i, 3600],
+];
+
+export function inferWindowDurationSecs(label: string): number | null {
+  for (const [re, secs] of DURATION_TABLE_SECS) {
+    if (re.test(label)) return secs;
+  }
+  return null;
+}
+
+export type PaceSentiment = "ahead" | "behind" | "neutral";
+
+export interface WindowPace {
+  /** `+` = ahead of the spend curve (deficit, bad). `-` = in reserve. */
+  deltaPercent: number;
+  /** 0..100, what % SHOULD be used by now on the linear curve. */
+  expectedUsedPercent: number;
+  /** 0..100, what % SHOULD remain — `100 - expectedUsedPercent`. */
+  expectedRemainingPercent: number;
+  /** Sentiment grouping driven by sign + threshold. */
+  sentiment: PaceSentiment;
+  /** Formatted left + right captions. */
+  text: PaceText;
+}
+
+export interface ComputeWindowPaceInput {
+  /** 0..100, used percentage at the moment of evaluation. */
+  usedPercent: number;
+  /** Window label — used to infer duration. */
+  label: string;
+  /** Absolute reset time in unix seconds, or null. */
+  resetAtUnixSecs: number | null;
+  /** Optional duration override in seconds. */
+  windowDurationSecs?: number | null;
+  /** Optional now, defaults to wall-clock. */
+  nowUnixSecs?: number;
+}
+
+export function computeWindowPace(
+  input: ComputeWindowPaceInput,
+): WindowPace | null {
+  const now = input.nowUnixSecs ?? Math.floor(Date.now() / 1000);
+  const duration =
+    input.windowDurationSecs ?? inferWindowDurationSecs(input.label);
+  if (!duration || duration <= 0) return null;
+  if (input.resetAtUnixSecs == null) return null;
+  const secondsUntilReset = input.resetAtUnixSecs - now;
+  if (secondsUntilReset <= 0) return null;
+  const elapsed = Math.max(0, Math.min(duration, duration - secondsUntilReset));
+  if (elapsed <= 0) return null;
+  const expectedUsedPercent = (elapsed / duration) * 100;
+  const elapsedPercent = expectedUsedPercent;
+  const used = Math.max(0, Math.min(100, input.usedPercent));
+  const remainingPercent = Math.max(0, 100 - used);
+  const deltaPercent = used - expectedUsedPercent;
+
+  // Run-out ETA: linear projection from the rate so far.
+  let secondsUntilRunOut: number | null = null;
+  if (used > 0 && used < 100 && elapsed > 0) {
+    const ratePerSec = used / elapsed;
+    if (ratePerSec > 0) {
+      secondsUntilRunOut = remainingPercent / ratePerSec;
+    }
+  }
+
+  const text = buildPaceText({
+    elapsedPercent,
+    deltaPercent,
+    remainingPercent,
+    secondsUntilReset,
+    secondsUntilRunOut,
+    runOutRiskPercent: null,
+  });
+
+  // Sentiment threshold mirrors UsagePace.swift §classify (±2 = onTrack).
+  let sentiment: PaceSentiment;
+  if (Math.abs(deltaPercent) <= 2) sentiment = "neutral";
+  else sentiment = deltaPercent > 0 ? "ahead" : "behind";
+
+  return {
+    deltaPercent,
+    expectedUsedPercent,
+    expectedRemainingPercent: 100 - expectedUsedPercent,
+    sentiment,
+    text,
+  };
+}
