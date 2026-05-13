@@ -1440,16 +1440,14 @@ pub fn run() {
                 match event {
                     WindowEvent::Focused(false) => {
                         let _ = window.hide();
-                        let _ = window.app_handle().emit(
-                            "popup:visibility",
-                            serde_json::json!({ "visible": false }),
-                        );
+                        let _ = window
+                            .app_handle()
+                            .emit("popup:visibility", serde_json::json!({ "visible": false }));
                     }
                     WindowEvent::Focused(true) => {
-                        let _ = window.app_handle().emit(
-                            "popup:visibility",
-                            serde_json::json!({ "visible": true }),
-                        );
+                        let _ = window
+                            .app_handle()
+                            .emit("popup:visibility", serde_json::json!({ "visible": true }));
                     }
                     _ => {}
                 }

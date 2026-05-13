@@ -150,7 +150,9 @@ mod tests {
         let d = FrameDriver::new(PowerMode::ReducedMotion);
         assert!(d.next_frame_at(d.started_at).is_none());
         // Even at t=0, the answer is None — no animation start frame.
-        assert!(d.next_frame_at(d.started_at + Duration::from_millis(1)).is_none());
+        assert!(d
+            .next_frame_at(d.started_at + Duration::from_millis(1))
+            .is_none());
     }
 
     #[test]
