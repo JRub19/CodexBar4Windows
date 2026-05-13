@@ -6,6 +6,7 @@
 
 pub mod cookies;
 pub mod core;
+pub mod cost;
 pub mod locale;
 pub mod logging;
 pub mod notifications;
