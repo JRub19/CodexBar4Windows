@@ -298,10 +298,15 @@ pub async fn toggle_pause(
     Ok(next)
 }
 
+/// Tauri command. Shows the Preferences window, optionally focusing
+/// the Providers pane on a specific provider (`provider_id`). When
+/// supplied, the command emits a `preferences:focus_provider` event
+/// with the id so the React side scrolls to the right row.
 #[tauri::command]
 pub async fn open_preferences(
     app: AppHandle,
     store: State<'_, FirstRunHandle>,
+    provider_id: Option<String>,
 ) -> Result<(), String> {
     let persisted = store.0.read().settings_window;
     // Phase 8: show + focus the Mica-effect Settings window. Apply
@@ -315,6 +320,7 @@ pub async fn open_preferences(
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
         window.unminimize().ok();
+        emit_focus_provider(&app, provider_id.as_deref());
         info!(target: "codexbar::commands", "open_preferences.shown");
         return Ok(());
     }
@@ -336,8 +342,27 @@ pub async fn open_preferences(
             .inner_size(g.width as f64, g.height as f64);
     }
     let _ = builder.build().map_err(|e| e.to_string())?;
+    emit_focus_provider(&app, provider_id.as_deref());
     info!(target: "codexbar::commands", "open_preferences.recreated");
     Ok(())
+}
+
+/// Emit `preferences:focus_provider` so the React side can route the
+/// user to a specific provider row. No-op when `provider_id` is None.
+///
+/// We emit twice with a short delay so the event lands whether the
+/// webview is already mounted (immediate listener) or still booting
+/// (the second emit catches the listener after it mounts).
+fn emit_focus_provider<R: tauri::Runtime>(app: &tauri::AppHandle<R>, provider_id: Option<&str>) {
+    let Some(id) = provider_id else { return };
+    let payload = serde_json::json!({ "provider_id": id });
+    let _ = app.emit("preferences:focus_provider", payload.clone());
+    let app_clone = app.clone();
+    let payload_clone = payload.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        let _ = app_clone.emit("preferences:focus_provider", payload_clone);
+    });
 }
 
 fn apply_geometry<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, g: WindowGeometry) {

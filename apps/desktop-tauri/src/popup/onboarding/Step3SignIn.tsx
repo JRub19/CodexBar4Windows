@@ -32,12 +32,13 @@ export function Step3SignIn({ pickedProviders, onNext, onBack }: Props) {
 
   const picked = descriptors.filter((d) => pickedProviders.includes(d.id));
 
-  const openSettingsForProvider = async (_id: string) => {
-    // Opens the preferences window — the provider pane in there
-    // shows the per-strategy sign-in widgets. Per-provider focus
-    // routing is a future preferences-pane enhancement.
+  const openSettingsForProvider = async (id: string) => {
+    // Opens the preferences window focused on the picked provider.
+    // The Tauri command emits `preferences:focus_provider` so the
+    // Settings React side switches to the Providers pane and scrolls
+    // the matching row into view.
     try {
-      await invoke("open_preferences");
+      await invoke("open_preferences", { providerId: id });
     } catch {
       // open_preferences is fire-and-forget; ignore errors.
     }

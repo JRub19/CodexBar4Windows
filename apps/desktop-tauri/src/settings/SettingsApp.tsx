@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { KeyShortcutRecorder } from "../components/KeyShortcutRecorder";
@@ -67,6 +68,9 @@ interface FirstRunStateDto {
 
 export function SettingsApp() {
   const [pane, setPane] = useState<PaneId>("general");
+  const [focusedProviderId, setFocusedProviderId] = useState<string | null>(
+    null,
+  );
 
   // Restore the last-active pane and current window geometry on
   // mount; persist subsequent changes back to state.json so the
@@ -78,6 +82,25 @@ export function SettingsApp() {
         setPane(restored);
       }
     });
+  }, []);
+
+  // Listen for `preferences:focus_provider` so the popup-side
+  // onboarding flow can hand-off to a specific provider row. The
+  // Tauri command emits this event when `open_preferences` is
+  // called with a `providerId` argument.
+  useEffect(() => {
+    const unlisten = listen<{ provider_id: string }>(
+      "preferences:focus_provider",
+      (event) => {
+        const id = event.payload?.provider_id;
+        if (!id) return;
+        setPane("providers");
+        setFocusedProviderId(id);
+      },
+    );
+    return () => {
+      void unlisten.then((f) => f());
+    };
   }, []);
 
   useEffect(() => {
@@ -145,7 +168,9 @@ export function SettingsApp() {
         </header>
         <div className="settings-app__pane-body">
           {pane === "general" ? <GeneralPane /> : null}
-          {pane === "providers" ? <ProvidersPane /> : null}
+          {pane === "providers" ? (
+            <ProvidersPane focusedProviderId={focusedProviderId} />
+          ) : null}
           {pane === "notifications" ? <NotificationsPane /> : null}
           {pane === "shortcuts" ? <ShortcutsPane /> : null}
           {pane === "advanced" ? <AdvancedPane /> : null}
@@ -215,7 +240,13 @@ function GeneralPane() {
   );
 }
 
-function ProvidersPane() {
+interface ProvidersPaneProps {
+  /** When set (e.g. from `preferences:focus_provider`), pre-selects
+   * this provider on mount and overrides the first-item default. */
+  focusedProviderId: string | null;
+}
+
+function ProvidersPane({ focusedProviderId }: ProvidersPaneProps) {
   const [snapshot, setSnapshot] = useState<ProviderSettingsSnapshot | null>(
     null,
   );
@@ -227,9 +258,12 @@ function ProvidersPane() {
       .then((next) => {
         if (cancelled) return;
         setSnapshot(next);
-        if (next.sections.length > 0) {
-          setSelected(next.sections[0].provider_id);
-        }
+        const preferred =
+          focusedProviderId &&
+          next.sections.some((s) => s.provider_id === focusedProviderId)
+            ? focusedProviderId
+            : next.sections[0]?.provider_id ?? null;
+        setSelected(preferred);
       })
       .catch((e) => {
         if (!cancelled) setError(String(e));
@@ -237,7 +271,18 @@ function ProvidersPane() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [focusedProviderId]);
+
+  // If the focus event fires after the snapshot already loaded
+  // (e.g. user re-opens preferences twice in a row), update the
+  // selection without re-fetching.
+  useEffect(() => {
+    if (!snapshot || !focusedProviderId) return;
+    const found = snapshot.sections.find(
+      (s) => s.provider_id === focusedProviderId,
+    );
+    if (found) setSelected(found.provider_id);
+  }, [focusedProviderId, snapshot]);
   if (error) return <p className="settings-row__error">{error}</p>;
   if (!snapshot) return <p className="settings-app__loading">Loading…</p>;
   if (snapshot.sections.length === 0)
@@ -259,6 +304,18 @@ function ProvidersPane() {
                   ? "settings-providers__entry settings-providers__entry--active"
                   : "settings-providers__entry"
               }
+              ref={(el) => {
+                // Scroll the focused entry into view when the
+                // event-driven selection lands on a row that's below
+                // the fold of the sidebar.
+                if (
+                  el &&
+                  focusedProviderId &&
+                  s.provider_id === focusedProviderId
+                ) {
+                  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                }
+              }}
               onClick={() => setSelected(s.provider_id)}
             >
               {s.section_title}
