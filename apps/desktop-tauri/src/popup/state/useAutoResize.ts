@@ -53,6 +53,11 @@ export function useAutoResize() {
     const apply = () => {
       const target = measure();
       const cap = screenCap();
+      // If measurement returns 0 (or near-zero) it means children
+      // haven't laid out yet — don't apply, wait for the next pass.
+      // Otherwise we'd shrink the window to MIN_HEIGHT prematurely
+      // and clip the about-to-render content.
+      if (target < 40) return;
       const clamped = Math.min(cap, Math.max(MIN_HEIGHT, Math.ceil(target)));
       if (clamped === lastApplied) return;
       lastApplied = clamped;

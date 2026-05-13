@@ -252,16 +252,16 @@ html, body {
 /* ============================================================ */
 
 .popup-body {
-  /* Body is the scrollable flex region between switcher + footer.
-     `flex: 1` lets it fill whatever vertical space the window has;
-     `min-height: 0` is required for the flex child to actually
-     shrink below its content size, otherwise overflow:auto can't
-     kick in. The auto-resize hook normally grows the window so
-     body's content fits without ever needing the internal scroll;
-     scroll only appears for the rare case where content exceeds
-     screen height. */
+  /* Body is the flex region between switcher + footer. We make it
+     a flex column container itself so children that use `flex: 1`
+     (empty-state, onboarding-shell, the card-stack centering) can
+     grow to fill it. `min-height: 0` is needed for the flex child
+     to actually shrink below its content size when the parent
+     popup-root is smaller than the content. */
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-app-region: no-drag;
@@ -821,7 +821,11 @@ html, body {
   padding: var(--space-7) var(--space-4);
   gap: var(--space-3);
   text-align: center;
-  flex: 1;
+  /* min-height guarantees presence even when the popup-body parent
+     isn't a flex container (defensive). flex:1 still grows when it
+     is, which is the common case. */
+  flex: 1 1 auto;
+  min-height: 280px;
 }
 
 .empty-state__icon {
@@ -1094,7 +1098,10 @@ html, body {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5) var(--space-4);
-  flex: 1;
+  /* Defensive: min-height keeps the wizard sized even when the
+     parent popup-body isn't acting as a flex container. */
+  flex: 1 1 auto;
+  min-height: 360px;
 }
 
 .onboarding-progress {
