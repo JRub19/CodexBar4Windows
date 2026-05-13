@@ -11,11 +11,18 @@ use super::claude_parser::ClaudeUsageRow;
 use super::dedup::{dedup_cross_file, dedup_in_file};
 use super::pricing::{cost_for_row, normalise_model_id, PricingTable};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct AggregatedCost {
     pub total_usd: f64,
     pub by_model_usd: BTreeMap<String, f64>,
     pub by_day_usd: BTreeMap<String, f64>,
+    /// Per-day total token count (input + output + cache_read +
+    /// cache_creation). Useful for the chart's hover panel.
+    pub by_day_tokens: BTreeMap<String, i64>,
+    /// `day -> model -> (cost_usd, total_tokens)` — populated so the
+    /// chart hover panel can render up-to-four per-model rows for the
+    /// selected day without a separate data fetch.
+    pub by_day_models: BTreeMap<String, BTreeMap<String, (f64, i64)>>,
 }
 
 impl AggregatedCost {
@@ -64,16 +71,39 @@ impl AggregatedCost {
             })
             .collect();
 
-        // Build per-day entries aligned with `last_30_days_usd`.
-        let daily: Vec<crate::providers::models::provider_cost::DailyCostEntry> = last_30_days
+        // Build per-day entries aligned with `last_30_days_usd`,
+        // each populated with per-model rows sorted by cost desc.
+        use crate::providers::models::provider_cost::{DailyCostEntry, ModelCost};
+        let daily: Vec<DailyCostEntry> = last_30_days
             .iter()
             .map(|d| {
                 let cost = self.by_day_usd.get(*d).copied().unwrap_or(0.0);
-                crate::providers::models::provider_cost::DailyCostEntry {
+                let total_tokens = self.by_day_tokens.get(*d).copied().unwrap_or(0);
+                let mut models: Vec<ModelCost> = self
+                    .by_day_models
+                    .get(*d)
+                    .map(|m| {
+                        m.iter()
+                            .map(|(id, (cost, tokens))| ModelCost {
+                                model_id: id.clone(),
+                                cost_usd: *cost,
+                                total_tokens: *tokens,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                models.sort_by(|a, b| {
+                    b.cost_usd
+                        .partial_cmp(&a.cost_usd)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then(b.total_tokens.cmp(&a.total_tokens))
+                        .then(a.model_id.cmp(&b.model_id))
+                });
+                DailyCostEntry {
                     date: (*d).to_string(),
                     cost_usd: cost,
-                    total_tokens: 0, // populated by aggregate_rows_detailed
-                    models: Vec::new(),
+                    total_tokens,
+                    models,
                 }
             })
             .collect();
@@ -95,7 +125,9 @@ impl AggregatedCost {
 }
 
 /// Build an `AggregatedCost` from a list of files' rows. Applies the
-/// full dedup pipeline (in-file then cross-file) before aggregation.
+/// full dedup pipeline (in-file then cross-file) before aggregation,
+/// then folds rows into per-day + per-day-per-model rollups so the
+/// popup's hover panel can render without a follow-up call.
 pub fn aggregate_rows(files: Vec<Vec<ClaudeUsageRow>>, pricing: &PricingTable) -> AggregatedCost {
     let mut deduped: Vec<ClaudeUsageRow> = Vec::new();
     for file_rows in files {
@@ -104,19 +136,31 @@ pub fn aggregate_rows(files: Vec<Vec<ClaudeUsageRow>>, pricing: &PricingTable) -
     let deduped = dedup_cross_file(deduped);
     let mut by_model_usd: BTreeMap<String, f64> = BTreeMap::new();
     let mut by_day_usd: BTreeMap<String, f64> = BTreeMap::new();
+    let mut by_day_tokens: BTreeMap<String, i64> = BTreeMap::new();
+    let mut by_day_models: BTreeMap<String, BTreeMap<String, (f64, i64)>> = BTreeMap::new();
     let mut total_usd = 0.0;
     for row in deduped {
         let usd = cost_for_row(pricing, &row).unwrap_or(0.0);
+        let tokens = row.input_tokens
+            + row.output_tokens
+            + row.cache_read_input_tokens
+            + row.cache_creation_input_tokens;
+        let model_id = normalise_model_id(&row.model);
         total_usd += usd;
-        *by_model_usd
-            .entry(normalise_model_id(&row.model))
-            .or_default() += usd;
+        *by_model_usd.entry(model_id.clone()).or_default() += usd;
         *by_day_usd.entry(row.day_key.clone()).or_default() += usd;
+        *by_day_tokens.entry(row.day_key.clone()).or_default() += tokens;
+        let day_models = by_day_models.entry(row.day_key.clone()).or_default();
+        let entry = day_models.entry(model_id).or_insert((0.0, 0));
+        entry.0 += usd;
+        entry.1 += tokens;
     }
     AggregatedCost {
         total_usd,
         by_model_usd,
         by_day_usd,
+        by_day_tokens,
+        by_day_models,
     }
 }
 
@@ -158,7 +202,7 @@ mod tests {
             row(
                 "m1",
                 "r1",
-                "claude-sonnet-4-7-20251022",
+                "claude-3-5-sonnet-20251022",
                 "2026-05-13",
                 1_000_000,
                 0,
@@ -174,7 +218,7 @@ mod tests {
             row(
                 "m3",
                 "r3",
-                "claude-sonnet-4-7-20251022",
+                "claude-3-5-sonnet-20251022",
                 "2026-05-14",
                 500_000,
                 100_000,
@@ -187,7 +231,7 @@ mod tests {
         assert!((agg.total_usd - 7.0).abs() < 1e-9);
         assert!(
             (agg.by_model_usd
-                .get("claude-sonnet-4-7")
+                .get("claude-3-5-sonnet")
                 .copied()
                 .unwrap_or(0.0)
                 - 6.0)
@@ -215,7 +259,7 @@ mod tests {
         let parent = row(
             "m1",
             "r1",
-            "claude-sonnet-4-7-20251022",
+            "claude-3-5-sonnet-20251022",
             "2026-05-13",
             1_000_000,
             0,
@@ -237,7 +281,7 @@ mod tests {
         let early = row(
             "m1",
             "r1",
-            "claude-sonnet-4-7-20251022",
+            "claude-3-5-sonnet-20251022",
             "2026-05-13",
             500_000,
             0,
@@ -245,7 +289,7 @@ mod tests {
         let final_ = row(
             "m1",
             "r1",
-            "claude-sonnet-4-7-20251022",
+            "claude-3-5-sonnet-20251022",
             "2026-05-13",
             1_000_000,
             0,
@@ -262,7 +306,7 @@ mod tests {
             row(
                 "m1",
                 "r1",
-                "claude-sonnet-4-7-20251022",
+                "claude-3-5-sonnet-20251022",
                 "2026-05-12",
                 1_000_000,
                 0,
@@ -270,7 +314,7 @@ mod tests {
             row(
                 "m2",
                 "r2",
-                "claude-sonnet-4-7-20251022",
+                "claude-3-5-sonnet-20251022",
                 "2026-05-13",
                 2_000_000,
                 0,
@@ -278,7 +322,7 @@ mod tests {
             row(
                 "m3",
                 "r3",
-                "claude-sonnet-4-7-20251022",
+                "claude-3-5-sonnet-20251022",
                 "2026-05-14",
                 500_000,
                 0,
@@ -312,7 +356,7 @@ mod tests {
             row(
                 "m2",
                 "r2",
-                "claude-sonnet-4-7-20251022",
+                "claude-3-5-sonnet-20251022",
                 "2026-05-13",
                 1_000_000,
                 0,
@@ -326,7 +370,7 @@ mod tests {
             .map(|s| s.service_name.as_str())
             .collect();
         // sonnet $3 > haiku $1 → sonnet first.
-        assert_eq!(names, vec!["claude-sonnet-4-7", "claude-haiku-4-5"]);
+        assert_eq!(names, vec!["claude-3-5-sonnet", "claude-haiku-4-5"]);
     }
 
     #[test]
@@ -344,7 +388,7 @@ mod tests {
             row(
                 "m2",
                 "r2",
-                "claude-sonnet-4-7-20251022",
+                "claude-3-5-sonnet-20251022",
                 "2026-05-13",
                 1_000_000,
                 0,
