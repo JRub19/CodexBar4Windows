@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 
 use super::strategy::{FactoryHttp, FactoryResponse, PER_REQUEST_TIMEOUT};
+use super::workos_refresh::{WorkOSHttp, WorkOSResponse};
 use crate::providers::errors::ProviderFetchError;
 
 pub struct ReqwestFactoryClient {
@@ -48,6 +49,39 @@ impl FactoryHttp for ReqwestFactoryClient {
             .await
             .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
         Ok(FactoryResponse {
+            status,
+            body: body.to_vec(),
+        })
+    }
+}
+
+#[async_trait]
+impl WorkOSHttp for ReqwestFactoryClient {
+    async fn post_json(
+        &self,
+        url: &str,
+        body: &str,
+        cookie_header: Option<&str>,
+    ) -> Result<WorkOSResponse, ProviderFetchError> {
+        let mut req = self
+            .client
+            .post(url)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .body(body.to_string());
+        if let Some(cookie) = cookie_header {
+            req = req.header("Cookie", cookie);
+        }
+        let response = req
+            .send()
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        let status = response.status().as_u16();
+        let body = response
+            .bytes()
+            .await
+            .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+        Ok(WorkOSResponse {
             status,
             body: body.to_vec(),
         })

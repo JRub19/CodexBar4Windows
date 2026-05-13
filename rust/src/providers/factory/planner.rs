@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use crate::providers::factory::api::strategy::{
-    FactoryApiStrategy, FactoryCredentialsResolver, FactoryHttp,
+    FactoryApiStrategy, FactoryCredentialsResolver, FactoryHttp, FactoryRefreshHook,
 };
 use crate::providers::fetch_plan_runtime::Strategy;
 
@@ -19,5 +19,18 @@ pub struct FactoryWiring {
 impl FactoryWiring {
     pub fn into_strategies(self) -> Vec<Arc<dyn Strategy>> {
         vec![Arc::new(FactoryApiStrategy::new(self.http, self.credentials)) as Arc<dyn Strategy>]
+    }
+
+    /// Install a WorkOS refresh hook so the strategy can trade a
+    /// stored refresh_token (or session cookies) for a fresh bearer
+    /// instead of surfacing `Unauthorized` when the saved bearer has
+    /// expired.
+    pub fn into_strategies_with_refresh(
+        self,
+        refresh: FactoryRefreshHook,
+    ) -> Vec<Arc<dyn Strategy>> {
+        vec![Arc::new(
+            FactoryApiStrategy::new(self.http, self.credentials).with_refresh(refresh),
+        ) as Arc<dyn Strategy>]
     }
 }

@@ -522,15 +522,23 @@ impl FactoryHttp for NullFactoryHttp {
 struct StoredFactoryCredentials {
     tokens: Arc<TokenAccountStore>,
 }
+
+const FACTORY_WORKOS_REFRESH_LABEL_PREFIX: &str = "WorkOS refresh";
+
 #[async_trait::async_trait]
 impl FactoryCredentialsResolver for StoredFactoryCredentials {
     async fn resolve(&self) -> Result<FactoryCredentials, ProviderFetchError> {
         use codexbar::secrets::token_account::TokenKind;
         let store = self.tokens.clone();
-        let active = tokio::task::spawn_blocking(move || store.active_for("factory"))
+        let list = tokio::task::spawn_blocking(move || store.load("factory"))
             .await
             .map_err(|e| ProviderFetchError::Network(e.to_string()))?
             .map_err(|e| ProviderFetchError::Network(e.to_string()))?;
+
+        let active = list
+            .active_id
+            .as_deref()
+            .and_then(|id| list.accounts.iter().find(|a| a.id == id));
 
         let mut bearer: Option<String> = None;
         let mut cookie: Option<String> = None;
@@ -540,34 +548,105 @@ impl FactoryCredentialsResolver for StoredFactoryCredentials {
                 match account.kind {
                     TokenKind::Cookie => cookie = Some(value),
                     TokenKind::OauthToken | TokenKind::ApiKey => {
-                        bearer = Some(if value.starts_with("Bearer ") {
-                            value
-                        } else {
-                            format!("Bearer {value}")
-                        });
+                        bearer = Some(value);
                     }
                 }
             }
         }
 
+        // A separate account labelled "WorkOS refresh" holds the
+        // refresh token. We never expose it as the bearer directly —
+        // the strategy trades it for an access_token via WorkOS first.
+        let workos_refresh_token = list
+            .accounts
+            .iter()
+            .find(|a| a.label.starts_with(FACTORY_WORKOS_REFRESH_LABEL_PREFIX))
+            .and_then(|a| {
+                let v = a.value.trim();
+                if v.is_empty() { None } else { Some(v.to_string()) }
+            });
+
         if bearer.is_none() {
             bearer = std::env::var("CODEXBAR_FACTORY_BEARER")
                 .ok()
-                .filter(|s| !s.trim().is_empty())
-                .map(|raw| {
-                    if raw.starts_with("Bearer ") {
-                        raw
-                    } else {
-                        format!("Bearer {raw}")
-                    }
-                });
+                .filter(|s| !s.trim().is_empty());
         }
         if cookie.is_none() {
             cookie = std::env::var("CODEXBAR_FACTORY_COOKIE")
                 .ok()
                 .filter(|s| !s.trim().is_empty());
         }
-        Ok(FactoryCredentials { bearer, cookie })
+        let workos_organization_id = std::env::var("CODEXBAR_FACTORY_WORKOS_ORG")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
+        Ok(FactoryCredentials {
+            bearer,
+            cookie,
+            workos_refresh_token,
+            workos_organization_id,
+        })
+    }
+
+    async fn persist_workos_refresh(
+        &self,
+        bearer: &str,
+        new_refresh_token: Option<&str>,
+    ) -> Result<(), ProviderFetchError> {
+        use codexbar::secrets::token_account::TokenKind;
+        let store = self.tokens.clone();
+        let bearer = bearer.to_string();
+        let new_rt = new_refresh_token.map(|s| s.to_string());
+        tokio::task::spawn_blocking(move || -> Result<(), String> {
+            let list = store.load("factory").map_err(|e| e.to_string())?;
+            // Update / create the active bearer account.
+            let active_bearer_id = list.active_id.as_deref().and_then(|id| {
+                list.accounts
+                    .iter()
+                    .find(|a| a.id == id && a.kind != TokenKind::Cookie)
+                    .map(|a| a.id.clone())
+            });
+            if let Some(id) = active_bearer_id {
+                store
+                    .edit("factory", &id, None, Some(bearer))
+                    .map_err(|e| e.to_string())?;
+            } else {
+                let acct = store
+                    .add("factory", TokenKind::OauthToken, "WorkOS bearer", bearer)
+                    .map_err(|e| e.to_string())?;
+                store
+                    .set_active("factory", &acct.id)
+                    .map_err(|e| e.to_string())?;
+            }
+
+            if let Some(rt) = new_rt {
+                // Update or create the dedicated refresh-token slot.
+                let refresh_id = list
+                    .accounts
+                    .iter()
+                    .find(|a| a.label.starts_with(FACTORY_WORKOS_REFRESH_LABEL_PREFIX))
+                    .map(|a| a.id.clone());
+                if let Some(id) = refresh_id {
+                    store
+                        .edit("factory", &id, None, Some(rt))
+                        .map_err(|e| e.to_string())?;
+                } else {
+                    store
+                        .add(
+                            "factory",
+                            TokenKind::OauthToken,
+                            FACTORY_WORKOS_REFRESH_LABEL_PREFIX,
+                            rt,
+                        )
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| ProviderFetchError::Network(e.to_string()))?
+        .map_err(ProviderFetchError::Network)?;
+        Ok(())
     }
 }
 
@@ -910,16 +989,28 @@ pub fn run() {
     });
 
     let factory_provider = Arc::new(FactoryProvider::default());
-    let factory_http: Arc<dyn FactoryHttp> = match ReqwestFactoryClient::new() {
-        Ok(c) => Arc::new(c),
-        Err(_) => Arc::new(NullFactoryHttp),
+    let factory_reqwest = ReqwestFactoryClient::new().ok().map(Arc::new);
+    let factory_http: Arc<dyn FactoryHttp> = match factory_reqwest.clone() {
+        Some(c) => c,
+        None => Arc::new(NullFactoryHttp),
     };
-    factory_provider.install_wiring(FactoryWiring {
+    let factory_wiring = FactoryWiring {
         http: factory_http,
         credentials: Arc::new(StoredFactoryCredentials {
             tokens: token_store.clone(),
         }),
-    });
+    };
+    match factory_reqwest {
+        Some(workos_http) => {
+            factory_provider.install_wiring_with_refresh(
+                factory_wiring,
+                codexbar::providers::factory::api::strategy::FactoryRefreshHook {
+                    http: workos_http,
+                },
+            );
+        }
+        None => factory_provider.install_wiring(factory_wiring),
+    }
 
     // Tier-2 providers. Each one follows the same template: a reqwest
     // transport (with a null fallback when reqwest cannot build) plus a

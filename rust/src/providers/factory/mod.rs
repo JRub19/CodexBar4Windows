@@ -35,6 +35,14 @@ impl FactoryProvider {
     pub fn install_wiring(&self, wiring: FactoryWiring) {
         *self.wiring.lock() = Some(wiring.into_strategies());
     }
+
+    pub fn install_wiring_with_refresh(
+        &self,
+        wiring: FactoryWiring,
+        refresh: self::api::strategy::FactoryRefreshHook,
+    ) {
+        *self.wiring.lock() = Some(wiring.into_strategies_with_refresh(refresh));
+    }
 }
 
 #[async_trait]
