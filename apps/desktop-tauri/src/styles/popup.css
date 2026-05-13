@@ -189,29 +189,33 @@ kbd {
 /* ============================================================ */
 
 .popup-root {
-  /* Window auto-resizes to content height via `useAutoResize`. The
-     root fills the window (the OS already clipped width to 360px).
-     overflow:hidden ensures we never produce an OS-level scroll bar
-     even briefly during a resize-frame race. */
+  /* The popup is INTRINSICALLY sized: it grows to whatever its
+     children need, and `useAutoResize` then resizes the Tauri window
+     to match. Body is flex:0 0 auto (natural size, no scroll) so
+     scrollHeight === sum of child natural heights. Horizontal
+     overflow is hidden defensively — we never want a horizontal
+     scrollbar. Vertical overflow is `visible` here so a misbehaving
+     child can't be clipped by us; the auto-resize hook will catch
+     it on the next animation frame and grow the window. */
   min-height: 100vh;
   width: 100vw;
   display: flex;
   flex-direction: column;
   background: var(--bg-popup);
   border-radius: var(--r-popup);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-popup);
   -webkit-app-region: drag;
   animation: popup-in var(--d-popup-in) var(--ease-out) both;
 }
 
-/* Defensive — the WebView2 host occasionally adds horizontal scroll
-   bars when sub-pixel layout rounding produces a 360.5px child. We
-   nuke any horizontal overflow at every layer; vertical is handled
-   by the auto-resize hook + capped max-height. */
+/* `html, body` only constrain horizontal — vertical is owned by the
+   popup-root + auto-resize hook. */
 html, body {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 @supports not (backdrop-filter: blur(20px)) {
@@ -254,35 +258,13 @@ html, body {
 /* ============================================================ */
 
 .popup-body {
-  flex: 1;
-  min-height: 0;
-  /* Window auto-resizes to content height — vertical overflow only
-     happens when the content exceeds MAX_HEIGHT (600 px). In that
-     case we still want a clean inner scroll, but the scrollbar is
-     thin + accent-themed so it doesn't drown the popup. */
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--bg-hover) transparent;
+  /* Intrinsic size — grow to whatever the active card / wizard /
+     empty-state needs. The auto-resize hook reads the natural
+     height and grows the window to match, so internal scrolling
+     is never needed in practice. */
+  flex: 0 0 auto;
+  overflow: visible;
   -webkit-app-region: no-drag;
-}
-
-.popup-body::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-.popup-body::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-/* Only show the scrollbar when the body is actively scrollable
-   (content overflows the max height). */
-.popup-body:hover::-webkit-scrollbar {
-  width: 6px;
-}
-.popup-body:hover::-webkit-scrollbar-thumb {
-  background: var(--bg-hover);
-  border-radius: 999px;
 }
 
 /* ============================================================ */
