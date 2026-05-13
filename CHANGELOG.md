@@ -6,6 +6,56 @@ This release marks the cut from the macOS Swift project to a Windows Rust plus T
 
 Tracking the Windows refactor: see `docs/windows/plan/00-master-plan.md` for the 10 phase execution plan.
 
+### Phase 9, packaging and auto-update (in progress)
+
+- Inno Setup installer at `installer/codexbar.iss` produces a per-user
+  `.exe` bundle with WebView2 evergreen bootstrap, launch-at-login
+  task, and a `codexbar4windows://` URL protocol handler.
+- Portable distribution via `scripts/build-portable.ps1` produces a
+  ZIP with a `portable.marker` discriminator so the runtime stores
+  config alongside the EXE instead of in `%APPDATA%`.
+- Two-stage Authenticode signing: `scripts/sign-binaries.ps1` signs
+  the inner EXEs before bundling; Inno's `SignTool=` directive signs
+  the installer at the end of compile.
+- `scripts/generate-checksums.ps1` emits a sha256sum-format
+  checksums file for verification.
+- `tauri-plugin-updater` wired with a minisign-signed `latest.json` /
+  `beta.json` manifest. The update banner (`UpdateBanner.tsx`) polls
+  once at popup launch and offers Update now / Later actions.
+- `scripts/sign-update-manifest.ps1` signs the installer bytes with
+  minisign and embeds the base64 signature in the manifest.
+- Tag-triggered release workflow at `.github/workflows/release.yml`
+  builds, signs, packages, and publishes a GitHub Release with five
+  artifacts plus an automated Winget update PR on stable tags.
+- Winget manifest seeds under `packaging/winget/` for the first
+  manual submission via `wingetcreate new`.
+
+### Phase 8, preferences window + global hotkey + launch-at-sign-in
+
+- Standalone Settings window with six panes (General, Providers,
+  Notifications, Shortcuts, Advanced, About).
+- Global hotkey `Win+Shift+U` toggles the popup via
+  `tauri-plugin-global-shortcut`.
+- HKCU Run-key autostart entry; toggleable from the Advanced pane.
+
+### Phase 7, status feeds + notifications + cost scanner
+
+- Status feed subsystem polling Statuspage.io + Google Workspace
+  feeds for eight providers; tray-icon aggregation overlay.
+- Desktop toasts for session-depletion + threshold crossings
+  (50% / 25% / 10% defaults) via `tauri-plugin-notification`.
+- Claude Code JSONL cost scanner with full dedup pipeline and a
+  per-model pricing table.
+
+### Phase 6.5, eleven providers wired
+
+- Tier-1: Claude, Codex, Cursor, Copilot, Gemini, OpenRouter, Factory.
+- Tier-2: DeepSeek, Moonshot, Z.ai, Venice.
+- Auth flows: GitHub device-code (Copilot), browser launcher (Cursor),
+  WorkOS paste-cookie (Factory), Google CLI-extracted OAuth refresh
+  (Gemini), env-var stub for API-key providers, DPAPI-backed
+  TokenAccountStore for all.
+
 ## 0.26 — Unreleased (macOS upstream)
 
 ### Added

@@ -1,0 +1,188 @@
+name: Release
+
+# Tag-triggered release pipeline. Phase 9 §G.
+#
+# Push a `v*.*.*` tag and this workflow:
+#   1. Builds Tauri in release mode.
+#   2. Signs the inner binaries via signtool (PFX stored as a base64
+#      secret; restored to a temp file and imported into the runner's
+#      user store before signing).
+#   3. Compiles the Inno Setup installer (which signs itself at the
+#      end of compile via the SignTool= directive inherited from the
+#      .iss file).
+#   4. Builds the portable ZIP from the same release output.
+#   5. Generates a sha256sums file.
+#   6. Signs `latest.json` / `beta.json` with minisign.
+#   7. Publishes a GitHub Release with all five artifacts attached.
+#   8. (Stable only) submits a Winget update PR via wingetcreate.
+#
+# Channel selection: a tag containing `-beta` or `-rc` is treated as
+# Beta — the GitHub Release is marked prerelease, beta.json is the
+# primary manifest, and Winget submission is skipped.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  build:
+    name: release build
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version + channel from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace "^v", ""
+          $channel = if ($version -match "-(beta|rc)") { "beta" } else { "stable" }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          shared-key: windows-release
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/desktop-tauri/package-lock.json
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Install Inno Setup + minisign via Chocolatey
+        run: |
+          choco install innosetup -y --no-progress
+          choco install minisign -y --no-progress
+        shell: pwsh
+
+      - name: npm install (desktop shell)
+        working-directory: apps/desktop-tauri
+        run: npm ci
+
+      - name: Lint + typecheck + test
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace --lib
+        shell: pwsh
+
+      - name: TypeScript typecheck
+        working-directory: apps/desktop-tauri
+        run: npx tsc --noEmit
+
+      - name: Restore code-signing certificate
+        if: ${{ secrets.CODESIGN_PFX_BASE64 != '' }}
+        env:
+          CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
+          CODESIGN_PFX_PASSWORD: ${{ secrets.CODESIGN_PFX_PASSWORD }}
+        shell: pwsh
+        run: |
+          $bytes = [Convert]::FromBase64String($env:CODESIGN_PFX_BASE64)
+          $pfx = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+          [IO.File]::WriteAllBytes($pfx, $bytes)
+          certutil -f -p $env:CODESIGN_PFX_PASSWORD -user -importpfx $pfx | Out-Null
+          Remove-Item $pfx
+
+      - name: Tauri release build
+        env:
+          CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
+        run: cargo tauri build --target x86_64-pc-windows-msvc
+        working-directory: apps/desktop-tauri/src-tauri
+        shell: pwsh
+
+      - name: Sign inner binaries
+        if: ${{ secrets.CODESIGN_PFX_BASE64 != '' }}
+        env:
+          CODESIGN_THUMBPRINT: ${{ secrets.CODESIGN_THUMBPRINT }}
+        run: pwsh scripts/sign-binaries.ps1
+
+      - name: Compile Inno Setup installer
+        env:
+          CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
+          CODEXBAR_ARCH: x64
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
+          & $iscc /Qp installer/codexbar.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed" }
+
+      - name: Build portable ZIP
+        env:
+          CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
+        run: pwsh scripts/build-portable.ps1
+
+      - name: Generate sha256 checksums
+        env:
+          CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
+        run: pwsh scripts/generate-checksums.ps1
+
+      - name: Sign update manifest
+        if: ${{ secrets.TAURI_MINISIGN_PRIVATE_KEY != '' }}
+        env:
+          CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
+          TAURI_MINISIGN_PASSWORD: ${{ secrets.TAURI_MINISIGN_PASSWORD }}
+        shell: pwsh
+        run: |
+          $keyPath = Join-Path $env:RUNNER_TEMP "minisign.key"
+          Set-Content -Path $keyPath -Encoding ascii -Value "${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}"
+          pwsh scripts/sign-update-manifest.ps1 `
+            -Version "${{ steps.ver.outputs.version }}" `
+            -InstallerPath "dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-x64.exe" `
+            -Channel "${{ steps.ver.outputs.channel }}" `
+            -MinisignKey $keyPath
+          Remove-Item $keyPath
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: CodexBar4Windows ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ steps.ver.outputs.channel == 'beta' }}
+          files: |
+            dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-x64.exe
+            dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-portable-x64.zip
+            dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-checksums.txt
+            dist/latest.json
+            dist/beta.json
+
+      - name: Submit Winget update (stable only)
+        if: steps.ver.outputs.channel == 'stable' && env.WINGET_PAT != ''
+        env:
+          WINGET_PAT: ${{ secrets.WINGET_PAT }}
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $url = "https://github.com/JRub19/CodexBar4Windows/releases/download/v$ver/CodexBar4Windows-$ver-x64.exe"
+          # wingetcreate is distributed as a standalone exe; fetch on demand.
+          $wc = "wingetcreate.exe"
+          if (-not (Get-Command $wc -ErrorAction SilentlyContinue)) {
+            Invoke-WebRequest -Uri "https://aka.ms/wingetcreate/latest" -OutFile $wc
+          }
+          & .\$wc update CodexBar4Windows.CodexBar4Windows --version $ver --urls $url --submit --token $env:WINGET_PAT

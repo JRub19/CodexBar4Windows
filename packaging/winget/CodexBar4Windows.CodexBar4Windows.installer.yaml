@@ -1,0 +1,33 @@
+# Winget installer manifest seed for CodexBar4Windows. Phase 9 §G.
+#
+# This is the template the first manual submission (via
+# `wingetcreate new`) uses. Subsequent versions are produced by the
+# tag-triggered release workflow with `wingetcreate update` —
+# placeholders below are substituted from the release artifacts +
+# tag at that point.
+#
+# Path inside winget-pkgs:
+#   manifests/c/CodexBar4Windows/CodexBar4Windows/<version>/CodexBar4Windows.CodexBar4Windows.installer.yaml
+
+PackageIdentifier: CodexBar4Windows.CodexBar4Windows
+PackageVersion: 0.1.0
+InstallerType: inno
+Scope: user
+MinimumOSVersion: 10.0.17763.0
+Architectures:
+  - x64
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/JRub19/CodexBar4Windows/releases/download/v0.1.0/CodexBar4Windows-0.1.0-x64.exe
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    InstallerSwitches:
+      Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+      SilentWithProgress: /SILENT /SUPPRESSMSGBOXES /NORESTART
+    ProductCode: "{B7C2A6A0-8C1D-4C0D-9F0C-9C0D5F0A1234}_is1"
+    ReleaseDate: 2026-06-02
+ManifestType: installer
+ManifestVersion: 1.6.0
