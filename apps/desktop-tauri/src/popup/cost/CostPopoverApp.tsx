@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CostHistoryChart } from "../cards/CostHistoryChart";
 import type { ProviderCostSnapshot } from "../cards/useCostHistory";
+import { debugLog } from "../debug/logger";
 
 // Render target for the `cost-popover` Tauri window. The window is
 // created at app start (visible: false) and shown on demand from
@@ -28,6 +29,7 @@ const PROVIDER_BRAND_HEX: Record<string, string> = {
 };
 
 export function CostPopoverApp() {
+  debugLog.info("CostPopoverApp", `render begin href=${window.location.href}`);
   const [providerId, setProviderId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<ProviderCostSnapshot | null>(null);
   const [animateIn, setAnimateIn] = useState(false);
@@ -35,17 +37,21 @@ export function CostPopoverApp() {
 
   useEffect(() => {
     mounted.current = true;
+    debugLog.info("CostPopoverApp", "mounted");
     return () => {
       mounted.current = false;
+      debugLog.info("CostPopoverApp", "unmounted");
     };
   }, []);
 
   // Fetch helper: pull active provider + its snapshot from Rust.
   const refresh = async () => {
+    debugLog.info("CostPopoverApp", "refresh: start");
     try {
       const pid = await invoke<string | null>(
         "get_active_cost_popover_provider",
       );
+      debugLog.info("CostPopoverApp", `refresh: get_active ok pid=${pid ?? "null"}`);
       if (!mounted.current) return;
       if (!pid) {
         setProviderId(null);
@@ -56,10 +62,14 @@ export function CostPopoverApp() {
       const all = await invoke<Record<string, ProviderCostSnapshot>>(
         "cost_snapshots",
       );
+      debugLog.info(
+        "CostPopoverApp",
+        `refresh: cost_snapshots ok keys=${Object.keys(all ?? {}).join(",")}`,
+      );
       if (!mounted.current) return;
       setSnapshot(all?.[pid] ?? null);
-    } catch {
-      /* ignore — empty render is fine */
+    } catch (e) {
+      debugLog.error("CostPopoverApp", `refresh: failed ${String(e)}`);
     }
   };
 
@@ -92,6 +102,10 @@ export function CostPopoverApp() {
       "cost-popover:set-provider",
       async (event) => {
         const pid = event.payload?.provider_id;
+        debugLog.info(
+          "CostPopoverApp",
+          `event set-provider pid=${pid ?? "null"}`,
+        );
         if (!pid) return;
         if (!mounted.current) return;
         setProviderId(pid);
@@ -101,8 +115,8 @@ export function CostPopoverApp() {
           );
           if (!mounted.current) return;
           setSnapshot(all?.[pid] ?? null);
-        } catch {
-          /* ignore */
+        } catch (e) {
+          debugLog.error("CostPopoverApp", `event refresh failed: ${String(e)}`);
         }
       },
     );
@@ -140,33 +154,52 @@ export function CostPopoverApp() {
     ? (PROVIDER_BRAND_HEX[providerId] ?? "#0078d4")
     : "#0078d4";
 
+  debugLog.info(
+    "CostPopoverApp",
+    `render: providerId=${providerId ?? "null"} animateIn=${animateIn} hasSnapshot=${snapshot != null}`,
+  );
+
   return (
     <div
       className={"cost-popover" + (animateIn ? " cost-popover--in" : "")}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
+      // Inline style guarantee that the panel renders even if the
+      // popup.css bundle didn't load (e.g. tree-shaking or wrong
+      // entry). Inline always wins.
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        background: "rgba(28, 28, 30, 0.95)",
+        color: "#f5f5f7",
+        padding: "12px 16px",
+        borderRadius: "12px",
+        boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxSizing: "border-box",
+      }}
     >
-      <div className="cost-popover__chrome">
-        <header className="cost-popover__header">
-          <div className="cost-popover__title">
-            {providerId === "claude"
-              ? "Claude"
-              : providerId === "codex"
-                ? "Codex"
-                : providerId
-                  ? providerId
-                  : "Loading…"}{" "}
-            · Usage history
-          </div>
-          <div className="cost-popover__subtitle">Last 30 days</div>
-        </header>
-        <div className="cost-popover__body">
-          <CostHistoryChart
-            snapshot={snapshot}
-            brandColor={brand}
-            visible={animateIn}
-          />
+      <header className="cost-popover__header">
+        <div className="cost-popover__title">
+          {providerId === "claude"
+            ? "Claude"
+            : providerId === "codex"
+              ? "Codex"
+              : providerId
+                ? providerId
+                : "Loading…"}{" "}
+          · Usage history
         </div>
+        <div className="cost-popover__subtitle">Last 30 days</div>
+      </header>
+      <div className="cost-popover__body" style={{ flex: 1, minHeight: 0 }}>
+        <CostHistoryChart
+          snapshot={snapshot}
+          brandColor={brand}
+          visible={animateIn}
+        />
       </div>
     </div>
   );

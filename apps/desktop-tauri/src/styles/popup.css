@@ -1761,9 +1761,11 @@ kbd {
 
 .cost-overview {
   margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-2);
-  margin-left: calc(-1 * var(--space-2));
-  margin-right: calc(-1 * var(--space-2));
+  /* No negative side margins — those were pushing the row past the
+     card's right edge and triggering a horizontal scrollbar on the
+     popup body. Use plain padding instead so the hit area is wider
+     than the text without overflowing. */
+  padding: var(--space-2);
   border-radius: var(--r-card);
   display: flex;
   flex-direction: column;

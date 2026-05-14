@@ -16,6 +16,11 @@ const isCostPopoverRoute = window.location.hash.startsWith("#/cost-popover");
 
 debugLog.info(
   "main.tsx",
+  `route detection href=${window.location.href} hash=${window.location.hash} settings=${isSettingsRoute} costPopover=${isCostPopoverRoute}`,
+);
+
+debugLog.info(
+  "main.tsx",
   `boot route=${isSettingsRoute ? "settings" : "popup"} href=${window.location.href}`,
 );
 

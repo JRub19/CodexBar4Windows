@@ -697,10 +697,12 @@ pub async fn show_cost_popover(
     let pop_physical_h = (pop_logical_h * scale) as i32;
     let gap = (6.0 * scale) as i32;
     // Vertical offset from the main popup's top: drops the popover
-    // down by ~70 logical px so it visually attaches near the
-    // provider card body, not the popup chrome. Matches the macOS
-    // submenu cascade origin.
-    let y_offset = (70.0 * scale) as i32;
+    // down by ~280 logical px so it visually attaches near the
+    // Cost section inside the provider card (which sits below
+    // switcher + card header + hero + week metric). The macOS
+    // submenu opens at the row's screen Y; we approximate by
+    // offsetting from the popup's top.
+    let y_offset = (280.0 * scale) as i32;
 
     let monitor = main
         .current_monitor()
@@ -736,6 +738,15 @@ pub async fn show_cost_popover(
     // Set size explicitly each show in case DPI changed between monitors.
     let _ = popover.set_size(tauri::LogicalSize::new(pop_logical_w, pop_logical_h));
     let _ = popover.show();
+    // DEBUG: auto-open DevTools the first time we show the popover
+    // so a blank-render bug is immediately inspectable. The atomic
+    // generation is incremented before show, so we tie devtools to
+    // the FIRST show this session via a simple OnceLock.
+    static DEVTOOLS_OPENED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    if DEVTOOLS_OPENED.get().is_none() {
+        let _ = DEVTOOLS_OPENED.set(());
+        popover.open_devtools();
+    }
     Ok(())
 }
 
