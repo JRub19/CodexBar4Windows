@@ -33,7 +33,7 @@
         "title": "Cost history",
         "url": "index.html#/cost-popover",
         "width": 360,
-        "height": 240,
+        "height": 320,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

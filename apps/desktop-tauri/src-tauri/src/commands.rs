@@ -690,9 +690,14 @@ pub async fn show_cost_popover(
     let main_size = main.outer_size().map_err(|e| e.to_string())?;
     let scale = main.scale_factor().unwrap_or(1.0);
 
-    // Logical popover size, matching tauri.conf.json.
+    // Logical popover size, matching tauri.conf.json. Height is
+    // tuned to fit: header (~30 px) + chart caption (~20 px) +
+    // bars (~84 px) + axis (~14 px) + detail primary (~16 px) + 4
+    // model rows × 14 px (~56 px) + chrome padding (~24 px) +
+    // breathing room (~16 px) ≈ 280–300 px. We pick 320 to absorb
+    // sub-pixel rounding on different DPI scales.
     let pop_logical_w: f64 = 360.0;
-    let pop_logical_h: f64 = 240.0;
+    let pop_logical_h: f64 = 320.0;
     let pop_physical_w = (pop_logical_w * scale) as i32;
     let pop_physical_h = (pop_logical_h * scale) as i32;
     let gap = (6.0 * scale) as i32;

@@ -192,7 +192,9 @@ export function CostPopoverApp() {
                 : "Loading…"}{" "}
           · Usage history
         </div>
-        <div className="cost-popover__subtitle">Last 30 days</div>
+        {/* "Last 30 days" header is now part of the chart caption
+            (CostHistoryChart's `.cost-chart__caption`) — having it
+            here too duplicated the label. */}
       </header>
       <div className="cost-popover__body" style={{ flex: 1, minHeight: 0 }}>
         <CostHistoryChart
