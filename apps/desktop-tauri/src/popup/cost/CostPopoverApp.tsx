@@ -1,20 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CostHistoryChart } from "../cards/CostHistoryChart";
 import type { ProviderCostSnapshot } from "../cards/useCostHistory";
 
-// Render target for the `cost-popover` Tauri window. The window
-// itself is created via tauri.conf.json with visible: false; the
-// Rust side flips it visible/hidden, positions it beside the main
-// popup, and emits `cost-popover:set-provider` events to tell us
-// which provider's chart to render.
+// Render target for the `cost-popover` Tauri window. The window is
+// created at app start (visible: false) and shown on demand from
+// the main popup's per-card Cost row hover.
 //
-// Hover bridge: the popover keeps itself alive while the cursor is
-// inside its own DOM by invoking `cancel_cost_popover_close` on
-// mouseenter and `schedule_cost_popover_close` on mouseleave. The
-// main-popup trigger row does the symmetric thing. Either side
-// staying hovered prevents the close.
+// State delivery — IMPORTANT: we PULL the active provider via a
+// Tauri command on mount AND on window-shown, NOT just listen for
+// an emit event. The one-shot emit can fire before the popover
+// WebView's listener is attached the very first time, leaving the
+// component with `providerId = null` and rendering nothing — which
+// looked like "the panel is empty" + made the hover bridge no-op
+// (no DOM elements to attach handlers to).
+//
+// Hover bridge: as long as the cursor is over this window's
+// content, we invoke `cancel_cost_popover_close` on the Rust side
+// so the close timer (started when the cursor leaves the trigger
+// row in the main popup) never fires.
 
 const PROVIDER_BRAND_HEX: Record<string, string> = {
   claude: "#cc7c5e",
@@ -34,18 +40,61 @@ export function CostPopoverApp() {
     };
   }, []);
 
-  // Subscribe to provider changes from Rust. The Rust side emits
-  // this event right before / when showing the window.
+  // Fetch helper: pull active provider + its snapshot from Rust.
+  const refresh = async () => {
+    try {
+      const pid = await invoke<string | null>(
+        "get_active_cost_popover_provider",
+      );
+      if (!mounted.current) return;
+      if (!pid) {
+        setProviderId(null);
+        setSnapshot(null);
+        return;
+      }
+      setProviderId(pid);
+      const all = await invoke<Record<string, ProviderCostSnapshot>>(
+        "cost_snapshots",
+      );
+      if (!mounted.current) return;
+      setSnapshot(all?.[pid] ?? null);
+    } catch {
+      /* ignore — empty render is fine */
+    }
+  };
+
+  // Initial pull on mount — covers the case where the Rust emit
+  // fires before this listener was attached.
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  // Re-pull whenever the window becomes visible. Tauri emits a
+  // window-event we can subscribe to.
+  useEffect(() => {
+    let unlistenFocus: (() => void) | null = null;
+    void getCurrentWindow()
+      .onFocusChanged((focused) => {
+        if (focused) void refresh();
+      })
+      .then((unfn) => {
+        unlistenFocus = unfn;
+      });
+    return () => {
+      unlistenFocus?.();
+    };
+  }, []);
+
+  // Also listen for push updates so a fast-second-hover doesn't
+  // need a full Tauri command roundtrip.
   useEffect(() => {
     const unlisten = listen<{ provider_id: string }>(
       "cost-popover:set-provider",
       async (event) => {
         const pid = event.payload?.provider_id;
         if (!pid) return;
+        if (!mounted.current) return;
         setProviderId(pid);
-        setAnimateIn(false);
-        // Fetch snapshots fresh — the main popup may have already
-        // populated the cache, in which case this is O(1).
         try {
           const all = await invoke<Record<string, ProviderCostSnapshot>>(
             "cost_snapshots",
@@ -53,19 +102,26 @@ export function CostPopoverApp() {
           if (!mounted.current) return;
           setSnapshot(all?.[pid] ?? null);
         } catch {
-          setSnapshot(null);
+          /* ignore */
         }
-        // Trigger CSS enter animation on the next frame so the
-        // browser sees the from→to state transition.
-        requestAnimationFrame(() => {
-          if (mounted.current) setAnimateIn(true);
-        });
       },
     );
     return () => {
       void unlisten.then((f) => f());
     };
   }, []);
+
+  // Trigger the slide-in animation when a provider is set.
+  useEffect(() => {
+    if (!providerId) {
+      setAnimateIn(false);
+      return;
+    }
+    const id = window.requestAnimationFrame(() => {
+      if (mounted.current) setAnimateIn(true);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [providerId]);
 
   // Hover bridge — keep the popover alive while cursor is over it.
   const handleEnter = () => {
@@ -75,14 +131,18 @@ export function CostPopoverApp() {
     void invoke("schedule_cost_popover_close").catch(() => {});
   };
 
-  if (!providerId) return null;
-  const brand = PROVIDER_BRAND_HEX[providerId] ?? "#0078d4";
+  // We render the chrome unconditionally (transparent until
+  // animateIn flips) so the popover window always has DOM elements
+  // with hover handlers attached. If providerId is null we show a
+  // brief loading state inside; if it stays null the window itself
+  // is hidden by Rust so the user never sees this fallback.
+  const brand = providerId
+    ? (PROVIDER_BRAND_HEX[providerId] ?? "#0078d4")
+    : "#0078d4";
 
   return (
     <div
-      className={
-        "cost-popover" + (animateIn ? " cost-popover--in" : "")
-      }
+      className={"cost-popover" + (animateIn ? " cost-popover--in" : "")}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
@@ -93,7 +153,9 @@ export function CostPopoverApp() {
               ? "Claude"
               : providerId === "codex"
                 ? "Codex"
-                : providerId}{" "}
+                : providerId
+                  ? providerId
+                  : "Loading…"}{" "}
             · Usage history
           </div>
           <div className="cost-popover__subtitle">Last 30 days</div>

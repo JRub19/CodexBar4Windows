@@ -692,10 +692,15 @@ pub async fn show_cost_popover(
 
     // Logical popover size, matching tauri.conf.json.
     let pop_logical_w: f64 = 360.0;
-    let pop_logical_h: f64 = 320.0;
+    let pop_logical_h: f64 = 240.0;
     let pop_physical_w = (pop_logical_w * scale) as i32;
     let pop_physical_h = (pop_logical_h * scale) as i32;
     let gap = (6.0 * scale) as i32;
+    // Vertical offset from the main popup's top: drops the popover
+    // down by ~70 logical px so it visually attaches near the
+    // provider card body, not the popup chrome. Matches the macOS
+    // submenu cascade origin.
+    let y_offset = (70.0 * scale) as i32;
 
     let monitor = main
         .current_monitor()
@@ -718,9 +723,10 @@ pub async fn show_cost_popover(
         if left_x >= mon_pos.x { left_x } else { right_x }
     };
 
-    // Vertical alignment: top of popover aligns with top of main.
-    // Clamp to monitor.
-    let mut y = main_pos.y;
+    // Vertical alignment: drop the popover down from the popup's
+    // top edge by `y_offset` so it visually anchors near the
+    // provider card body. Clamp to monitor.
+    let mut y = main_pos.y + y_offset;
     let max_y = mon_pos.y + mon_size.height as i32 - pop_physical_h - 4;
     let min_y = mon_pos.y + 4;
     if y > max_y { y = max_y; }
@@ -793,6 +799,17 @@ pub async fn cancel_cost_popover_close(
         .close_generation
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     Ok(())
+}
+
+/// Read the currently-displayed provider id from the popover state.
+/// Used by the popover's React entry on mount so we don't depend on
+/// catching the one-shot `cost-popover:set-provider` event (which the
+/// listener may miss if the WebView hasn't booted yet at emit time).
+#[tauri::command]
+pub async fn get_active_cost_popover_provider(
+    state: State<'_, CostPopoverHandle>,
+) -> Result<Option<String>, String> {
+    Ok(state.0.current_provider.lock().clone())
 }
 
 /// State wrapper, registered with `app.manage` in lib.rs setup().

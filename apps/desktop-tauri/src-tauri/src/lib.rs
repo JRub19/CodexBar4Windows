@@ -1473,6 +1473,7 @@ pub fn run() {
             commands::hide_cost_popover,
             commands::schedule_cost_popover_close,
             commands::cancel_cost_popover_close,
+            commands::get_active_cost_popover_provider,
             secrets_commands::list_token_accounts,
             secrets_commands::add_token_account,
             secrets_commands::edit_token_account,
