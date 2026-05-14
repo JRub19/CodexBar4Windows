@@ -21,9 +21,33 @@ pub struct OAuthUsageResponse {
     pub seven_day_opus: Option<RateBucket>,
     #[serde(default)]
     pub seven_day_oauth_apps: Option<RateBucket>,
-    #[serde(default)]
+    /// "Daily Routines" feature utilization. Anthropic has shipped this
+    /// under several key names; we accept any of them. The internal
+    /// codename is `cowork` (kept as the canonical field for back-compat
+    /// with the live-payload test fixture); newer responses use the
+    /// `seven_day_routines` / `seven_day_claude_routines` spellings.
+    #[serde(
+        default,
+        alias = "seven_day_routines",
+        alias = "seven_day_claude_routines",
+        alias = "claude_routines",
+        alias = "routines",
+        alias = "routine",
+        alias = "cowork"
+    )]
     pub seven_day_cowork: Option<RateBucket>,
-    #[serde(default)]
+    /// "Designs" feature utilization. Same key-spelling drift story as
+    /// `seven_day_cowork` — internal codename `omelette`, public names
+    /// vary by rollout.
+    #[serde(
+        default,
+        alias = "seven_day_design",
+        alias = "seven_day_claude_design",
+        alias = "claude_design",
+        alias = "design",
+        alias = "omelette",
+        alias = "omelette_promotional"
+    )]
     pub seven_day_omelette: Option<RateBucket>,
     #[serde(default)]
     pub extra_usage: Option<ExtraUsage>,

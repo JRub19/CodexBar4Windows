@@ -13,6 +13,12 @@ pub const KEY_FIVE_HOUR: &str = "five_hour";
 pub const KEY_SEVEN_DAY: &str = "seven_day";
 pub const KEY_SEVEN_DAY_SONNET: &str = "seven_day_sonnet";
 pub const KEY_SEVEN_DAY_OPUS: &str = "seven_day_opus";
+/// Claude "Designs" feature — separate 7-day utilization bucket
+/// for the in-app design surface. Internal codename: `omelette`.
+pub const KEY_CLAUDE_DESIGN: &str = "claude_design";
+/// Claude "Daily Routines" feature — 7-day utilization bucket for
+/// the Routines product. Internal codename: `cowork`.
+pub const KEY_CLAUDE_ROUTINES: &str = "claude_routines";
 
 /// Account info coming from `/api/oauth/account`. The strategy layer
 /// fetches this separately from `/api/oauth/usage` because Anthropic
@@ -69,6 +75,24 @@ pub fn fold_oauth(
         windows.push(NamedRateWindow {
             key: KEY_SEVEN_DAY_OPUS.into(),
             window: bucket_to_window("Week (Opus)", b),
+        });
+    }
+    // Extra rate windows from Anthropic's product utilization
+    // counters (Designs + Daily Routines). They're appended after
+    // the standard token windows so the macOS row order is
+    // preserved (Session, Weekly, Sonnet, Opus, Designs, Routines).
+    // We render them only when the API reports the bucket — Free
+    // accounts whose payload omits these keys won't see the bars.
+    if let Some(b) = &payload.seven_day_omelette {
+        windows.push(NamedRateWindow {
+            key: KEY_CLAUDE_DESIGN.into(),
+            window: bucket_to_window("Designs", b),
+        });
+    }
+    if let Some(b) = &payload.seven_day_cowork {
+        windows.push(NamedRateWindow {
+            key: KEY_CLAUDE_ROUTINES.into(),
+            window: bucket_to_window("Daily Routines", b),
         });
     }
     UsageSnapshot {
@@ -134,6 +158,77 @@ mod tests {
         assert_eq!(snap.account_email.as_deref(), Some("jonas@skrylabs.com"));
         assert_eq!(snap.plan_name.as_deref(), Some("Max"));
         assert_eq!(snap.identity.account_token, "claude:uuid-1");
+    }
+
+    #[test]
+    fn folds_designs_and_routines_buckets_after_token_windows() {
+        let payload = OAuthUsageResponse {
+            five_hour: Some(bucket(25.0)),
+            seven_day: Some(bucket(32.0)),
+            seven_day_sonnet: Some(bucket(0.0)),
+            seven_day_omelette: Some(bucket(48.0)),
+            seven_day_cowork: Some(bucket(12.0)),
+            ..Default::default()
+        };
+        let account = AccountSummary::default();
+        let snap = fold_oauth(&payload, &account, "claude:test", 1_700_000_000);
+        // Order: Session, Weekly, Sonnet, Designs, Daily Routines.
+        // Opus is absent so it's skipped — Designs/Routines slide up.
+        let keys: Vec<&str> = snap.windows.iter().map(|w| w.key.as_str()).collect();
+        assert_eq!(
+            keys,
+            vec![
+                KEY_FIVE_HOUR,
+                KEY_SEVEN_DAY,
+                KEY_SEVEN_DAY_SONNET,
+                KEY_CLAUDE_DESIGN,
+                KEY_CLAUDE_ROUTINES,
+            ]
+        );
+        let designs = snap
+            .windows
+            .iter()
+            .find(|w| w.key == KEY_CLAUDE_DESIGN)
+            .unwrap();
+        assert_eq!(designs.window.label, "Designs");
+        assert_eq!(designs.window.used, 48.0);
+        let routines = snap
+            .windows
+            .iter()
+            .find(|w| w.key == KEY_CLAUDE_ROUTINES)
+            .unwrap();
+        assert_eq!(routines.window.label, "Daily Routines");
+        assert_eq!(routines.window.used, 12.0);
+    }
+
+    #[test]
+    fn alias_keys_for_designs_and_routines_deserialize() {
+        // Anthropic ships these under several spellings. Verify every
+        // alias decodes into the canonical field. Code-side only the
+        // canonical field name needs to be in tests.
+        let alt_payloads = [
+            r#"{"seven_day_design":{"utilization":7.0,"resets_at":null}}"#,
+            r#"{"seven_day_claude_design":{"utilization":7.0,"resets_at":null}}"#,
+            r#"{"claude_design":{"utilization":7.0,"resets_at":null}}"#,
+            r#"{"design":{"utilization":7.0,"resets_at":null}}"#,
+            r#"{"omelette":{"utilization":7.0,"resets_at":null}}"#,
+        ];
+        for raw in alt_payloads {
+            let parsed: OAuthUsageResponse = serde_json::from_str(raw).expect(raw);
+            assert!(
+                parsed.seven_day_omelette.is_some(),
+                "alias failed: {raw}"
+            );
+        }
+        let routine_payloads = [
+            r#"{"seven_day_routines":{"utilization":3.0,"resets_at":null}}"#,
+            r#"{"routines":{"utilization":3.0,"resets_at":null}}"#,
+            r#"{"cowork":{"utilization":3.0,"resets_at":null}}"#,
+        ];
+        for raw in routine_payloads {
+            let parsed: OAuthUsageResponse = serde_json::from_str(raw).expect(raw);
+            assert!(parsed.seven_day_cowork.is_some(), "alias failed: {raw}");
+        }
     }
 
     #[test]

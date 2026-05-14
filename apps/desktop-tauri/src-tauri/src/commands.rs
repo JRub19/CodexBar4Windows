@@ -743,15 +743,6 @@ pub async fn show_cost_popover(
     // Set size explicitly each show in case DPI changed between monitors.
     let _ = popover.set_size(tauri::LogicalSize::new(pop_logical_w, pop_logical_h));
     let _ = popover.show();
-    // DEBUG: auto-open DevTools the first time we show the popover
-    // so a blank-render bug is immediately inspectable. The atomic
-    // generation is incremented before show, so we tie devtools to
-    // the FIRST show this session via a simple OnceLock.
-    static DEVTOOLS_OPENED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    if DEVTOOLS_OPENED.get().is_none() {
-        let _ = DEVTOOLS_OPENED.set(());
-        popover.open_devtools();
-    }
     Ok(())
 }
 
