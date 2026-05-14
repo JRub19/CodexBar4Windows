@@ -152,6 +152,19 @@ html, body, #root {
   background: transparent;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01", "calt";
+  /* No native scrollbars anywhere in this app. The main popup
+     auto-resizes to content; the cost popover is fixed-size with
+     compact content. Either way we never want the WebView2 chrome
+     to render its own scrollbar. */
+  overflow: hidden;
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 button {
@@ -504,11 +517,34 @@ kbd {
 .metric-row__pace--ahead { color: var(--text-error); }
 .metric-row__pace--behind { color: var(--text-success); }
 
-/* Metric row — secondary metric (weekly), credits, etc. */
+/* Metric row — secondary metric (weekly), credits, etc.
+ *
+ * Each MetricRow is a "section" in the Duolingo sense: a thin
+ * hairline divider above the caption visually separates it from the
+ * row above. Combined with the tighter row gap (8 -> 4 px) this lets
+ * five stacked bars (Session/Week/Sonnet/Designs/Routines) fit
+ * cleanly inside one card without feeling cramped. */
 .metric-row {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--divider);
+}
+/* Drop the divider on the very first metric row of each group — the
+ * card header / hero above provides plenty of visual separation. */
+.provider-card__metrics > .metric-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* Tighten the gap between metric rows so a card with five bars
+ * (Session/Week/Sonnet/Designs/Routines) reads as a single
+ * grouped block rather than a long list. */
+.provider-card__metrics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .metric-row__caption {

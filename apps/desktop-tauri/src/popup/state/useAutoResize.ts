@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import {
+  currentMonitor,
   getCurrentWindow,
   LogicalSize,
   PhysicalPosition,
@@ -36,7 +37,14 @@ import {
 //     it from spinning the loop.
 
 const MIN_H = 240;
-const MAX_H = 900;
+/** Absolute ceiling — guards against a runaway DOM that would create
+ *  a window taller than any sane monitor. Below this we clamp to
+ *  `monitor.height - SCREEN_MARGIN` at apply time, so on a 1080 p
+ *  monitor we cap at ~1000 px, on a 4K monitor at ~2000 px, etc. */
+const MAX_H_ABSOLUTE = 1400;
+/** Reserve at the top + bottom of the monitor so the popup never
+ *  butts against the screen edge or covers the task bar. */
+const SCREEN_MARGIN = 80;
 const DELTA_PX = 2;
 
 export function useAutoResize(rootRef: React.RefObject<HTMLElement | null>) {
@@ -62,22 +70,34 @@ export function useAutoResize(rootRef: React.RefObject<HTMLElement | null>) {
     const apply = async () => {
       rafRef.current = null;
       const target = measure();
-      if (target < MIN_H || target > MAX_H + 1000) return;
-      const clamped = Math.min(MAX_H, Math.max(MIN_H, target));
-      if (
-        lastHeightRef.current != null &&
-        Math.abs(clamped - lastHeightRef.current) < DELTA_PX
-      ) {
-        return;
-      }
-      lastHeightRef.current = clamped;
+      if (target < MIN_H || target > MAX_H_ABSOLUTE + 1000) return;
       try {
         const w = getCurrentWindow();
-        const [prevPos, prevSize, dpi] = await Promise.all([
+        const [prevPos, prevSize, dpi, monitor] = await Promise.all([
           w.outerPosition(),
           w.outerSize(),
           w.scaleFactor(),
+          currentMonitor(),
         ]);
+        // Clamp dynamically to monitor height so the popup never
+        // extends past the visible work area. monitor.size is in
+        // physical pixels; divide by DPI to compare against our
+        // logical `target` / `clamped` numbers.
+        const monitorLogicalH = monitor
+          ? monitor.size.height / dpi
+          : MAX_H_ABSOLUTE;
+        const dynamicMaxH = Math.min(
+          MAX_H_ABSOLUTE,
+          Math.max(MIN_H, monitorLogicalH - SCREEN_MARGIN),
+        );
+        const clamped = Math.min(dynamicMaxH, Math.max(MIN_H, target));
+        if (
+          lastHeightRef.current != null &&
+          Math.abs(clamped - lastHeightRef.current) < DELTA_PX
+        ) {
+          return;
+        }
+        lastHeightRef.current = clamped;
         await w.setSize(new LogicalSize(380, clamped));
         const newPhysicalHeight = Math.round(clamped * dpi);
         const deltaY = prevSize.height - newPhysicalHeight;
