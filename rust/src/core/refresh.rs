@@ -142,10 +142,26 @@ impl RefreshLoop {
                         );
                     }
                 } else {
+                    // Dump every attempt's strategy + error so we can
+                    // see WHY no snapshot was produced. Helped debug
+                    // a Claude OAuth response parse-failure that
+                    // looked indistinguishable from missing creds in
+                    // the previous one-liner.
+                    let attempt_summary = outcome
+                        .attempts
+                        .iter()
+                        .map(|a| {
+                            let kind = a.error_kind.as_deref().unwrap_or("ok");
+                            let detail = a.error_detail.as_deref().unwrap_or("");
+                            format!("{:?}=[{kind}] {detail}", a.strategy)
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" | ");
                     warn!(
                         target: "codexbar::core::refresh",
                         provider = provider_id.as_str(),
                         attempts = outcome.attempts.len(),
+                        details = %attempt_summary,
                         "refresh.no_snapshot"
                     );
                 }

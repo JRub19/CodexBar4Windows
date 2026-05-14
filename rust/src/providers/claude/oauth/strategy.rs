@@ -155,7 +155,21 @@ impl Strategy for ClaudeOAuthStrategy {
             .await?;
         Self::translate_status(USAGE_ENDPOINT, &usage_response)?;
         let usage: OAuthUsageResponse = serde_json::from_slice(&usage_response.body)
-            .map_err(|e| ProviderFetchError::ParseError(format!("/usage decode: {e}")))?;
+            .map_err(|e| {
+                let body_preview = std::str::from_utf8(&usage_response.body)
+                    .unwrap_or("<non-utf8>")
+                    .chars()
+                    .take(400)
+                    .collect::<String>();
+                tracing::warn!(
+                    target: "codexbar::providers::claude::oauth",
+                    error = %e,
+                    body_preview = %body_preview,
+                    body_len = usage_response.body.len(),
+                    "usage_response_decode_failed",
+                );
+                ProviderFetchError::ParseError(format!("/usage decode: {e}"))
+            })?;
 
         // /api/oauth/account — account metadata (email, plan).
         let account = match self

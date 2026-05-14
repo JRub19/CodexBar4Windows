@@ -203,27 +203,21 @@ mod tests {
 
     #[test]
     fn alias_keys_for_designs_and_routines_deserialize() {
-        // Anthropic ships these under several spellings. Verify every
-        // alias decodes into the canonical field. Code-side only the
-        // canonical field name needs to be in tests.
-        let alt_payloads = [
+        // We accept the canonical codename AND one safe prefixed
+        // alias for each — that's the minimum risk to handle a
+        // potential Anthropic rename without alias-trapping
+        // unrelated response fields.
+        let design_payloads = [
+            r#"{"seven_day_omelette":{"utilization":7.0,"resets_at":null}}"#,
             r#"{"seven_day_design":{"utilization":7.0,"resets_at":null}}"#,
-            r#"{"seven_day_claude_design":{"utilization":7.0,"resets_at":null}}"#,
-            r#"{"claude_design":{"utilization":7.0,"resets_at":null}}"#,
-            r#"{"design":{"utilization":7.0,"resets_at":null}}"#,
-            r#"{"omelette":{"utilization":7.0,"resets_at":null}}"#,
         ];
-        for raw in alt_payloads {
+        for raw in design_payloads {
             let parsed: OAuthUsageResponse = serde_json::from_str(raw).expect(raw);
-            assert!(
-                parsed.seven_day_omelette.is_some(),
-                "alias failed: {raw}"
-            );
+            assert!(parsed.seven_day_omelette.is_some(), "alias failed: {raw}");
         }
         let routine_payloads = [
+            r#"{"seven_day_cowork":{"utilization":3.0,"resets_at":null}}"#,
             r#"{"seven_day_routines":{"utilization":3.0,"resets_at":null}}"#,
-            r#"{"routines":{"utilization":3.0,"resets_at":null}}"#,
-            r#"{"cowork":{"utilization":3.0,"resets_at":null}}"#,
         ];
         for raw in routine_payloads {
             let parsed: OAuthUsageResponse = serde_json::from_str(raw).expect(raw);

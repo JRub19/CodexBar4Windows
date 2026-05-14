@@ -21,33 +21,21 @@ pub struct OAuthUsageResponse {
     pub seven_day_opus: Option<RateBucket>,
     #[serde(default)]
     pub seven_day_oauth_apps: Option<RateBucket>,
-    /// "Daily Routines" feature utilization. Anthropic has shipped this
-    /// under several key names; we accept any of them. The internal
-    /// codename is `cowork` (kept as the canonical field for back-compat
-    /// with the live-payload test fixture); newer responses use the
-    /// `seven_day_routines` / `seven_day_claude_routines` spellings.
-    #[serde(
-        default,
-        alias = "seven_day_routines",
-        alias = "seven_day_claude_routines",
-        alias = "claude_routines",
-        alias = "routines",
-        alias = "routine",
-        alias = "cowork"
-    )]
+    /// "Daily Routines" feature utilization (internal codename
+    /// `cowork`). Single key — we previously tried to accept the
+    /// other spellings macOS knows about via serde aliases, but
+    /// having generic words like "routine" / "routines" as aliases
+    /// caused unrelated fields in the response to fail to decode
+    /// into `RateBucket`, which broke the entire response parse.
+    /// Stick to the canonical key only; if Anthropic renames it
+    /// later we'll add a permissive deserializer instead of
+    /// alias-trapping the whole response.
+    #[serde(default, alias = "seven_day_routines")]
     pub seven_day_cowork: Option<RateBucket>,
-    /// "Designs" feature utilization. Same key-spelling drift story as
-    /// `seven_day_cowork` — internal codename `omelette`, public names
-    /// vary by rollout.
-    #[serde(
-        default,
-        alias = "seven_day_design",
-        alias = "seven_day_claude_design",
-        alias = "claude_design",
-        alias = "design",
-        alias = "omelette",
-        alias = "omelette_promotional"
-    )]
+    /// "Designs" feature utilization (internal codename `omelette`).
+    /// Single canonical key — see `seven_day_cowork` comment for
+    /// why we don't alias-trap the unprefixed spellings.
+    #[serde(default, alias = "seven_day_design")]
     pub seven_day_omelette: Option<RateBucket>,
     #[serde(default)]
     pub extra_usage: Option<ExtraUsage>,
