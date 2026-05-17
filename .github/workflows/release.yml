@@ -160,16 +160,22 @@ jobs:
           CODESIGN_THUMBPRINT: ${{ secrets.CODESIGN_THUMBPRINT }}
         run: pwsh scripts/sign-binaries.ps1
 
-      - name: Compile Inno Setup installer
+      - name: Stage Tauri installer
         env:
           CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
-          CODEXBAR_ARCH: x64
-          CODEXBAR_SIGN_INNO: ${{ steps.signing.outputs.codesign == 'true' && '1' || '' }}
         shell: pwsh
         run: |
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
-          & $iscc /Qp installer/codexbar.iss
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed" }
+          $dist = "dist"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          $setup = Get-ChildItem -Path "target/release/bundle/nsis" -Filter "CodexBar4Windows_*_x64-setup.exe" |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $setup) {
+            throw "Tauri NSIS installer was not found under target/release/bundle/nsis."
+          }
+          $out = Join-Path $dist "CodexBar4Windows-$env:CODEXBAR_VERSION-x64.exe"
+          Copy-Item -Force -Path $setup.FullName -Destination $out
+          Write-Host "[release] staged $($setup.FullName) -> $out"
 
       - name: Build portable ZIP
         env:
