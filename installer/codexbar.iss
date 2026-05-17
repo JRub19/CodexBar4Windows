@@ -68,8 +68,6 @@ LicenseFile=..\LICENSE
 
 [Languages]
 Name: "en";     MessagesFile: "compiler:Default.isl"
-Name: "ptBR";   MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
-Name: "zhHans"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Files]
 ; Tauri produces the desktop shell as `<productName>.exe`; the
