@@ -167,7 +167,7 @@ jobs:
         run: |
           $dist = "dist"
           New-Item -ItemType Directory -Force -Path $dist | Out-Null
-          $setup = Get-ChildItem -Path "target/release/bundle/nsis" -Filter "CodexBar4Windows_*_x64-setup.exe" |
+          $setup = Get-ChildItem -Path "." -Recurse -Filter "CodexBar4Windows_*_x64-setup.exe" |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
           if (-not $setup) {

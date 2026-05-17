@@ -39,7 +39,18 @@ Set-StrictMode -Version 3.0
 if (-not $Version) { $Version = "1.0.1" }
 
 if (-not (Test-Path $TargetDir)) {
-  throw "Release build not found at $TargetDir. Run ``cargo tauri build`` first."
+  $shell = Get-ChildItem -Path (Split-Path -Parent $PSScriptRoot) -Recurse -Filter "CodexBar4Windows.exe" |
+    Where-Object {
+      $_.FullName -match "[\\/]release[\\/]" -and
+      $_.FullName -notmatch "[\\/]deps[\\/]"
+    } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+  if (-not $shell) {
+    throw "Release build not found at $TargetDir. Run ``cargo tauri build`` first."
+  }
+  $TargetDir = $shell.DirectoryName
+  Write-Host "[build-portable] discovered release output at $TargetDir"
 }
 
 $arch = "x64"
