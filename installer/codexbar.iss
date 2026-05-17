@@ -1,4 +1,4 @@
-; Inno Setup script for CodexBar4Windows. Phase 9 §E.
+; Inno Setup script for CodexBar4Windows.
 ;
 ; Build with:
 ;   $env:CODEXBAR_VERSION = "1.0.1"
@@ -112,12 +112,6 @@ Filename: "{app}\CodexBar4Windows.exe"; Description: "{cm:LaunchProgram,CodexBar
 en.LaunchAtLogin=Start CodexBar4Windows when I sign in
 en.DesktopIcon=Create a desktop shortcut
 en.InstallingWebView2=Installing Microsoft Edge WebView2 runtime...
-ptBR.LaunchAtLogin=Iniciar CodexBar4Windows quando eu fizer login
-ptBR.DesktopIcon=Criar um atalho na area de trabalho
-ptBR.InstallingWebView2=Instalando o runtime Microsoft Edge WebView2...
-zhHans.LaunchAtLogin=登录时启动 CodexBar4Windows
-zhHans.DesktopIcon=创建桌面快捷方式
-zhHans.InstallingWebView2=正在安装 Microsoft Edge WebView2 运行时...
 
 [Code]
 function NeedsWebView2: Boolean;
