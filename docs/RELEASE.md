@@ -9,8 +9,8 @@ read_when:
 # CodexBar4Windows Release Runbook
 
 This runbook is the source of truth for shipping v1.0.1 and later. Stable
-releases are blocked unless both the Authenticode signing path and the Tauri
-minisign updater path are configured.
+releases are blocked unless the Tauri minisign updater path is configured.
+Authenticode signing is recommended, but not required for v1.0.1.
 
 ## One-Time Setup
 
@@ -43,16 +43,17 @@ $bytes = [IO.File]::ReadAllBytes("path\to\codexbar.pfx")
 
 | Secret | Required for stable | Purpose |
 |---|---:|---|
-| `CODESIGN_PFX_BASE64` | yes | Base64-encoded Authenticode PFX. |
-| `CODESIGN_PFX_PASSWORD` | yes | Password for the PFX. |
-| `CODESIGN_THUMBPRINT` | yes | Certificate thumbprint used by `scripts/sign-binaries.ps1`. |
+| `CODESIGN_PFX_BASE64` | no | Base64-encoded Authenticode PFX. When absent, Windows artifacts are published unsigned. |
+| `CODESIGN_PFX_PASSWORD` | no | Password for the PFX. |
+| `CODESIGN_THUMBPRINT` | no | Certificate thumbprint used by `scripts/sign-binaries.ps1`. |
 | `TAURI_MINISIGN_PRIVATE_KEY` | yes | Full text of the minisign private key file. |
 | `TAURI_MINISIGN_PASSWORD` | yes | Password for the minisign private key. |
 | `WINGET_PAT` | no | PAT for automatic Winget manifest PRs. |
 
 The release workflow fails stable tags before publishing when any required
-secret is missing or when `tauri.conf.json` still contains the placeholder
-updater pubkey.
+updater secret is missing or when `tauri.conf.json` still contains the
+placeholder updater pubkey. If Authenticode secrets are absent, the workflow
+publishes unsigned Windows artifacts.
 
 ## Per-Release Routine
 

@@ -56,18 +56,12 @@ jobs:
       - name: Validate stable release prerequisites
         if: steps.ver.outputs.channel == 'stable'
         env:
-          CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
-          CODESIGN_PFX_PASSWORD: ${{ secrets.CODESIGN_PFX_PASSWORD }}
-          CODESIGN_THUMBPRINT: ${{ secrets.CODESIGN_THUMBPRINT }}
           TAURI_MINISIGN_PRIVATE_KEY: ${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}
           TAURI_MINISIGN_PASSWORD: ${{ secrets.TAURI_MINISIGN_PASSWORD }}
         shell: pwsh
         run: |
           $missing = @()
           foreach ($name in @(
-            "CODESIGN_PFX_BASE64",
-            "CODESIGN_PFX_PASSWORD",
-            "CODESIGN_THUMBPRINT",
             "TAURI_MINISIGN_PRIVATE_KEY",
             "TAURI_MINISIGN_PASSWORD"
           )) {
@@ -76,7 +70,7 @@ jobs:
             }
           }
           if ($missing.Count -gt 0) {
-            throw "Stable releases require signing/updater secrets: $($missing -join ', ')"
+            throw "Stable releases require updater secrets: $($missing -join ', ')"
           }
           $tauriConfig = Get-Content apps/desktop-tauri/src-tauri/tauri.conf.json -Raw
           if ($tauriConfig.Contains("REPLACE_WITH_BASE64_MINISIGN_PUBLIC_KEY")) {

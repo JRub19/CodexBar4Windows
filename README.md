@@ -19,7 +19,7 @@ CodexBar4Windows is the Windows-native port of [`steipete/CodexBar`](https://git
 - **Global hotkey** (Win+Shift+U by default, rebindable via the Shortcuts pane).
 - **Onboarding wizard** for fresh installs: welcome -> provider picker -> per-provider sign-in -> done.
 - **i18n** for English, Simplified Chinese (`zh-Hans`), and Brazilian Portuguese (`pt-BR`), live-applied from the Appearance pane.
-- **Auto-update** via Tauri's signed manifest pipeline. Stable releases require a real minisign updater key and Authenticode signing secrets before publication.
+- **Auto-update** via Tauri's signed manifest pipeline. Stable releases require a real minisign updater key before publication. Authenticode signing is optional; unsigned builds may show Windows SmartScreen warnings.
 - **Launch-at-sign-in** via the HKCU Run registry key.
 - **No telemetry** by default. Crash reports are opt-in.
 

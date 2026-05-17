@@ -31,8 +31,11 @@ Unsigned or newly signed Windows installers can trigger Microsoft SmartScreen,
 especially because the app reads browser cookie stores and launches CLI helpers.
 
 Mitigation:
-- Stable releases require Authenticode signing secrets in GitHub Actions.
-- Verify the desktop EXE, helper EXEs, and installer with `signtool verify /pa /v`.
+- Prefer Authenticode signing secrets in GitHub Actions when available.
+- Unsigned releases must be labeled as unsigned in release notes and may show
+  SmartScreen warnings.
+- When signing is available, verify the desktop EXE, helper EXEs, and installer
+  with `signtool verify /pa /v`.
 - Keep one signing certificate stable across releases to build reputation.
 - Submit released installers to Microsoft Security Intelligence if Defender or
   SmartScreen reputation lags.
