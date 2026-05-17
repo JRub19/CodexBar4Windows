@@ -195,7 +195,8 @@ jobs:
         shell: pwsh
         run: |
           $keyPath = Join-Path $env:RUNNER_TEMP "minisign.key"
-          Set-Content -Path $keyPath -Encoding ascii -Value "${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}"
+          $keyBytes = [Convert]::FromBase64String("${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}")
+          [IO.File]::WriteAllBytes($keyPath, $keyBytes)
           pwsh scripts/sign-update-manifest.ps1 `
             -Version "${{ steps.ver.outputs.version }}" `
             -InstallerPath "dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-x64.exe" `
