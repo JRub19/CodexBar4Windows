@@ -164,6 +164,7 @@ jobs:
         env:
           CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
           CODEXBAR_ARCH: x64
+          CODEXBAR_SIGN_INNO: ${{ steps.signing.outputs.codesign == 'true' && '1' || '' }}
         shell: pwsh
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"

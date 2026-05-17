@@ -13,11 +13,17 @@
 
 #define MarketingVersion GetEnv("CODEXBAR_VERSION")
 #define Arch             GetEnv("CODEXBAR_ARCH")
+#define SignInstaller    GetEnv("CODEXBAR_SIGN_INNO")
 #if MarketingVersion == ""
   #define MarketingVersion "1.0.1"
 #endif
 #if Arch == ""
   #define Arch "x64"
+#endif
+#if SignInstaller != ""
+  #define MaybeSign " sign"
+#else
+  #define MaybeSign ""
 #endif
 
 ; Tauri release output lives next to the workspace's `target/` dir.
@@ -55,8 +61,10 @@ LicenseFile=..\LICENSE
 ; entries marked with the `sign` flag in [Files]. The `signtool`
 ; configuration is registered in Inno's IDE / passed via /Sname on
 ; the iscc command line in CI.
-SignTool=signtool sign /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 /a $f
-SignedUninstaller=yes
+#if SignInstaller != ""
+  SignTool=signtool sign /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 /a $f
+  SignedUninstaller=yes
+#endif
 
 [Languages]
 Name: "en";     MessagesFile: "compiler:Default.isl"
@@ -66,8 +74,8 @@ Name: "zhHans"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 [Files]
 ; Tauri produces the desktop shell as `<productName>.exe`; the
 ; auxiliary binaries land alongside it in target/release.
-Source: "{#SourceBase}\CodexBar4Windows.exe";                  DestDir: "{app}"; Flags: ignoreversion sign
-Source: "{#SourceBase}\codexbar4windows-claude-watchdog.exe";  DestDir: "{app}"; Flags: ignoreversion sign skipifsourcedoesntexist
+Source: "{#SourceBase}\CodexBar4Windows.exe";                  DestDir: "{app}"; Flags: ignoreversion{#MaybeSign}
+Source: "{#SourceBase}\codexbar4windows-claude-watchdog.exe";  DestDir: "{app}"; Flags: ignoreversion{#MaybeSign} skipifsourcedoesntexist
 Source: "{#AssetsBase}\icon.ico";                              DestDir: "{app}"; Flags: ignoreversion
 
 [Tasks]
