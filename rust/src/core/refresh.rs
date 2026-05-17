@@ -1,18 +1,14 @@
-//! Refresh loop skeleton.
+//! Refresh loop for live provider updates.
 //!
-//! Phase 1 ships the cadence machinery without any real fetch work. The
-//! loop:
+//! The loop:
 //!
 //! 1. Sleeps for the configured cadence (or waits for a manual trigger when
 //!    `Manual`).
 //! 2. Bails if a tick is already in flight.
 //! 3. Honors `pause_refresh = true` by skipping the tick.
-//! 4. Iterates the (currently empty) provider registry, wrapping each
-//!    strategy in a 45 second `tokio::time::timeout`.
-//! 5. Folds results into `UsageStore`. Phase 1 writes nothing.
+//! 4. Iterates the installed provider registry.
+//! 5. Folds provider snapshots and attempt metadata into `UsageStore`.
 //! 6. Loops.
-//!
-//! Phase 4 (Claude) replaces the inner body with real dispatch.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -102,8 +98,8 @@ impl RefreshLoop {
             .filter(|p| p.enabled)
             .map(|p| p.id.clone())
             .collect();
-        // Default: when settings.providers is empty (Phase 1 ship state),
-        // treat every registered provider as enabled.
+        // Default: when settings.providers is empty, treat every registered
+        // provider as enabled so fresh installs light up the shipped set.
         let treat_all_enabled = enabled.is_empty();
 
         if let (Some(usage_store), Some(token_store)) = (usage_store, token_store) {

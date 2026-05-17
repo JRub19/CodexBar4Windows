@@ -1,7 +1,6 @@
 //! Per-provider settings contribution and the merged snapshot the React
-//! side reads. Phase 4 P4-06 keeps this in-memory; the persistent values
-//! still live in `Settings`. The snapshot is rebuilt every time the
-//! settings change.
+//! side reads. Persistent values live in `Settings`; the snapshot is rebuilt
+//! every time the settings change.
 
 use serde::Serialize;
 

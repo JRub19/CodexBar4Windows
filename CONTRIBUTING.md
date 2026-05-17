@@ -75,7 +75,7 @@ Docs:
 cargo test --workspace --all-features
 ```
 
-UI and end to end tests land in Phase 1 (Playwright via Tauri webdriver). Provider fixtures land per provider; see `docs/windows/plan/test-strategy.md`.
+UI and end to end coverage uses Playwright via Tauri webdriver where practical. Provider fixtures land per provider; see `docs/windows/plan/test-strategy.md`.
 
 ## Project layout
 

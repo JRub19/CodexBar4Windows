@@ -35,7 +35,7 @@ Reading browser cookies on Windows uses CryptUnprotectData to decrypt the per pr
 
 ## Telemetry
 
-The app sends no telemetry through Phase 4. Opt in error reports may land in the beta (Phase 9). Usage analytics will not ship at any point.
+The app sends no telemetry by default. Opt-in error reports may land in a future beta. Usage analytics will not ship at any point.
 
 ## Code signing
 

@@ -20,7 +20,9 @@ use crate::cost::claude_parser::{
 };
 use crate::cost::codex_parser::{CodexFileScanner, CodexUsageRow};
 use crate::cost::pricing::PricingTable;
-use crate::cost::walker::{discover, DiscoveredFile, Env, Filesystem, JsonlFamily, OsEnv, OsFilesystem};
+use crate::cost::walker::{
+    discover, DiscoveredFile, Env, Filesystem, JsonlFamily, OsEnv, OsFilesystem,
+};
 use crate::providers::models::provider_cost::ProviderCostSnapshot;
 
 /// Snapshot store shared between the Tauri command and the periodic
@@ -47,20 +49,13 @@ impl CostStore {
     /// Read the cached snapshot for one provider. Returns `None` if
     /// no scan has yet produced data for that provider id.
     pub fn get(&self, provider_id: &str) -> Option<ProviderCostSnapshot> {
-        self.snapshots
-            .read()
-            .ok()?
-            .get(provider_id)
-            .cloned()
+        self.snapshots.read().ok()?.get(provider_id).cloned()
     }
 
     /// Snapshot of every provider's latest cost data. Empty when no
     /// scan has yet run.
     pub fn snapshots(&self) -> HashMap<String, ProviderCostSnapshot> {
-        self.snapshots
-            .read()
-            .map(|r| r.clone())
-            .unwrap_or_default()
+        self.snapshots.read().map(|r| r.clone()).unwrap_or_default()
     }
 
     /// Run a single scan pass over the host's JSONL directories.
@@ -123,7 +118,9 @@ fn read_claude_files(files: &[DiscoveredFile], filter: ProviderFilter) -> Vec<Ve
     let mut out = Vec::with_capacity(files.len());
     for f in files {
         let path_str = f.path.to_string_lossy().to_string();
-        let Ok(file) = File::open(&f.path) else { continue };
+        let Ok(file) = File::open(&f.path) else {
+            continue;
+        };
         let reader = BufReader::with_capacity(64 * 1024, file);
         let mut rows = Vec::new();
         for line in reader.lines() {
@@ -150,7 +147,9 @@ fn read_codex_files(files: &[DiscoveredFile]) -> Vec<Vec<ClaudeUsageRow>> {
     let mut out = Vec::with_capacity(files.len());
     for f in files {
         let path_str = f.path.to_string_lossy().to_string();
-        let Ok(file) = File::open(&f.path) else { continue };
+        let Ok(file) = File::open(&f.path) else {
+            continue;
+        };
         let reader = BufReader::with_capacity(64 * 1024, file);
         let mut scanner = CodexFileScanner::new(path_str.clone());
         for line in reader.lines() {

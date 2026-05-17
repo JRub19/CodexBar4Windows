@@ -1,4 +1,4 @@
-//! Codex history ownership. Phase 5 Tasks 6.1 through 6.3 land here.
+//! Codex history ownership.
 //!
 //! Every history bucket (credits, cost, breakdown, plan utilization)
 //! lives behind a `HistoryKey` so a user with two Codex accounts gets

@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 3.0
 
-if (-not $Version) { $Version = "0.1.0-pre.0" }
+if (-not $Version) { $Version = "1.0.1" }
 if (-not (Test-Path $DistDir)) {
   throw "Dist directory not found at $DistDir."
 }

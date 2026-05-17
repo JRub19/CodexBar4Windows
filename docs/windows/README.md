@@ -8,6 +8,11 @@ read_when:
 
 # CodexBar for Windows — Refactor Docs
 
+> Historical planning note: this folder is the original Windows-port design
+> corpus. For the current release surface, use `README.md`,
+> `docs/RELEASE.md`, `docs/PROVIDER_PARITY.md`, and
+> `docs/WINDOWS_RELEASE_RISKS.md`.
+
 This folder is the working spec for turning `steipete/CodexBar` (macOS-only Swift / AppKit) into a first-class Windows 10/11 system-tray app with full feature parity.
 
 It collects:

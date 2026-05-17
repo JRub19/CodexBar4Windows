@@ -1,8 +1,7 @@
 // Hand authored bindings mirroring `rust/src/settings/model.rs`.
 //
-// Phase 1 keeps these manual to avoid the ts-rs build pipeline. Phase 8 of
-// the plan automates the generation. When you edit `model.rs`, mirror the
-// change here in the same commit.
+// These stay manual until the ts-rs build pipeline is adopted. When you edit
+// `model.rs`, mirror the change here in the same commit.
 
 export type RefreshFrequency =
   | "manual"

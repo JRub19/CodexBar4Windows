@@ -1,9 +1,7 @@
 //! CodexBar4Windows desktop Tauri shell.
 //!
-//! Phase 1 wires the path environment, file logging, settings store, usage
-//! store, and the refresh loop. The tray icon plus native context menu from
-//! phase 0 are updated to expose Pause/Resume refresh and Preferences entry
-//! points. Phase 3 onward layers the popup window and dynamic icon on top.
+//! Wires the Windows tray shell, path environment, file logging, settings,
+//! secrets, usage store, refresh loop, popup window, updater, and dynamic icon.
 
 pub mod commands;
 pub mod credentials_detect;
@@ -250,16 +248,16 @@ async fn bridge_usage_events(
     }
 }
 
-/// Placeholder Codex transport. Real ConPTY plumbing for the codex
-/// binary lands in a follow-up; until then the strategy is wired but
-/// reports `PluginUnavailable` so the framework falls through cleanly.
+/// Placeholder for the experimental Codex JSON-RPC transport. Current Codex
+/// coverage prefers OAuth and the CLI TUI scraper; if this JSON-RPC path is
+/// selected it reports `PluginUnavailable` so the planner falls through.
 struct UnavailableCodexTransport;
 
 #[async_trait::async_trait]
 impl CodexRpcTransport for UnavailableCodexTransport {
     async fn send(&self, _: Vec<u8>) -> Result<(), CodexRpcCallError> {
         Err(CodexRpcCallError::Transport(
-            "codex transport not yet wired".into(),
+            "codex JSON-RPC transport unavailable".into(),
         ))
     }
     async fn recv(&self) -> Result<Vec<u8>, CodexRpcCallError> {
@@ -916,9 +914,9 @@ pub fn run() {
         });
     }
 
-    // Phase 4 P4-20: pipe core UsageStore events to the Tauri event bus
-    // so the popup can listen for `usage:updated`. The Tauri setup
-    // closure later fills `app_handle_holder` with the live AppHandle.
+    // Pipe core UsageStore events to the Tauri event bus so the popup can
+    // listen for `usage:updated`. The Tauri setup closure later fills
+    // `app_handle_holder` with the live AppHandle.
     let app_handle_holder: Arc<parking_lot::Mutex<Option<tauri::AppHandle>>> =
         Arc::new(parking_lot::Mutex::new(None));
     let app_handle_for_setup = app_handle_holder.clone();
@@ -942,10 +940,9 @@ pub fn run() {
 
     let first_run_store = FirstRunStore::new(env.roaming.clone());
 
-    // Phase 4 P4-20: build the Claude provider with real reqwest + cookie
-    // wiring and install it into the refresh loop. The Claude CLI fetch
-    // path falls back to a recorded runner when the CLI binary is not on
-    // PATH; this keeps the popup populated even on a fresh install.
+    // Build the Claude provider with real reqwest + cookie wiring and install
+    // it into the refresh loop. The Claude CLI fetch path falls back to a
+    // recorded runner when the CLI binary is not on PATH.
     let claude_provider = Arc::new(ClaudeProvider::default());
     let oauth_http: Arc<dyn HttpClient> = match ReqwestClient::new() {
         Ok(c) => Arc::new(c),
@@ -975,16 +972,9 @@ pub fn run() {
         cli_runner,
         cli_binary: claude_cli_binary().unwrap_or_else(|| "claude".to_string()),
     });
-    // Phase 5: Codex provider.
-    //   - OAuth strategy: hits chatgpt.com/wham/usage with the bearer
-    //     from `~/.codex/auth.json` and the codex_cli_rs/<version>
-    //     User-Agent the API requires (verified live 2026-05-13).
-    //   - Web strategy: reuses the shared CookieImporter through the
-    //     CodexCookieResolver adapter. ChatGPT.com's Cloudflare layer
-    //     blocks raw cookie requests, so this path almost always
-    //     fails for end users — kept for future fallback work.
-    //   - CLI strategy: still routed through the unavailable
-    //     transport until the ConPTY launcher lands.
+    // Codex provider. OAuth reads `~/.codex/auth.json`; web scraping is
+    // best-effort because ChatGPT.com's Cloudflare layer blocks raw cookie
+    // requests; CLI uses the TUI scraper when a real `codex` binary is found.
     let codex_provider = Arc::new(CodexProvider::default());
     let codex_oauth_http: Arc<dyn codexbar::providers::codex::oauth::usage::UsageHttp> =
         match codexbar::providers::codex::oauth::transport::ReqwestUsageClient::new() {
@@ -1025,10 +1015,8 @@ pub fn run() {
         Err(_) => codex_provider.install_wiring(codex_wiring),
     }
 
-    // Phase 6.5: Tier-1 providers ported from the macOS Swift source.
-    // Each gets its own reqwest transport plus an env-driven credential
-    // resolver as a placeholder. The settings UI will swap these out
-    // for keychain-backed resolvers in a follow-up.
+    // Additional shipped providers. Each gets its own reqwest transport plus
+    // credential resolvers backed by settings/token storage where available.
     let cursor_provider = Arc::new(CursorProvider::default());
     let cursor_web_client: Arc<dyn WebClient> = match ReqwestWebClient::new() {
         Ok(c) => Arc::new(c),
@@ -1376,13 +1364,12 @@ pub fn run() {
                                 if let Some(pop) = app.get_webview_window("cost-popover") {
                                     let _ = pop.hide();
                                 }
-                                if let Some(handle) =
-                                    app.try_state::<commands::CostPopoverHandle>()
+                                if let Some(handle) = app.try_state::<commands::CostPopoverHandle>()
                                 {
-                                    handle.0.visible.store(
-                                        false,
-                                        std::sync::atomic::Ordering::SeqCst,
-                                    );
+                                    handle
+                                        .0
+                                        .visible
+                                        .store(false, std::sync::atomic::Ordering::SeqCst);
                                 }
                             } else {
                                 // Position the popup just above the tray
@@ -1424,10 +1411,8 @@ pub fn run() {
                                 if y > max_y {
                                     y = max_y;
                                 }
-                                let _ = w.set_position(tauri::PhysicalPosition::new(
-                                    x as i32,
-                                    y as i32,
-                                ));
+                                let _ = w
+                                    .set_position(tauri::PhysicalPosition::new(x as i32, y as i32));
                                 let _ = w.show();
                                 let _ = w.set_focus();
                             }
@@ -1520,10 +1505,7 @@ pub fn run() {
                         let popover_visible = window
                             .app_handle()
                             .try_state::<commands::CostPopoverHandle>()
-                            .map(|h| {
-                                h.0.visible
-                                    .load(std::sync::atomic::Ordering::SeqCst)
-                            })
+                            .map(|h| h.0.visible.load(std::sync::atomic::Ordering::SeqCst))
                             .unwrap_or(false);
                         // Also check whether the cost-popover window
                         // itself is up (covers race between Rust

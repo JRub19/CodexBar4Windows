@@ -1,8 +1,8 @@
 //! CodexBar4Windows shared core crate.
 //!
-//! Phase 1 onward grows this crate into the providers, settings, secrets,
-//! refresh loop, and IPC layer. Phase 0 left a single `version()` function
-//! here; we keep it as a sanity-check seam for the desktop shell.
+//! Houses the provider framework, settings, secrets, refresh loop, usage
+//! store, renderer helpers, and packaging-facing version seam shared by the
+//! desktop shell and helper binaries.
 
 pub mod cookies;
 pub mod core;

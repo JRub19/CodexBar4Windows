@@ -1,8 +1,6 @@
 //! Provider system: descriptors, branding, the inventory!-backed
-//! catalog, and the shared error type. Phase 4 P4-01 splits the
-//! descriptor file into one module per sub-struct so each can grow
-//! independently. Phase 4 P4-02 onward adds the result models, the
-//! Strategy trait, and the real provider implementations.
+//! catalog, result models, runtime strategy trait, settings descriptors,
+//! and the shared error type.
 
 pub mod branding;
 pub mod claude;

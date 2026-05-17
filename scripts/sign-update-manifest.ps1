@@ -30,8 +30,8 @@
   omitted: -beta / -rc → beta, else stable.
 
 .PARAMETER MinisignKey
-  Path to the minisign private key. Defaults to
-  $env:TAURI_MINISIGN_PRIVATE_KEY_PATH.
+  Path to the minisign private key. CI writes the
+  TAURI_MINISIGN_PRIVATE_KEY secret to a temporary file and passes it here.
 
 .PARAMETER MinisignPassword
   Optional password for the minisign key. Defaults to
@@ -50,7 +50,7 @@ param(
   [string] $InstallerPath,
   [ValidateSet("stable", "beta")]
   [string] $Channel,
-  [string] $MinisignKey       = $env:TAURI_MINISIGN_PRIVATE_KEY_PATH,
+  [string] $MinisignKey       = $env:TAURI_MINISIGN_PRIVATE_KEY_FILE,
   [string] $MinisignPassword  = $env:TAURI_MINISIGN_PASSWORD,
   [string] $NotesPath,
   [string] $DistDir           = (Join-Path (Split-Path -Parent $PSScriptRoot) "dist")
@@ -73,7 +73,7 @@ if (-not $Channel) {
   $Channel = if ($Version -match "-(beta|rc)") { "beta" } else { "stable" }
 }
 if (-not $MinisignKey) {
-  throw "Missing minisign private key. Set TAURI_MINISIGN_PRIVATE_KEY_PATH or pass -MinisignKey."
+  throw "Missing minisign private key. Pass -MinisignKey or set TAURI_MINISIGN_PRIVATE_KEY_FILE."
 }
 if (-not (Test-Path $MinisignKey)) {
   throw "Minisign key not found at $MinisignKey."

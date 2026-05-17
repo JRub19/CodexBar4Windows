@@ -1,6 +1,5 @@
-//! Tauri command handlers. Phase 1 registers the settings, provider, and
-//! refresh commands. Phase 4 onwards adds auth, log dump, and provider
-//! action commands.
+//! Tauri command handlers for settings, providers, snapshots, costs, auth,
+//! logs, first-run state, and provider actions.
 
 use std::sync::Arc;
 
@@ -237,10 +236,9 @@ fn catalog_to_dtos(catalog: &ProviderCatalog) -> Vec<ProviderDescriptorDto> {
 pub async fn provider_snapshots(
     usage: State<'_, UsageHandle>,
 ) -> Result<serde_json::Value, String> {
-    // Phase 4 P4-20: read every slot from UsageStore and return as a
-    // map keyed by provider id. The popup uses this to populate the
-    // initial state on mount and as a fallback when an event was
-    // missed.
+    // Read every slot from UsageStore and return a map keyed by provider id.
+    // The popup uses this to populate initial state on mount and as a fallback
+    // when an event was missed.
     let mut out = serde_json::Map::new();
     for descriptor in REGISTRY.descriptors() {
         if let Some(slot) = usage.0.slot(descriptor.id) {
@@ -257,9 +255,9 @@ pub async fn provider_snapshots(
 #[tauri::command]
 pub async fn provider_settings_descriptors(
 ) -> Result<codexbar::providers::ProviderSettingsSnapshot, String> {
-    // Phase 4 P4-19 plus Phase 5: assemble settings contributions from
-    // each provider that exposes one. Claude exposes the source picker,
-    // CLI toggle, and accounts list; Codex contributes the same trio.
+    // Assemble settings contributions from each provider that exposes one.
+    // Claude and Codex expose source, CLI, and account controls; API-key
+    // providers contribute token settings.
     let snap = codexbar::providers::ProviderSettingsSnapshot::builder()
         .with_section(codexbar::providers::claude::settings::contribution())
         .with_section(codexbar::providers::codex::settings::contribution())
@@ -678,9 +676,12 @@ pub async fn show_cost_popover(
     // making the window visible so the React side has provider data
     // queued by the time the window paints — avoids a "no provider
     // selected" flash.
-    let _ = app.emit("cost-popover:set-provider", serde_json::json!({
-        "provider_id": provider_id,
-    }));
+    let _ = app.emit(
+        "cost-popover:set-provider",
+        serde_json::json!({
+            "provider_id": provider_id,
+        }),
+    );
 
     // Position. The main popup is anchored bottom-right of the
     // screen (above the tray icon). We prefer placing the popover
@@ -727,7 +728,11 @@ pub async fn show_cost_popover(
         right_x
     } else {
         // Neither side fits — pin to whichever side has more room.
-        if left_x >= mon_pos.x { left_x } else { right_x }
+        if left_x >= mon_pos.x {
+            left_x
+        } else {
+            right_x
+        }
     };
 
     // Vertical alignment: drop the popover down from the popup's
@@ -736,8 +741,12 @@ pub async fn show_cost_popover(
     let mut y = main_pos.y + y_offset;
     let max_y = mon_pos.y + mon_size.height as i32 - pop_physical_h - 4;
     let min_y = mon_pos.y + 4;
-    if y > max_y { y = max_y; }
-    if y < min_y { y = min_y; }
+    if y > max_y {
+        y = max_y;
+    }
+    if y < min_y {
+        y = min_y;
+    }
 
     let _ = popover.set_position(PhysicalPosition::new(x, y));
     // Set size explicitly each show in case DPI changed between monitors.
@@ -798,9 +807,7 @@ pub async fn schedule_cost_popover_close(
 /// Cancel any pending scheduled close. Invoked by both the trigger
 /// row (on re-hover) and the popover content (on mouseenter).
 #[tauri::command]
-pub async fn cancel_cost_popover_close(
-    state: State<'_, CostPopoverHandle>,
-) -> Result<(), String> {
+pub async fn cancel_cost_popover_close(state: State<'_, CostPopoverHandle>) -> Result<(), String> {
     state
         .0
         .close_generation

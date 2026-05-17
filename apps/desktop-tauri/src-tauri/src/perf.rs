@@ -1,4 +1,4 @@
-//! Phase 3 E5: runtime budget sampler for the tray icon render path.
+//! Runtime budget sampler for the tray icon render path.
 //!
 //! Per spec 10 section 11, a sustained render time above the budget is
 //! the canary for performance regressions on a user's actual hardware.
@@ -41,7 +41,7 @@ impl RenderBudgetSampler {
     /// Record one render duration. Emits a warning when the budget has
     /// been blown for `WARN_AFTER_CONSECUTIVE` consecutive samples.
     pub fn record(&self, duration: Duration) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().expect("render budget mutex poisoned");
         let ms = duration.as_secs_f64() * 1000.0;
         if inner.samples.len() < RING_CAPACITY {
             inner.samples.push(duration);

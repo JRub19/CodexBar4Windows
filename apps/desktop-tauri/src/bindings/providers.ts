@@ -1,8 +1,5 @@
 // Hand authored bindings mirroring `rust/src/providers/descriptor.rs` and
 // `rust/src/core/events.rs`.
-//
-// Phase 1 ships an empty registry, so `provider_descriptors` returns `[]`.
-// Phase 4 begins populating these shapes with real data.
 
 export type FetchStrategy = "OAuth" | "Web" | "CLI" | "ApiKey";
 

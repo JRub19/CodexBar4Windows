@@ -31,10 +31,10 @@ function isProviderKvKey(key: string): boolean {
   return PROVIDER_KV_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
-// Phase 4 P4-19: renders the per-provider settings rows produced by the
-// `provider_settings_descriptors` Tauri command. Each descriptor variant
-// has a tiny dedicated renderer; the panel itself stays generic so a
-// new provider's settings show up without any React work.
+// Renders the per-provider settings rows produced by the
+// `provider_settings_descriptors` Tauri command. Each descriptor variant has
+// a tiny dedicated renderer; the panel itself stays generic so new provider
+// settings show up without React work.
 
 interface Props {
   onClose: () => void;

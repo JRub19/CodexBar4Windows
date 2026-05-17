@@ -154,8 +154,8 @@ fn now_unix_secs() -> u64 {
 }
 
 fn new_id() -> String {
-    // Phase 1 minimal ID generator: high-resolution timestamp plus a small
-    // process counter. Phase 4 may switch to uuid v7 when we add the dep.
+    // Small dependency-free ID generator: high-resolution timestamp plus a
+    // process counter.
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()

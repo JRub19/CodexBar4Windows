@@ -1,6 +1,5 @@
-//! Settings data model. Phase 1 ships a minimum subset of the macOS schema.
-//! Later phases extend the structs in place. New fields must default safely
-//! so older `config.json` files load without intervention.
+//! Settings data model. New fields must default safely so older `config.json`
+//! files load without intervention.
 
 use std::collections::BTreeMap;
 

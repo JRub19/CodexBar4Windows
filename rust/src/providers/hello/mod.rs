@@ -1,6 +1,6 @@
-//! Hello sample provider. Phase 4 P4-08 ships this so the framework has
-//! at least one provider exercised end to end. Hello is debug-only; the
-//! Tauri shell guards registration behind `Settings.debug.debug_menu_enabled`.
+//! Hello sample provider used to exercise the framework end to end. Hello is
+//! debug-only; the Tauri shell guards registration behind
+//! `Settings.debug.debug_menu_enabled`.
 
 pub mod descriptor;
 pub mod strategies;

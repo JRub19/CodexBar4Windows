@@ -1,6 +1,6 @@
 [package]
 name = "codexbar4windows-desktop"
-version = "1.0.0"
+version = "1.0.1"
 description = "CodexBar4Windows Tauri desktop shell."
 edition.workspace = true
 license.workspace = true
@@ -12,10 +12,14 @@ publish.workspace = true
 name = "codexbar4windows_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "CodexBar4Windows"
+path = "src/main.rs"
+
 [features]
 default = []
-# Phase 3 E4: rotates icon fixtures every 8 s for manual QA. Enable
-# with `cargo run --features dev` from `apps/desktop-tauri/src-tauri/`.
+# Rotates icon fixtures every 8 s for manual QA. Enable with
+# `cargo run --features dev` from `apps/desktop-tauri/src-tauri/`.
 dev = []
 
 [build-dependencies]

@@ -34,8 +34,8 @@ impl ProviderCatalog {
     }
 
     /// Same as `build`, but returns the duplicate-id error instead of
-    /// panicking. Phase 4 P4-08 uses this from tests so it can assert on
-    /// the error message without unwinding.
+    /// panicking. Tests use this to assert on duplicate-id errors without
+    /// unwinding.
     pub fn build_validated<'a>(
         registrations: impl IntoIterator<Item = &'a ProviderRegistration>,
     ) -> Result<Self, super::errors::ProviderError> {
@@ -128,15 +128,14 @@ mod tests {
     }
 
     #[test]
-    fn global_registry_includes_claude_after_phase_4() {
-        // Phase 4 P4-10 registers Claude via `inventory::submit!`. Any
-        // future provider lands as one more entry in this catalog.
+    fn global_registry_includes_claude() {
+        // Providers register through `inventory::submit!`; future providers
+        // land as one more entry in this catalog.
         assert!(REGISTRY.get(ProviderId("claude")).is_some());
     }
 
     #[test]
-    fn global_registry_includes_codex_after_phase_5() {
-        // Phase 5 registers Codex via `inventory::submit!`.
+    fn global_registry_includes_codex() {
         assert!(REGISTRY.get(ProviderId("codex")).is_some());
     }
 

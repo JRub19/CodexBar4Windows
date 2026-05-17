@@ -19,8 +19,8 @@
 
   The private key never lands in the repo — `.minisign/` is in
   .gitignore. Copy `codexbar-updater.key` into the
-  `TAURI_MINISIGN_PRIVATE_KEY_PATH` secret on GitHub Actions and
-  the matching password into `TAURI_MINISIGN_PASSWORD`.
+  `TAURI_MINISIGN_PRIVATE_KEY` secret on GitHub Actions and the
+  matching password into `TAURI_MINISIGN_PASSWORD`.
 
 .PARAMETER OutputDir
   Where to write the keypair. Defaults to `.minisign/` at the repo
@@ -130,6 +130,6 @@ if ($Apply) {
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Commit tauri.conf.json (with the real pubkey)."
-Write-Host "  2. Store $secretKey contents in the TAURI_MINISIGN_PRIVATE_KEY_PATH secret."
+Write-Host "  2. Store $secretKey contents in the TAURI_MINISIGN_PRIVATE_KEY secret."
 Write-Host "  3. Store the keypair password in TAURI_MINISIGN_PASSWORD."
 Write-Host "  4. NEVER commit $OutputDir — confirm it's in .gitignore."

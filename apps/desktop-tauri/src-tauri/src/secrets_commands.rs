@@ -1,7 +1,4 @@
 //! Tauri commands exposing the secrets and cookies subsystems to React.
-//!
-//! Phase 2 wires the full surface. Phase 4 (Claude) and Phase 8
-//! (Preferences UI) are the first real consumers.
 
 use std::sync::Arc;
 

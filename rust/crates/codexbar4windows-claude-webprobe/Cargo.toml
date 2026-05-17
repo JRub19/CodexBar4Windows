@@ -1,6 +1,6 @@
 [package]
 name = "codexbar4windows-claude-webprobe"
-version = "1.0.0"
+version = "1.0.1"
 description = "Diagnostic binary that exercises the Claude.ai endpoints CodexBar4Windows depends on."
 edition.workspace = true
 license.workspace = true

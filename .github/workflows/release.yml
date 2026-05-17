@@ -53,6 +53,48 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
+      - name: Validate stable release prerequisites
+        if: steps.ver.outputs.channel == 'stable'
+        env:
+          CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
+          CODESIGN_PFX_PASSWORD: ${{ secrets.CODESIGN_PFX_PASSWORD }}
+          CODESIGN_THUMBPRINT: ${{ secrets.CODESIGN_THUMBPRINT }}
+          TAURI_MINISIGN_PRIVATE_KEY: ${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}
+          TAURI_MINISIGN_PASSWORD: ${{ secrets.TAURI_MINISIGN_PASSWORD }}
+        shell: pwsh
+        run: |
+          $missing = @()
+          foreach ($name in @(
+            "CODESIGN_PFX_BASE64",
+            "CODESIGN_PFX_PASSWORD",
+            "CODESIGN_THUMBPRINT",
+            "TAURI_MINISIGN_PRIVATE_KEY",
+            "TAURI_MINISIGN_PASSWORD"
+          )) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              $missing += $name
+            }
+          }
+          if ($missing.Count -gt 0) {
+            throw "Stable releases require signing/updater secrets: $($missing -join ', ')"
+          }
+          $tauriConfig = Get-Content apps/desktop-tauri/src-tauri/tauri.conf.json -Raw
+          if ($tauriConfig.Contains("REPLACE_WITH_BASE64_MINISIGN_PUBLIC_KEY")) {
+            throw "Stable releases require a real updater pubkey in tauri.conf.json. Run scripts/generate-minisign-keypair.ps1 -Apply and commit the public key."
+          }
+
+      - name: Resolve signing availability
+        id: signing
+        env:
+          CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
+          TAURI_MINISIGN_PRIVATE_KEY: ${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}
+        shell: pwsh
+        run: |
+          $codesign = if ([string]::IsNullOrWhiteSpace($env:CODESIGN_PFX_BASE64)) { "false" } else { "true" }
+          $minisign = if ([string]::IsNullOrWhiteSpace($env:TAURI_MINISIGN_PRIVATE_KEY)) { "false" } else { "true" }
+          "codesign=$codesign" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "minisign=$minisign" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Install Rust toolchain (stable)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -97,7 +139,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Restore code-signing certificate
-        if: ${{ secrets.CODESIGN_PFX_BASE64 != '' }}
+        if: steps.ver.outputs.channel == 'stable' || steps.signing.outputs.codesign == 'true'
         env:
           CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
           CODESIGN_PFX_PASSWORD: ${{ secrets.CODESIGN_PFX_PASSWORD }}
@@ -112,12 +154,14 @@ jobs:
       - name: Tauri release build
         env:
           CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_MINISIGN_PASSWORD }}
         run: cargo tauri build --target x86_64-pc-windows-msvc
         working-directory: apps/desktop-tauri/src-tauri
         shell: pwsh
 
       - name: Sign inner binaries
-        if: ${{ secrets.CODESIGN_PFX_BASE64 != '' }}
+        if: steps.ver.outputs.channel == 'stable' || steps.signing.outputs.codesign == 'true'
         env:
           CODESIGN_THUMBPRINT: ${{ secrets.CODESIGN_THUMBPRINT }}
         run: pwsh scripts/sign-binaries.ps1
@@ -143,7 +187,7 @@ jobs:
         run: pwsh scripts/generate-checksums.ps1
 
       - name: Sign update manifest
-        if: ${{ secrets.TAURI_MINISIGN_PRIVATE_KEY != '' }}
+        if: steps.ver.outputs.channel == 'stable' || steps.signing.outputs.minisign == 'true'
         env:
           CODEXBAR_VERSION: ${{ steps.ver.outputs.version }}
           TAURI_MINISIGN_PASSWORD: ${{ secrets.TAURI_MINISIGN_PASSWORD }}
@@ -157,6 +201,22 @@ jobs:
             -Channel "${{ steps.ver.outputs.channel }}" `
             -MinisignKey $keyPath
           Remove-Item $keyPath
+
+      - name: Verify Authenticode signatures
+        if: steps.ver.outputs.channel == 'stable' || steps.signing.outputs.codesign == 'true'
+        shell: pwsh
+        run: |
+          $files = @(
+            "target/release/CodexBar4Windows.exe",
+            "target/release/codexbar4windows-claude-watchdog.exe",
+            "dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-x64.exe"
+          )
+          foreach ($file in $files) {
+            if (Test-Path $file) {
+              signtool verify /pa /v $file
+              if ($LASTEXITCODE -ne 0) { throw "signtool verification failed for $file" }
+            }
+          }
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

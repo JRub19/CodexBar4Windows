@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.0.1] — 2026-05-17
+
+Release-readiness update for the first stable Windows patch. This release
+contains the 11 fixes already landed after `v1.0.0` and tightens the
+publishing path so stable GitHub releases cannot ship without signing and a
+real updater key.
+
+### Fixed
+- Cost popover: populate state on mount, keep the hover side panel alive while
+  moving between popup and popover, grant the required Tauri ACL permissions,
+  tune the floating-window height to 320 px, and remove the duplicate "Last 30
+  days" label.
+- Cost history: add per-day/per-model rollups, extend Codex/OpenAI and tiered
+  Claude pricing, and wire the scanner runtime through the popup chart.
+- Claude: decode OAuth usage payloads after the overly aggressive serde aliases
+  regressed response parsing, and surface Designs plus Daily Routines rate bars
+  from `/usage`.
+- Popup: clamp to the current monitor height dynamically and add section
+  dividers between usage bars.
+
+### Changed
+- Release metadata now consistently reports `1.0.1` across Cargo, npm, Tauri,
+  Winget, the Windows manifest, and `version.env`.
+- Stable release workflow now blocks when Authenticode signing secrets are
+  missing or `tauri.conf.json` still contains the placeholder updater pubkey.
+- Documentation now states that the shipped Windows app has 11 providers, that
+  `codexbar.exe` is deferred, and that Codex web scraping is best-effort with
+  OAuth/CLI as the preferred paths.
+
 ## [1.0.0] — Windows port GA
 
 This release cuts CodexBar4Windows from the macOS Swift project to a ground-up Windows Rust + Tauri rewrite. It is a port of `steipete/CodexBar`; entries below the `[Pre-Windows-fork]` heading are the upstream macOS history, preserved for attribution. The pre-wipe state of the macOS sources is tagged `mac-archive-2026-05-12` for archaeology.

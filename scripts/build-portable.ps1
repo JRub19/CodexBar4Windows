@@ -17,8 +17,8 @@
    * `dist/CodexBar4Windows-<version>-portable-x64.zip`
 
 .PARAMETER Version
-  Marketing version, e.g. `1.0.0`. Defaults to the
-  `CODEXBAR_VERSION` env var, then to `0.1.0-pre.0`.
+  Marketing version, e.g. `1.0.1`. Defaults to the
+  `CODEXBAR_VERSION` env var, then to `1.0.1`.
 
 .PARAMETER TargetDir
   Path to `target/release`. Defaults relative to the repo root.
@@ -36,7 +36,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 3.0
 
-if (-not $Version) { $Version = "0.1.0-pre.0" }
+if (-not $Version) { $Version = "1.0.1" }
 
 if (-not (Test-Path $TargetDir)) {
   throw "Release build not found at $TargetDir. Run ``cargo tauri build`` first."

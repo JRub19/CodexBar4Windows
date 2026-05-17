@@ -154,8 +154,8 @@ impl Strategy for ClaudeOAuthStrategy {
             .get_json(USAGE_ENDPOINT, &creds.access_token)
             .await?;
         Self::translate_status(USAGE_ENDPOINT, &usage_response)?;
-        let usage: OAuthUsageResponse = serde_json::from_slice(&usage_response.body)
-            .map_err(|e| {
+        let usage: OAuthUsageResponse =
+            serde_json::from_slice(&usage_response.body).map_err(|e| {
                 let body_preview = std::str::from_utf8(&usage_response.body)
                     .unwrap_or("<non-utf8>")
                     .chars()

@@ -38,8 +38,7 @@ pub enum Layout {
     /// Credits is the only signal. One thick bar centered vertically.
     TwoBarCreditsOnly { credits: BarSlot },
     /// Both usage and credits are present, and the layout puts a thick
-    /// credits bar on the bottom. Phase 4 selects this when the provider
-    /// pays per credit and the user opted in to a third bar.
+    /// credits bar on the bottom for providers with credit balances.
     CreditsThickBottom {
         primary: BarSlot,
         weekly: BarSlot,

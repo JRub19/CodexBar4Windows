@@ -1,6 +1,5 @@
 //! How a provider expects its cookies to be sourced when the Web
-//! strategy needs them. Phase 4 reads this enum from `ProviderDescriptor`
-//! to drive the cookie importer.
+//! strategy needs them.
 
 use serde::Serialize;
 

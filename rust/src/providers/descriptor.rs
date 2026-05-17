@@ -1,5 +1,4 @@
-//! Provider descriptor. Phase 4 P4-01 splits the sub-structs into their
-//! own modules so each can grow without touching this file.
+//! Provider descriptor.
 //!
 //! The descriptor is the immutable, statically-known shape of a provider.
 //! All runtime state (tokens, cookies, last refresh, etc.) lives in
@@ -53,7 +52,6 @@ impl ProviderMetadata {
 }
 
 /// The ordered list of strategies the refresh loop tries for a provider.
-/// Phase 1 keeps the list empty; phase 4 fills it in for Claude.
 #[derive(Clone, Debug, Default, Serialize)]
 #[non_exhaustive]
 pub struct ProviderFetchPlan {

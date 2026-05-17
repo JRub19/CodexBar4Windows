@@ -1,7 +1,6 @@
-// Phase 3 D11 fixtures. Phase 4 onward replaces these with real
-// per-provider history fetched from the Rust core. The shape mirrors
-// uPlot's data layout: a [timestamps[], series[]] tuple, with epoch
-// seconds on the x axis.
+// Fallback chart fixtures. Live per-provider history is fetched from the
+// Rust core; the shape mirrors uPlot's data layout with epoch seconds on
+// the x axis.
 
 export interface CostHistory {
   timestamps: number[];

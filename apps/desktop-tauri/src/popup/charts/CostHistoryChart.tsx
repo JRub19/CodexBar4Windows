@@ -2,9 +2,8 @@ import type uPlot from "uplot";
 import { MOCK_COST_HISTORY } from "../mock/chartFixtures";
 import { ChartCard } from "./ChartCard";
 
-// Phase 3 D11: 30 day total spend chart with optional service breakdown
-// rendered as stacked bars on top of the brand-color total bar. Phase 4
-// hands in real history via props.
+// 30-day total spend chart with optional service breakdown rendered as
+// stacked bars on top of the brand-color total bar.
 
 interface Props {
   brandAccent: string;

@@ -1,9 +1,4 @@
 //! Shared provider error types.
-//!
-//! Phase 1 only had `ProviderError` for registry failures. Phase 4 P4-02
-//! adds `ProviderFetchError`, the typed error every strategy returns,
-//! with the retry decision matrix from spec 30 section 13.3. P4-03
-//! wires the matrix into the runtime pipeline.
 
 use thiserror::Error;
 

@@ -1,8 +1,7 @@
-//! Codex provider. Phase 5 lands the OAuth API path, the CLI JSON-RPC
-//! integration, and the history ownership scheme. Web scraping
-//! (chatgpt.com cookies + WebView2 fallback) and the multi-account
-//! promotion flow ship in a follow-up because both require live OpenAI
-//! sessions to verify safely.
+//! Codex provider. OAuth and CLI TUI scraping are the preferred usage paths;
+//! web-cookie scraping remains best-effort because ChatGPT/Cloudflare blocks
+//! raw cookie requests. The standalone CLI peer and account-promotion UX are
+//! tracked as post-1.0 roadmap work.
 
 pub mod auth;
 pub mod cli;
@@ -41,8 +40,8 @@ impl Default for CodexProvider {
 }
 
 impl CodexProvider {
-    /// Install the runtime strategies. The Tauri shell calls this once
-    /// at boot with the real ConPTY transport factory.
+    /// Install the runtime strategies. The Tauri shell calls this once at
+    /// boot with the JSON-RPC placeholder transport factory.
     pub fn install_wiring(&self, wiring: CodexWiring) {
         *self.wiring.lock() = Some(wiring.into_strategies());
     }

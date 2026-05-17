@@ -1,15 +1,5 @@
 //! Brand icon mode: provider logo plus a percent label baked into the
 //! tray bitmap at sizes greater than or equal to 32 px.
-//!
-//! Phase 3.A12 scaffolds the API surface and ships a minimal
-//! implementation that fills a colored rectangle (the brand color) plus
-//! a percent line drawn as a simple horizontal bar. Phase 4 swaps the
-//! rectangle for a real provider SVG (rendered via `resvg`) and the
-//! percent line for a numeric label (rendered via a future font crate).
-//!
-//! The user opts into brand mode through `Settings.display.brand_icon_mode`
-//! (added in phase 3 group D). Until then this module is only consumed
-//! by tests.
 
 use tiny_skia::{Color, FillRule, Paint, PathBuilder, Pixmap, Rect, Transform};
 
@@ -25,8 +15,8 @@ pub struct BrandIconParams {
 }
 
 /// Paint the brand icon into `pixmap`. Returns true when any pixels
-/// were drawn. Phase 4 will pass through the resvg pipeline; this stub
-/// is here so tray host wiring can call into the renderer today.
+/// were drawn. This lightweight renderer is kept until provider SVG
+/// rasterization is added.
 pub fn paint_brand(pixmap: &mut Pixmap, params: BrandIconParams) -> bool {
     let w = pixmap.width() as f32;
     let h = pixmap.height() as f32;
@@ -38,7 +28,7 @@ pub fn paint_brand(pixmap: &mut Pixmap, params: BrandIconParams) -> bool {
     brand_paint.set_color(params.brand);
 
     // Brand rounded rectangle filling roughly the top three quarters of
-    // the canvas. Phase 4 substitutes the provider SVG.
+    // the canvas.
     let brand_h = (h * 0.7).round();
     if let Some(rect) = Rect::from_xywh(2.0, 2.0, w - 4.0, brand_h - 2.0) {
         let mut pb = PathBuilder::new();
@@ -56,8 +46,7 @@ pub fn paint_brand(pixmap: &mut Pixmap, params: BrandIconParams) -> bool {
     }
 
     if params.show_percent {
-        // Percent label bar across the bottom. Fill proportional to
-        // value. Phase 4 replaces with rasterized text.
+        // Percent label bar across the bottom. Fill proportional to value.
         let bar_y = brand_h + 1.0;
         let bar_h = h - bar_y - 2.0;
         let percent = params.percent.clamp(0.0, 100.0);

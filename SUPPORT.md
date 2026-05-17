@@ -48,7 +48,7 @@ Before filing any bug, please collect:
 
 ```powershell
 # Installed version (from the popup About pane, or):
-Get-Command codexbar4windows-desktop.exe |
+Get-Command CodexBar4Windows.exe |
   ForEach-Object { (Get-Item $_.Source).VersionInfo.ProductVersion }
 
 # Windows build:

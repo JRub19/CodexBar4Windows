@@ -1,8 +1,6 @@
 //! Provider identity siloing. Spec 30 section 2.2 requires every
 //! `UsageSnapshot` to carry the provider id plus an opaque account
-//! identifier so the store can refuse cross-provider writes. Phase 4
-//! P4-07 enforces the invariant in `UsageStore`; this module supplies
-//! the types.
+//! identifier so the store can refuse cross-provider writes.
 
 use serde::{Deserialize, Serialize};
 

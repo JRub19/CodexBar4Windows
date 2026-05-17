@@ -26,9 +26,8 @@ impl SecretKey {
     }
 }
 
-/// Trait that every blob backed secret store implements. Phase 4 providers
-/// take a `&dyn SecretBlobStore` so they can be tested against an in
-/// memory fake.
+/// Trait that every blob-backed secret store implements. Providers take a
+/// `&dyn SecretBlobStore` so they can be tested against an in-memory fake.
 pub trait SecretBlobStore: Send + Sync {
     fn read(&self, key: &SecretKey) -> Result<Option<Vec<u8>>, SecretsError>;
     fn write(&self, key: &SecretKey, value: &[u8]) -> Result<(), SecretsError>;

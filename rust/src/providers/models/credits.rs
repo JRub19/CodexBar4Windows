@@ -10,7 +10,7 @@ pub struct CreditsSnapshot {
     pub balance: f64,
     /// Whether `balance` is denominated in credits, tokens, or USD.
     pub unit: CreditUnit,
-    /// Recent history. Phase 4 stores 30 days of events for the chart.
+    /// Recent history used by the credit chart.
     pub recent_events: Vec<CreditEvent>,
 }
 

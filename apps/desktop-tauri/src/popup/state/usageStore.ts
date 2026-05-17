@@ -1,8 +1,7 @@
-// Phase 3 D1: Zustand store that mirrors the live usage event stream the
-// Rust core publishes via Tauri. The popup subscribes once at mount in
-// `PopupShell` and components read slices via selectors. Phase 4 fills in
-// real provider snapshots; for now we hold the descriptor list plus the
-// most recent `UsageEventPayload` so the UI can render skeleton states.
+// Zustand store that mirrors the live usage event stream the Rust core
+// publishes via Tauri. The popup subscribes once at mount in `PopupShell`
+// and components read descriptor, snapshot, status, and cost-panel slices
+// via selectors.
 
 import { useMemo } from "react";
 import { create } from "zustand";

@@ -50,10 +50,10 @@ pub fn jar_id(email: &str) -> String {
     bytes[8] = (bytes[8] & 0x3F) | 0x80; // variant = 10
     format!(
         "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
-        u32::from_be_bytes(bytes[0..4].try_into().unwrap()),
-        u16::from_be_bytes(bytes[4..6].try_into().unwrap()),
-        u16::from_be_bytes(bytes[6..8].try_into().unwrap()),
-        u16::from_be_bytes(bytes[8..10].try_into().unwrap()),
+        u32::from_be_bytes(bytes[0..4].try_into().expect("fixed 4-byte slice")),
+        u16::from_be_bytes(bytes[4..6].try_into().expect("fixed 2-byte slice")),
+        u16::from_be_bytes(bytes[6..8].try_into().expect("fixed 2-byte slice")),
+        u16::from_be_bytes(bytes[8..10].try_into().expect("fixed 2-byte slice")),
         u64::from_be_bytes({
             let mut padded = [0u8; 8];
             padded[2..].copy_from_slice(&bytes[10..16]);

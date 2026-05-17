@@ -1,8 +1,5 @@
-//! Claude provider. Phase 4 commits land here in order: P4-10
-//! descriptor only, P4-11 OAuth credential discovery, P4-12 OAuth fetch
-//! strategy, P4-13 Web strategy, P4-14 multi-account routing, P4-16 CLI
-//! PTY strategy, P4-18 source consolidation, P4-19 settings, P4-20
-//! tray and popup wiring.
+//! Claude provider with OAuth, web-cookie, CLI PTY, multi-account routing,
+//! settings, and tray/popup snapshot support.
 
 pub mod cli;
 pub mod descriptor;

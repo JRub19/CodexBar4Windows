@@ -17,9 +17,8 @@ pub struct UsageSnapshot {
     pub windows: Vec<NamedRateWindow>,
     pub credits: Option<CreditsSnapshot>,
     pub cost: Option<ProviderCostSnapshot>,
-    /// Display name pinned to this snapshot. Phase 4 surfaces this in
-    /// the provider card header; some providers update the friendly
-    /// name asynchronously through OAuth.
+    /// Display name pinned to this snapshot for the provider card header.
+    /// Some providers update the friendly name asynchronously through OAuth.
     pub account_display_name: Option<String>,
     pub account_email: Option<String>,
     pub plan_name: Option<String>,

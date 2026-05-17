@@ -187,7 +187,7 @@ pub fn parse_chord(input: &str) -> Result<Shortcut, String> {
 fn parse_key(lower: &str) -> Option<Code> {
     // Single letter a..z
     if lower.len() == 1 {
-        let c = lower.chars().next().unwrap();
+        let c = lower.chars().next()?;
         if c.is_ascii_alphabetic() {
             return letter_to_code(c.to_ascii_lowercase());
         }

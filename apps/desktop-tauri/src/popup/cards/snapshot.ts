@@ -1,7 +1,5 @@
-// Phase 3 D5: view model that the popup uses to render a provider card.
-// Phase 4 fills these in from real provider snapshots; for the scaffold
-// we keep the shape close to the Mac source so the React layer is stable
-// across both renderers.
+// View model that the popup uses to render a provider card. Keep the shape
+// close to the Rust provider snapshots so the React layer can stay stable.
 
 export type StatusSeverity =
   | "operational"

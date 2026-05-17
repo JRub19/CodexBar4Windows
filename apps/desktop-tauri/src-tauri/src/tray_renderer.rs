@@ -5,9 +5,6 @@
 //! `update_tray_icon` accepts a `TrayRenderInputs` struct and updates
 //! `tray_by_id("main")` via `Shell_NotifyIcon` (Tauri 2's tray-icon
 //! crate handles the `NIM_MODIFY` syscall internally).
-//!
-//! Phase 4 (Claude) calls `update_tray_icon` whenever the refresh loop
-//! folds a new `UsageState` snapshot.
 
 use codexbar::renderer::{
     bar_alphas_for, draw_bar, paint_overlay, paint_twist, BarAlphas, BarRect, Color, IconRenderer,

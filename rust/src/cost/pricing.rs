@@ -62,15 +62,17 @@ pub struct PricingTable {
     pub rates: HashMap<String, RatePerMTok>,
 }
 
-impl PricingTable {
+impl Default for PricingTable {
     /// Combined Anthropic + OpenAI pricing table. The lookup is
     /// model-id based so a single table serves both ecosystems.
-    pub fn default() -> Self {
+    fn default() -> Self {
         let mut t = Self::anthropic_default();
         t.merge(Self::openai_default());
         t
     }
+}
 
+impl PricingTable {
     fn merge(&mut self, other: Self) {
         self.rates.extend(other.rates);
     }

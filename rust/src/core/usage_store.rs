@@ -1,8 +1,8 @@
 //! In memory store for per provider usage snapshots.
 //!
-//! Phase 1 ships the contract and the identity siloing invariant. The
-//! `UsageState` struct is intentionally empty; later phases add per provider
-//! slots, status snapshots, and cost summaries.
+//! The store keeps rich per-provider snapshots, fetch attempt metadata, and
+//! revision counters used by the tray and popup. Every write enforces provider
+//! identity siloing so one provider cannot populate another provider's slot.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -29,9 +29,7 @@ impl ProviderId {
 
 #[derive(Clone, Debug, Default)]
 pub struct UsageState {
-    /// Per-provider rich snapshots, keyed by provider id. Phase 4 P4-07
-    /// promotes the placeholder identity-only snapshot to the real
-    /// `providers::UsageSnapshot` shape.
+    /// Per-provider rich snapshots, keyed by provider id.
     pub snapshots: std::collections::HashMap<String, ProviderSlot>,
 }
 
@@ -98,8 +96,8 @@ impl UsageStore {
                 got: snapshot.identity.provider_id,
             });
         }
-        // Phase 1: state mutation is a no-op. We still bump revisions so the
-        // event channel exercises end to end.
+        // Legacy identity-only writes are kept for narrow tests and revision
+        // plumbing; live providers use `replace_snapshot`.
         let _state_guard = self.state.write();
         let menu_rev = self.menu_rev.fetch_add(1, Ordering::SeqCst) + 1;
         let icon_rev = self.icon_rev.fetch_add(1, Ordering::SeqCst) + 1;
@@ -112,8 +110,8 @@ impl UsageStore {
         Ok(event)
     }
 
-    /// Phase 4 P4-07: replace the rich per-provider snapshot in the
-    /// store. Returns the bumped `UsageUpdated` event so the caller can
+    /// Replace the rich per-provider snapshot in the store.
+    /// Returns the bumped `UsageUpdated` event so the caller can
     /// emit it back over IPC. Enforces identity siloing: the snapshot's
     /// `identity.provider_id` must match `provider.as_str()`.
     pub fn replace_snapshot(
@@ -166,8 +164,8 @@ impl UsageStore {
 }
 
 // Tiny shim so we do not need to pull in the external `parking_lot` crate
-// just for an RwLock alias. Stdlib's lock is sufficient at phase 1 since
-// reads are infrequent and short.
+// just for an RwLock alias. Stdlib's lock is sufficient because reads are
+// short and writes happen only on refresh ticks.
 mod parking_lot_local {
     use std::sync::RwLock as StdRwLock;
 
@@ -177,7 +175,6 @@ mod parking_lot_local {
         pub fn new(value: T) -> Self {
             Self(StdRwLock::new(value))
         }
-        #[allow(dead_code)] // phase 4 fills UsageState and adds read sites
         pub fn read(&self) -> std::sync::RwLockReadGuard<'_, T> {
             self.0.read().expect("usage store rwlock poisoned")
         }

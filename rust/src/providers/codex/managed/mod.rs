@@ -1,7 +1,6 @@
-//! Managed Codex accounts. Phase 5 Group 5 lands the v2 catalog and
-//! the home factory; the live-codex-login subprocess runner ships in a
-//! follow-up because it needs a working `codex.exe` binary plus
-//! WebView2 for the workspace picker.
+//! Managed Codex accounts: v2 catalog and home factory. The live-codex-login
+//! subprocess runner is deferred because it needs a working `codex.exe`
+//! binary plus WebView2 for the workspace picker.
 
 pub mod catalog;
 pub mod home_factory;

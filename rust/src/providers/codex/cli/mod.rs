@@ -1,11 +1,6 @@
-//! Codex CLI integration. Phase 5 Group 2 tasks:
-//! - 2.1 binary_locator: find the codex binary.
-//! - 2.2 rpc_framer: line-delimited JSON-RPC framing.
-//! - 2.4 strategy: account/read + rateLimits/read RPCs.
-//!
-//! ConPTY /status diagnostic (2.5) and the JobObject lifetime (2.3)
-//! reuse the Claude watchdog binary so we do not duplicate process
-//! supervision here.
+//! Codex CLI integration. The shipped path locates the real `codex` binary
+//! and scrapes its interactive TUI. The JSON-RPC framing modules are kept for
+//! a future protocol mode if Codex exposes one.
 
 pub mod binary_locator;
 pub mod conpty_transport;

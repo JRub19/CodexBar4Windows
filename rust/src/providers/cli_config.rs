@@ -1,6 +1,5 @@
-//! Per-provider CLI configuration. Phase 4 grows this so the Claude
-//! CLI strategy can discover the binary across PATH and known install
-//! locations (npm global, scoop, winget, etc.).
+//! Per-provider CLI configuration for discovering binaries across PATH and
+//! known install locations (npm global, scoop, winget, etc.).
 
 use serde::Serialize;
 

@@ -1,7 +1,5 @@
-//! Hello sample provider descriptor. Phase 4 P4-08 ships this so the
-//! framework has at least one provider exercised end to end. Hello is
-//! gated behind the `debug.debug_menu_enabled` setting; production
-//! installs never see it.
+//! Hello sample provider descriptor. Hello is gated behind the
+//! `debug.debug_menu_enabled` setting; production installs never see it.
 
 use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;

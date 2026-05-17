@@ -1,7 +1,7 @@
 ; Inno Setup script for CodexBar4Windows. Phase 9 §E.
 ;
 ; Build with:
-;   $env:CODEXBAR_VERSION = "1.0.0"
+;   $env:CODEXBAR_VERSION = "1.0.1"
 ;   $env:CODEXBAR_ARCH    = "x64"
 ;   & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /Qp installer\codexbar.iss
 ;
@@ -14,7 +14,7 @@
 #define MarketingVersion GetEnv("CODEXBAR_VERSION")
 #define Arch             GetEnv("CODEXBAR_ARCH")
 #if MarketingVersion == ""
-  #define MarketingVersion "0.1.0-pre.0"
+  #define MarketingVersion "1.0.1"
 #endif
 #if Arch == ""
   #define Arch "x64"
