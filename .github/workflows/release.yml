@@ -133,7 +133,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Restore code-signing certificate
-        if: steps.ver.outputs.channel == 'stable' || steps.signing.outputs.codesign == 'true'
+        if: steps.signing.outputs.codesign == 'true'
         env:
           CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
           CODESIGN_PFX_PASSWORD: ${{ secrets.CODESIGN_PFX_PASSWORD }}
@@ -155,7 +155,7 @@ jobs:
         shell: pwsh
 
       - name: Sign inner binaries
-        if: steps.ver.outputs.channel == 'stable' || steps.signing.outputs.codesign == 'true'
+        if: steps.signing.outputs.codesign == 'true'
         env:
           CODESIGN_THUMBPRINT: ${{ secrets.CODESIGN_THUMBPRINT }}
         run: pwsh scripts/sign-binaries.ps1
@@ -197,7 +197,7 @@ jobs:
           Remove-Item $keyPath
 
       - name: Verify Authenticode signatures
-        if: steps.ver.outputs.channel == 'stable' || steps.signing.outputs.codesign == 'true'
+        if: steps.signing.outputs.codesign == 'true'
         shell: pwsh
         run: |
           $files = @(
