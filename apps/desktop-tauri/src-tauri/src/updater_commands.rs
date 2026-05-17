@@ -61,16 +61,10 @@ pub async fn current_version() -> Result<String, String> {
 pub async fn check_for_update(app: AppHandle) -> Result<UpdateInfoDto, String> {
     let current = env!("CARGO_PKG_VERSION").to_string();
     if updater_misconfigured() {
-        warn!(
-            target: "codexbar::updater",
-            "update.check_skipped placeholder_pubkey present in tauri.conf.json",
-        );
-        return Ok(UpdateInfoDto {
-            current_version: current,
-            available_version: None,
-            release_notes: None,
-            release_date: None,
-        });
+        let msg =
+            "Updater is disabled: this build was compiled with a placeholder minisign public key.";
+        warn!(target: "codexbar::updater", msg);
+        return Err(msg.to_string());
     }
     let updater = app.updater().map_err(|e| e.to_string())?;
     match updater.check().await {

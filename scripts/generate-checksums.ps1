@@ -33,6 +33,7 @@ if (-not (Test-Path $DistDir)) {
 $arch = "x64"
 $artifacts = @(
   "CodexBar4Windows-$Version-$arch.exe",
+  "CodexBar4Windows-$Version-updater-$arch.nsis.zip",
   "CodexBar4Windows-$Version-portable-$arch.zip"
 )
 

@@ -3,10 +3,10 @@
   Produce + sign the Tauri updater manifest. Phase 9 §F.
 
 .DESCRIPTION
-  After the Inno Setup installer is built and Authenticode-signed,
-  this script wraps it in the JSON manifest format the
-  tauri-plugin-updater expects, then signs the installer bytes with
-  minisign and embeds the base64 signature in the manifest.
+  After the Tauri updater bundle is built, this script wraps it in
+  the JSON manifest format the tauri-plugin-updater expects, then
+  signs the updater bundle bytes with minisign and embeds the raw
+  signature-file contents in the manifest.
 
   Two output files:
    * dist/latest.json — Stable channel manifest.
@@ -16,14 +16,15 @@
 
   The Tauri runtime fetches `latest.json` (or `beta.json` when the
   user chose Beta) on launch + on demand, verifies the embedded
-  base64 minisign signature against the public key baked into
-  tauri.conf.json, and refuses to install a tampered installer.
+  minisign signature against the public key baked into tauri.conf.json,
+  and refuses to install a tampered updater bundle.
 
 .PARAMETER Version
   Marketing version. Required (env CODEXBAR_VERSION when unset).
 
 .PARAMETER InstallerPath
-  Path to the signed installer .exe. Required.
+  Path to the Tauri updater bundle. On Windows this should be the
+  NSIS updater ZIP, not the normal setup EXE.
 
 .PARAMETER Channel
   Either "stable" or "beta". Derived from -Version suffix when
@@ -61,10 +62,10 @@ Set-StrictMode -Version 3.0
 
 if (-not $Version) { throw "Version is required (set CODEXBAR_VERSION env var)." }
 if (-not $InstallerPath) {
-  $InstallerPath = Join-Path $DistDir "CodexBar4Windows-$Version-x64.exe"
+  $InstallerPath = Join-Path $DistDir "CodexBar4Windows-$Version-updater-x64.nsis.zip"
 }
 if (-not (Test-Path $InstallerPath)) {
-  throw "Installer not found at $InstallerPath."
+  throw "Updater bundle not found at $InstallerPath."
 }
 if (-not (Test-Path $DistDir)) {
   New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
@@ -106,11 +107,9 @@ if ($LASTEXITCODE -ne 0) {
   throw "minisign signing failed (exit $LASTEXITCODE)"
 }
 
-# The signature file contains an untrusted-comment header line plus
-# the base64 signature on its own line. Tauri's manifest format
-# wants the entire signature file content base64-encoded.
-$sigBytes = [System.IO.File]::ReadAllBytes($sigPath)
-$signatureB64 = [Convert]::ToBase64String($sigBytes)
+# Tauri's manifest format wants the content of the generated .sig file,
+# not a path and not another layer of base64 wrapping.
+$signature = Get-Content -Raw -Path $sigPath
 
 $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
@@ -121,7 +120,8 @@ $notes = if ($NotesPath -and (Test-Path $NotesPath)) {
 }
 
 $baseUrl = "https://github.com/JRub19/CodexBar4Windows/releases/download/v$Version"
-$installerUrl = "$baseUrl/CodexBar4Windows-$Version-x64.exe"
+$bundleName = Split-Path -Leaf $InstallerPath
+$installerUrl = "$baseUrl/$bundleName"
 
 $manifest = [ordered]@{
   version   = $Version
@@ -129,7 +129,7 @@ $manifest = [ordered]@{
   pub_date  = $pubDate
   platforms = [ordered]@{
     "windows-x86_64" = [ordered]@{
-      signature = $signatureB64
+      signature = $signature
       url       = $installerUrl
     }
   }

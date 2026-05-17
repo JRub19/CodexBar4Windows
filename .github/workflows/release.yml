@@ -176,6 +176,15 @@ jobs:
           $out = Join-Path $dist "CodexBar4Windows-$env:CODEXBAR_VERSION-x64.exe"
           Copy-Item -Force -Path $setup.FullName -Destination $out
           Write-Host "[release] staged $($setup.FullName) -> $out"
+          $bundle = Get-ChildItem -Path "." -Recurse -Filter "CodexBar4Windows_*_x64-setup.nsis.zip" |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $bundle) {
+            throw "Tauri NSIS updater bundle was not found."
+          }
+          $bundleOut = Join-Path $dist "CodexBar4Windows-$env:CODEXBAR_VERSION-updater-x64.nsis.zip"
+          Copy-Item -Force -Path $bundle.FullName -Destination $bundleOut
+          Write-Host "[release] staged $($bundle.FullName) -> $bundleOut"
 
       - name: Build portable ZIP
         env:
@@ -199,7 +208,7 @@ jobs:
           [IO.File]::WriteAllBytes($keyPath, $keyBytes)
           pwsh scripts/sign-update-manifest.ps1 `
             -Version "${{ steps.ver.outputs.version }}" `
-            -InstallerPath "dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-x64.exe" `
+            -InstallerPath "dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-updater-x64.nsis.zip" `
             -Channel "${{ steps.ver.outputs.channel }}" `
             -MinisignKey $keyPath
           Remove-Item $keyPath
@@ -229,6 +238,7 @@ jobs:
           prerelease: ${{ steps.ver.outputs.channel == 'beta' }}
           files: |
             dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-x64.exe
+            dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-updater-x64.nsis.zip
             dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-portable-x64.zip
             dist/CodexBar4Windows-${{ steps.ver.outputs.version }}-checksums.txt
             dist/latest.json
