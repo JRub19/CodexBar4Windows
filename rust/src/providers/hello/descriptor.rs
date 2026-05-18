@@ -16,6 +16,7 @@ pub fn hello_descriptor() -> ProviderDescriptor {
             display_name: "Hello",
             homepage: "https://example.com",
             dashboard_url: None,
+            status: crate::providers::descriptor::ProviderStatusMetadata::none(),
             session_label: "Session",
             weekly_label: "Week",
             supports_opus: false,

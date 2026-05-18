@@ -26,6 +26,7 @@ pub struct ProviderMetadata {
     pub display_name: &'static str,
     pub homepage: &'static str,
     pub dashboard_url: Option<&'static str>,
+    pub status: ProviderStatusMetadata,
     /// Right-side caption shown above the session bar in the popup.
     pub session_label: &'static str,
     /// Right-side caption shown above the weekly bar in the popup.
@@ -37,12 +38,57 @@ pub struct ProviderMetadata {
     pub supports_credits: bool,
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+#[non_exhaustive]
+pub struct ProviderStatusMetadata {
+    pub status_page_url: Option<&'static str>,
+    pub feed: Option<ProviderStatusFeed>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ProviderStatusFeed {
+    Statuspage { base_url: &'static str },
+    GoogleWorkspace { product_id: &'static str },
+}
+
+impl ProviderStatusMetadata {
+    pub const fn none() -> Self {
+        Self {
+            status_page_url: None,
+            feed: None,
+        }
+    }
+
+    pub const fn link(status_page_url: &'static str) -> Self {
+        Self {
+            status_page_url: Some(status_page_url),
+            feed: None,
+        }
+    }
+
+    pub const fn statuspage(base_url: &'static str) -> Self {
+        Self {
+            status_page_url: Some(base_url),
+            feed: Some(ProviderStatusFeed::Statuspage { base_url }),
+        }
+    }
+
+    pub const fn google_workspace(product_id: &'static str, status_page_url: &'static str) -> Self {
+        Self {
+            status_page_url: Some(status_page_url),
+            feed: Some(ProviderStatusFeed::GoogleWorkspace { product_id }),
+        }
+    }
+}
+
 impl ProviderMetadata {
     pub const fn minimal(display_name: &'static str, homepage: &'static str) -> Self {
         Self {
             display_name,
             homepage,
             dashboard_url: None,
+            status: ProviderStatusMetadata::none(),
             session_label: "Session",
             weekly_label: "Week",
             supports_opus: false,

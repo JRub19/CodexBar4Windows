@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.2] - 2026-05-18
+
+### Added
+- Added Windows provider entries for OpenAI API, MiniMax, Mistral, Kimi,
+  Kimi K2, Augment, Manus, and Codebuff.
+- Added OpenAI Admin API usage/cost support with API-key credit fallback.
+- Added a pinned Windows widget window with tray and Preferences controls.
+
+### Changed
+- Status coverage now comes from provider metadata and only polls registered
+  shipped providers.
+- Release workflow now validates the expected installer, updater ZIP,
+  portable ZIP, checksums, and signed updater manifest shape before publish.
+- Winget submission now detects `WINGET_PAT` correctly and remains best-effort
+  while unsigned GitHub releases are allowed.
+
 ## [1.0.1] — 2026-05-17
 
 Release-readiness update for the first stable Windows patch. This release

@@ -51,6 +51,8 @@ pub struct Settings {
     /// round-trips through settings serde.
     #[serde(default)]
     pub telemetry_enabled: bool,
+    #[serde(default)]
+    pub widget: WidgetPreferences,
 }
 
 const fn default_notifications_enabled() -> bool {
@@ -72,6 +74,7 @@ impl Default for Settings {
             notifications_enabled: true,
             popup_toggle_hotkey: None,
             telemetry_enabled: false,
+            widget: WidgetPreferences::default(),
         }
     }
 }
@@ -126,6 +129,34 @@ pub struct DisplayPreferences {
     pub hide_quota_warning_markers: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct WidgetPreferences {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_widget_always_on_top")]
+    pub always_on_top: bool,
+    #[serde(default)]
+    pub compact: bool,
+    #[serde(default)]
+    pub provider_ids: Vec<String>,
+}
+
+impl Default for WidgetPreferences {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            always_on_top: true,
+            compact: false,
+            provider_ids: Vec::new(),
+        }
+    }
+}
+
+const fn default_widget_always_on_top() -> bool {
+    true
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct DebugFlags {
@@ -163,6 +194,7 @@ pub struct SettingsPatch {
     /// platform default.
     pub popup_toggle_hotkey: Option<Option<String>>,
     pub telemetry_enabled: Option<bool>,
+    pub widget: Option<WidgetPreferences>,
 }
 
 impl Settings {
@@ -205,6 +237,9 @@ impl Settings {
         }
         if let Some(v) = patch.telemetry_enabled {
             self.telemetry_enabled = v;
+        }
+        if let Some(v) = patch.widget {
+            self.widget = v;
         }
         self
     }

@@ -6,7 +6,7 @@ use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::cli_config::ProviderCLIConfig;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const CLAUDE_ID: ProviderId = ProviderId("claude");
@@ -24,6 +24,7 @@ pub fn claude_descriptor() -> ProviderDescriptor {
             display_name: "Claude",
             homepage: "https://claude.ai",
             dashboard_url: Some("https://claude.ai/settings/billing"),
+            status: ProviderStatusMetadata::statuspage("https://status.claude.com"),
             session_label: "Session",
             weekly_label: "Week",
             supports_opus: true,

@@ -3,7 +3,7 @@
 use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const ZAI_ID: ProviderId = ProviderId("zai");
@@ -16,6 +16,7 @@ pub fn zai_descriptor() -> ProviderDescriptor {
             display_name: "Z.ai",
             homepage: "https://z.ai",
             dashboard_url: Some("https://z.ai/manage-apikey/usage"),
+            status: ProviderStatusMetadata::none(),
             session_label: "Tokens",
             weekly_label: "Window",
             supports_opus: false,

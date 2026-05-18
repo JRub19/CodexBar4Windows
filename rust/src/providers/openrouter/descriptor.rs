@@ -3,7 +3,7 @@
 use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const OPENROUTER_ID: ProviderId = ProviderId("openrouter");
@@ -16,6 +16,7 @@ pub fn openrouter_descriptor() -> ProviderDescriptor {
             display_name: "OpenRouter",
             homepage: "https://openrouter.ai",
             dashboard_url: Some("https://openrouter.ai/activity"),
+            status: ProviderStatusMetadata::link("https://status.openrouter.ai"),
             session_label: "Day",
             weekly_label: "Credits",
             supports_opus: false,

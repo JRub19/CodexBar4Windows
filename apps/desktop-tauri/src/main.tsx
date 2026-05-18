@@ -13,6 +13,7 @@ import { debugLog } from "./popup/debug/logger";
 //   <no hash>         → main tray popup
 const isSettingsRoute = window.location.hash.startsWith("#/settings");
 const isCostPopoverRoute = window.location.hash.startsWith("#/cost-popover");
+const isWidgetRoute = window.location.hash.startsWith("#/widget");
 
 debugLog.info(
   "main.tsx",
@@ -38,6 +39,8 @@ if (!rootEl) {
               <SettingsApp />
             ) : isCostPopoverRoute ? (
               <CostPopoverApp />
+            ) : isWidgetRoute ? (
+              <PopupShell />
             ) : (
               <PopupShell />
             )}

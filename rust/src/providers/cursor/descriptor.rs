@@ -4,7 +4,7 @@ use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::cli_config::ProviderCLIConfig;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const CURSOR_ID: ProviderId = ProviderId("cursor");
@@ -18,6 +18,7 @@ pub fn cursor_descriptor() -> ProviderDescriptor {
             display_name: "Cursor",
             homepage: "https://cursor.com",
             dashboard_url: Some("https://cursor.com/dashboard"),
+            status: ProviderStatusMetadata::statuspage("https://status.cursor.com"),
             session_label: "Total",
             weekly_label: "Auto",
             supports_opus: true,

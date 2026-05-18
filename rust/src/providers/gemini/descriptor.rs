@@ -4,7 +4,7 @@ use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::cli_config::ProviderCLIConfig;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const GEMINI_ID: ProviderId = ProviderId("gemini");
@@ -17,6 +17,10 @@ pub fn gemini_descriptor() -> ProviderDescriptor {
             display_name: "Gemini",
             homepage: "https://aistudio.google.com",
             dashboard_url: Some("https://aistudio.google.com/usage"),
+            status: ProviderStatusMetadata::google_workspace(
+                "npdyhgECDJ6tB66MxXyo",
+                "https://www.google.com/appsstatus/dashboard/products/npdyhgECDJ6tB66MxXyo/history",
+            ),
             session_label: "Daily",
             weekly_label: "Quota",
             supports_opus: false,

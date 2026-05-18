@@ -7,6 +7,7 @@ export interface ProviderMetadataDto {
   display_name: string;
   homepage: string;
   dashboard_url: string | null;
+  status_page_url: string | null;
 }
 
 export interface ProviderBrandingDto {

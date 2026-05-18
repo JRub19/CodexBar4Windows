@@ -3,7 +3,7 @@
 use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const MOONSHOT_ID: ProviderId = ProviderId("moonshot");
@@ -16,6 +16,7 @@ pub fn moonshot_descriptor() -> ProviderDescriptor {
             display_name: "Moonshot",
             homepage: "https://platform.moonshot.ai",
             dashboard_url: Some("https://platform.moonshot.ai/console"),
+            status: ProviderStatusMetadata::none(),
             session_label: "Balance",
             weekly_label: "Credits",
             supports_opus: false,

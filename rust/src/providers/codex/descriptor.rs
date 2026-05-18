@@ -6,7 +6,7 @@ use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::cli_config::ProviderCLIConfig;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const CODEX_ID: ProviderId = ProviderId("codex");
@@ -21,6 +21,7 @@ pub fn codex_descriptor() -> ProviderDescriptor {
             display_name: "Codex",
             homepage: "https://platform.openai.com",
             dashboard_url: Some("https://platform.openai.com/usage"),
+            status: ProviderStatusMetadata::statuspage("https://status.openai.com"),
             session_label: "Session",
             weekly_label: "Week",
             supports_opus: false,

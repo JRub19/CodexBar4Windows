@@ -1,7 +1,7 @@
 # Winget default-locale manifest seed for CodexBar4Windows. Phase 9 §G.
 
 PackageIdentifier: CodexBar4Windows.CodexBar4Windows
-PackageVersion: 1.0.1
+PackageVersion: 1.0.2
 PackageLocale: en-US
 Publisher: CodexBar4Windows
 PublisherUrl: https://github.com/JRub19/CodexBar4Windows
@@ -14,7 +14,7 @@ ShortDescription: Windows tray app that surfaces agent quota and usage for Claud
 Description: |
   CodexBar4Windows is a Tauri-based Windows port of the macOS CodexBar tray app.
   It shows live quota and usage data for a curated set of AI coding providers in a
-  Mica-effect popup that opens from the system tray. Eleven providers ship at v1.0.1
+  Mica-effect popup that opens from the system tray. Nineteen providers ship at v1.0.2
   (Claude, Codex, Cursor, Copilot, Gemini, OpenRouter, Factory, DeepSeek, Moonshot,
   Z.ai, Venice); more land in follow-up releases.
 Moniker: codexbar
@@ -29,6 +29,6 @@ Tags:
   - quota
   - tokens
   - tray
-ReleaseNotesUrl: https://github.com/JRub19/CodexBar4Windows/releases/tag/v1.0.1
+ReleaseNotesUrl: https://github.com/JRub19/CodexBar4Windows/releases/tag/v1.0.2
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

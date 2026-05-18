@@ -37,5 +37,5 @@ export interface ProviderSnapshot {
   plan: string | null;
   subtitle: string | null;
   metrics: Metric[];
-  status: { severity: StatusSeverity; title: string | null } | null;
+  status: { severity: StatusSeverity; title: string | null; statusPageUrl: string | null } | null;
 }

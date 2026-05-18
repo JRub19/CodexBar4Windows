@@ -6,7 +6,7 @@
 [![Release](https://github.com/JRub19/CodexBar4Windows/actions/workflows/release.yml/badge.svg)](https://github.com/JRub19/CodexBar4Windows/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6e5aff?style=flat-square)](LICENSE)
 
-CodexBar4Windows is the Windows-native port of [`steipete/CodexBar`](https://github.com/steipete/CodexBar), built on Tauri 2 + React + a shared Rust core. It lives in the system tray and keeps your AI coding quota visible at a glance across **eleven providers**: Claude, Codex, Cursor, Copilot, Gemini, OpenRouter, Factory, DeepSeek, Moonshot, Z.ai, and Venice.
+CodexBar4Windows is the Windows-native port of [`steipete/CodexBar`](https://github.com/steipete/CodexBar), built on Tauri 2 + React + a shared Rust core. It lives in the system tray and keeps your AI coding quota visible at a glance across **nineteen providers**: Claude, Codex, Cursor, Copilot, Gemini, OpenRouter, OpenAI API, Factory, DeepSeek, Moonshot, Z.ai, Venice, MiniMax, Mistral, Kimi, Kimi K2, Augment, Manus, and Codebuff.
 
 ## Features
 
@@ -19,7 +19,7 @@ CodexBar4Windows is the Windows-native port of [`steipete/CodexBar`](https://git
 - **Global hotkey** (Win+Shift+U by default, rebindable via the Shortcuts pane).
 - **Onboarding wizard** for fresh installs: welcome -> provider picker -> per-provider sign-in -> done.
 - **i18n** for English, Simplified Chinese (`zh-Hans`), and Brazilian Portuguese (`pt-BR`), live-applied from the Appearance pane.
-- **Auto-update** via Tauri's signed manifest pipeline. Stable releases require a real minisign updater key before publication. Authenticode signing is optional; unsigned builds may show Windows SmartScreen warnings.
+- **Auto-update** via Tauri's signed manifest pipeline. Stable releases require a real minisign updater key before publication. Authenticode signing is optional for GitHub releases; unsigned builds are expected to show Windows SmartScreen warnings and Winget availability is best-effort until package onboarding/signing reputation is settled.
 - **Launch-at-sign-in** via the HKCU Run registry key.
 - **No telemetry** by default. Crash reports are opt-in.
 
@@ -74,11 +74,11 @@ The release EXE lands at `target\release\CodexBar4Windows.exe`.
 
 ## Current Scope
 
-The v1.0.1 line ships the 11 providers listed above. The macOS upstream and Finesssee Windows fork support a broader provider catalog; parity work is tracked separately in [`docs/PROVIDER_PARITY.md`](docs/PROVIDER_PARITY.md).
+The v1.0.2 line ships the 19 providers listed above. The macOS upstream and Finesssee Windows fork support a broader provider catalog; parity work is tracked separately in [`docs/PROVIDER_PARITY.md`](docs/PROVIDER_PARITY.md).
 
-There is no shipped `codexbar.exe` CLI peer in v1.0.1. The Rust core is shared with the desktop app, but the installer and portable ZIP currently ship the desktop app plus helper binaries only. The CLI remains post-1.0 work.
+There is no shipped `codexbar.exe` CLI peer in v1.0.2. The Rust core is shared with the desktop app, but the installer and portable ZIP currently ship the desktop app plus helper binaries only. The CLI remains post-1.0 work.
 
-Codex usage should prefer OAuth credentials from `~\.codex\auth.json` or the local Codex CLI TUI path. ChatGPT/OpenAI web-cookie scraping is best-effort and can fail behind Cloudflare or Chromium cookie-encryption changes.
+Codex usage should prefer OAuth credentials from `~\.codex\auth.json` or the local Codex CLI TUI path. ChatGPT/OpenAI web-cookie scraping is best-effort and can fail behind Cloudflare or Chromium cookie-encryption changes. Cookie-backed providers can also fail automatic Chrome/Edge import when Chrome App-Bound Encryption blocks cookie decryption; paste tokens/cookies manually when that happens.
 
 ## Documentation
 

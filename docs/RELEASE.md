@@ -8,9 +8,9 @@ read_when:
 
 # CodexBar4Windows Release Runbook
 
-This runbook is the source of truth for shipping v1.0.1 and later. Stable
+This runbook is the source of truth for shipping v1.0.2 and later. Stable
 releases are blocked unless the Tauri minisign updater path is configured.
-Authenticode signing is recommended, but not required for v1.0.1.
+Authenticode signing is recommended, but not required for v1.0.2.
 
 ## One-Time Setup
 
@@ -80,8 +80,8 @@ For a release candidate, also run:
 cd apps\desktop-tauri
 npm run tauri build
 cd ..\..
-pwsh scripts/build-portable.ps1 -Version 1.0.1
-pwsh scripts/generate-checksums.ps1 -Version 1.0.1
+pwsh scripts/build-portable.ps1 -Version 1.0.2
+pwsh scripts/generate-checksums.ps1 -Version 1.0.2
 ```
 
 ### 2. Version bump
@@ -103,8 +103,8 @@ Keep these surfaces in sync:
 ### 3. Tag
 
 ```powershell
-git tag -a v1.0.1 -m "CodexBar4Windows 1.0.1"
-git push origin v1.0.1
+git tag -a v1.0.2 -m "CodexBar4Windows 1.0.2"
+git push origin v1.0.2
 ```
 
 The tag-triggered workflow builds the desktop app, signs inner binaries,
@@ -116,9 +116,9 @@ submits a Winget update.
 
 After the release workflow is green:
 
-1. Download and install `CodexBar4Windows-1.0.1-x64.exe`.
+1. Download and install `CodexBar4Windows-1.0.2-x64.exe`.
 2. Confirm the tray icon appears within a few seconds.
-3. Open the popup and Preferences -> About; the version must read `1.0.1`.
+3. Open the popup and Preferences -> About; the version must read `1.0.2`.
 4. Click Check for updates. A stable build must not report the placeholder-key
    disabled message.
 5. Open Preferences -> Cost & Storage and confirm the first scan completes.

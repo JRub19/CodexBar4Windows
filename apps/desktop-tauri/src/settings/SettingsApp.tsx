@@ -230,6 +230,25 @@ function GeneralPane() {
     setSettings(next);
   };
 
+  const toggleWidget = async () => {
+    const widget = {
+      ...settings.widget,
+      enabled: !settings.widget.enabled,
+    };
+    const next = await invoke<Settings>("update_settings", {
+      patch: { widget },
+    });
+    setSettings(next);
+    await invoke(widget.enabled ? "show_widget" : "hide_widget");
+  };
+
+  const toggleWidgetCompact = async () => {
+    const next = await invoke<Settings>("update_settings", {
+      patch: { widget: { ...settings.widget, compact: !settings.widget.compact } },
+    });
+    setSettings(next);
+  };
+
   return (
     <>
       <p className="settings-app__pane-intro">
@@ -258,6 +277,28 @@ function GeneralPane() {
           type="checkbox"
           checked={settings.pause_refresh}
           onChange={() => void togglePause()}
+        />
+      </label>
+      <label className="settings-row settings-row--toggle">
+        <span className="settings-row__title">Pinned sidebar widget</span>
+        <span className="settings-row__subtitle">
+          Show a compact always-on-top Windows widget using the same provider refresh data.
+        </span>
+        <input
+          type="checkbox"
+          checked={settings.widget.enabled}
+          onChange={() => void toggleWidget()}
+        />
+      </label>
+      <label className="settings-row settings-row--toggle">
+        <span className="settings-row__title">Compact widget density</span>
+        <span className="settings-row__subtitle">
+          Use tighter spacing for the pinned widget window.
+        </span>
+        <input
+          type="checkbox"
+          checked={settings.widget.compact}
+          onChange={() => void toggleWidgetCompact()}
         />
       </label>
     </>

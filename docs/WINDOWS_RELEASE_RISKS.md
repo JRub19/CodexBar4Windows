@@ -8,7 +8,7 @@ read_when:
 
 # Windows Release Risks
 
-This document tracks known Windows-specific risks that remain after v1.0.1.
+This document tracks known Windows-specific risks that remain after v1.0.2.
 They are not release blockers when the listed mitigation is present and tested.
 
 ## Chrome v20 App-Bound Encryption

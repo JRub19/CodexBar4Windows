@@ -10,7 +10,7 @@
 #   manifests/c/CodexBar4Windows/CodexBar4Windows/<version>/CodexBar4Windows.CodexBar4Windows.installer.yaml
 
 PackageIdentifier: CodexBar4Windows.CodexBar4Windows
-PackageVersion: 1.0.1
+PackageVersion: 1.0.2
 InstallerType: inno
 Scope: user
 MinimumOSVersion: 10.0.17763.0
@@ -22,7 +22,7 @@ InstallModes:
   - silentWithProgress
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/JRub19/CodexBar4Windows/releases/download/v1.0.1/CodexBar4Windows-1.0.1-x64.exe
+    InstallerUrl: https://github.com/JRub19/CodexBar4Windows/releases/download/v1.0.2/CodexBar4Windows-1.0.2-x64.exe
     InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
     InstallerSwitches:
       Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART

@@ -4,7 +4,7 @@ use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::cli_config::ProviderCLIConfig;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const COPILOT_ID: ProviderId = ProviderId("copilot");
@@ -17,6 +17,7 @@ pub fn copilot_descriptor() -> ProviderDescriptor {
             display_name: "GitHub Copilot",
             homepage: "https://github.com/features/copilot",
             dashboard_url: Some("https://github.com/settings/copilot"),
+            status: ProviderStatusMetadata::statuspage("https://www.githubstatus.com"),
             session_label: "Premium",
             weekly_label: "Monthly",
             supports_opus: false,

@@ -3,7 +3,7 @@
 use crate::core::ProviderId;
 use crate::providers::branding::ProviderBranding;
 use crate::providers::descriptor::{
-    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata,
+    FetchStrategy, ProviderDescriptor, ProviderFetchPlan, ProviderMetadata, ProviderStatusMetadata,
 };
 
 pub const FACTORY_ID: ProviderId = ProviderId("factory");
@@ -16,6 +16,7 @@ pub fn factory_descriptor() -> ProviderDescriptor {
             display_name: "Factory",
             homepage: "https://factory.ai",
             dashboard_url: Some("https://app.factory.ai/usage"),
+            status: ProviderStatusMetadata::statuspage("https://status.factory.ai"),
             session_label: "Daily",
             weekly_label: "Monthly",
             supports_opus: false,

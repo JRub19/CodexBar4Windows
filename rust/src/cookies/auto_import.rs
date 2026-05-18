@@ -54,8 +54,39 @@ pub const FACTORY_CONFIG: AutoImportConfig = AutoImportConfig {
     ],
 };
 
+pub const MINIMAX_CONFIG: AutoImportConfig = AutoImportConfig {
+    provider_id: "minimax",
+    domains: &["www.minimax.io", "minimax.io"],
+    allowed_names: &["session", "token", "authorization", "access-token"],
+};
+
+pub const MISTRAL_CONFIG: AutoImportConfig = AutoImportConfig {
+    provider_id: "mistral",
+    domains: &["admin.mistral.ai", "mistral.ai"],
+    allowed_names: &["ory_session", "ory_session_mistral", "csrftoken", "session"],
+};
+
+pub const KIMI_CONFIG: AutoImportConfig = AutoImportConfig {
+    provider_id: "kimi",
+    domains: &["www.kimi.com", "kimi.com"],
+    allowed_names: &["kimi-auth", "session", "token"],
+};
+
+pub const MANUS_CONFIG: AutoImportConfig = AutoImportConfig {
+    provider_id: "manus",
+    domains: &["manus.im", "api.manus.im"],
+    allowed_names: &["session_id", "session", "token"],
+};
+
 pub fn configs() -> &'static [AutoImportConfig] {
-    &[CURSOR_CONFIG, FACTORY_CONFIG]
+    &[
+        CURSOR_CONFIG,
+        FACTORY_CONFIG,
+        MINIMAX_CONFIG,
+        MISTRAL_CONFIG,
+        KIMI_CONFIG,
+        MANUS_CONFIG,
+    ]
 }
 
 pub fn config_for(provider_id: &str) -> Option<AutoImportConfig> {
@@ -155,6 +186,10 @@ mod tests {
     fn config_for_returns_none_for_unknown_provider() {
         assert!(config_for("nonexistent").is_none());
         assert!(config_for("cursor").is_some());
+        assert!(config_for("minimax").is_some());
+        assert!(config_for("mistral").is_some());
+        assert!(config_for("kimi").is_some());
+        assert!(config_for("manus").is_some());
     }
 
     #[test]

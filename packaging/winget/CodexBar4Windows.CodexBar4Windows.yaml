@@ -1,7 +1,7 @@
 # Winget version manifest seed for CodexBar4Windows. Phase 9 §G.
 
 PackageIdentifier: CodexBar4Windows.CodexBar4Windows
-PackageVersion: 1.0.1
+PackageVersion: 1.0.2
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.6.0

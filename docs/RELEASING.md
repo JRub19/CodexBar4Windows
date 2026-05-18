@@ -119,3 +119,4 @@ After publishing the GitHub release, update the tap cask + CLI formula (see `doc
 - **App won’t launch**: ensure Sparkle.framework is embedded under `Contents/Frameworks` and rpath added; codesign deep.
 - **App “damaged” dialog after unzip**: re-extract with `ditto -x -k`, removing any `._*` files, then re-verify with `spctl`.
 - **Update download fails (404)**: ensure the release asset referenced in appcast exists and is published in the corresponding GitHub release; verify with `curl -I <enclosure-url>`.
+> Release signing policy: GitHub releases may be published without Authenticode while the project has no code-signing certificate. Minisign updater signing is still mandatory for stable releases. Unsigned installers can trigger SmartScreen, and Winget publication is best-effort until package onboarding and signing reputation are in place.

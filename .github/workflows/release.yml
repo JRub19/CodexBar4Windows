@@ -81,13 +81,16 @@ jobs:
         id: signing
         env:
           CODESIGN_PFX_BASE64: ${{ secrets.CODESIGN_PFX_BASE64 }}
+          WINGET_PAT: ${{ secrets.WINGET_PAT }}
           TAURI_MINISIGN_PRIVATE_KEY: ${{ secrets.TAURI_MINISIGN_PRIVATE_KEY }}
         shell: pwsh
         run: |
           $codesign = if ([string]::IsNullOrWhiteSpace($env:CODESIGN_PFX_BASE64)) { "false" } else { "true" }
           $minisign = if ([string]::IsNullOrWhiteSpace($env:TAURI_MINISIGN_PRIVATE_KEY)) { "false" } else { "true" }
+          $winget = if ([string]::IsNullOrWhiteSpace($env:WINGET_PAT)) { "false" } else { "true" }
           "codesign=$codesign" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "minisign=$minisign" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "winget=$winget" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Install Rust toolchain (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -213,6 +216,26 @@ jobs:
             -MinisignKey $keyPath
           Remove-Item $keyPath
 
+      - name: Validate release artifact set
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $required = @(
+            "dist/CodexBar4Windows-$ver-x64.exe",
+            "dist/CodexBar4Windows-$ver-updater-x64.nsis.zip",
+            "dist/CodexBar4Windows-$ver-portable-x64.zip",
+            "dist/CodexBar4Windows-$ver-checksums.txt",
+            "dist/latest.json"
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path)) { throw "missing release artifact: $path" }
+          }
+          $manifest = Get-Content "dist/latest.json" -Raw | ConvertFrom-Json
+          $windows = $manifest.platforms.'windows-x86_64'
+          if (-not $windows) { throw "latest.json missing windows-x86_64 platform" }
+          if ($windows.url -notmatch '\.nsis\.zip$') { throw "latest.json must point to the NSIS updater zip, got $($windows.url)" }
+          if ([string]::IsNullOrWhiteSpace($windows.signature)) { throw "latest.json missing updater signature" }
+
       - name: Verify Authenticode signatures
         if: steps.signing.outputs.codesign == 'true'
         shell: pwsh
@@ -245,7 +268,7 @@ jobs:
             dist/beta.json
 
       - name: Submit Winget update (stable only)
-        if: steps.ver.outputs.channel == 'stable' && env.WINGET_PAT != ''
+        if: steps.ver.outputs.channel == 'stable' && steps.signing.outputs.winget == 'true'
         env:
           WINGET_PAT: ${{ secrets.WINGET_PAT }}
         shell: pwsh

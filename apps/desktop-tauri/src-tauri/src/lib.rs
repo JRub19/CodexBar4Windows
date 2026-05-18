@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use codexbar::cookies::{CookieAccessGate, CookieHeaderCache, CookieImporter};
 use codexbar::core::{PathEnvironment, RefreshLoop, UsageStore};
+use codexbar::providers::augment::AugmentProvider;
 use codexbar::providers::claude::cli::pty_actor::{CliRunner, RecordedRunner};
 use codexbar::providers::claude::oauth::credentials::{resolve, OAuthCredentials};
 use codexbar::providers::claude::oauth::strategy::{CredentialsResolver, HttpClient, HttpResponse};
@@ -29,6 +30,7 @@ use codexbar::providers::claude::planner::ClaudeWiring;
 use codexbar::providers::claude::web::strategy::{CookieResolver, WebClient, WebResponse};
 use codexbar::providers::claude::web::transport::ReqwestWebClient;
 use codexbar::providers::claude::ClaudeProvider;
+use codexbar::providers::codebuff::CodebuffProvider;
 use codexbar::providers::codex::cli::rpc_client::{
     RpcCallError as CodexRpcCallError, RpcTransport as CodexRpcTransport,
 };
@@ -71,6 +73,11 @@ use codexbar::providers::gemini::oauth::strategy::{
 use codexbar::providers::gemini::oauth::transport::ReqwestGoogleClient;
 use codexbar::providers::gemini::planner::GeminiWiring;
 use codexbar::providers::gemini::GeminiProvider;
+use codexbar::providers::kimi::KimiProvider;
+use codexbar::providers::kimi_k2::KimiK2Provider;
+use codexbar::providers::manus::ManusProvider;
+use codexbar::providers::minimax::MiniMaxProvider;
+use codexbar::providers::mistral::MistralProvider;
 use codexbar::providers::moonshot::api::strategy::{
     MoonshotCredentials, MoonshotCredentialsResolver, MoonshotHttp, MoonshotResponse,
 };
@@ -78,6 +85,7 @@ use codexbar::providers::moonshot::api::transport::ReqwestMoonshotClient;
 use codexbar::providers::moonshot::descriptor::MoonshotRegion;
 use codexbar::providers::moonshot::planner::MoonshotWiring;
 use codexbar::providers::moonshot::MoonshotProvider;
+use codexbar::providers::openai::OpenAiProvider;
 use codexbar::providers::openrouter::api::strategy::{
     OpenRouterCredentials, OpenRouterCredentialsResolver, OpenRouterHttp, OpenRouterResponse,
 };
@@ -1162,6 +1170,15 @@ pub fn run() {
         }),
     });
 
+    let openai_provider = Arc::new(OpenAiProvider::new());
+    let minimax_provider = Arc::new(MiniMaxProvider::new());
+    let mistral_provider = Arc::new(MistralProvider::new());
+    let kimi_provider = Arc::new(KimiProvider::new());
+    let kimi_k2_provider = Arc::new(KimiK2Provider::new());
+    let augment_provider = Arc::new(AugmentProvider::new());
+    let manus_provider = Arc::new(ManusProvider::new());
+    let codebuff_provider = Arc::new(CodebuffProvider::new());
+
     let providers: Vec<Arc<dyn ProviderImplementation>> = vec![
         claude_provider.clone(),
         codex_provider.clone(),
@@ -1169,11 +1186,19 @@ pub fn run() {
         copilot_provider.clone(),
         gemini_provider.clone(),
         openrouter_provider.clone(),
+        openai_provider.clone(),
         factory_provider.clone(),
         deepseek_provider.clone(),
         moonshot_provider.clone(),
         zai_provider.clone(),
         venice_provider.clone(),
+        minimax_provider.clone(),
+        mistral_provider.clone(),
+        kimi_provider.clone(),
+        kimi_k2_provider.clone(),
+        augment_provider.clone(),
+        manus_provider.clone(),
+        codebuff_provider.clone(),
     ];
     refresh.install_providers(providers, usage.clone(), token_store.clone());
 
@@ -1205,6 +1230,12 @@ pub fn run() {
         .setup(move |app| {
             // Hand the live AppHandle to the usage-event bridge.
             *app_handle_for_setup.lock() = Some(app.handle().clone());
+            if settings.snapshot().widget.enabled {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = crate::commands::show_widget(handle).await;
+                });
+            }
 
             // Phase 8 task 14: register the default Win+Shift+U
             // hotkey at boot. Failures are non-fatal (e.g. another
@@ -1234,6 +1265,7 @@ pub fn run() {
             let sep1 = PredefinedMenuItem::separator(app)?;
             let prefs_i =
                 MenuItem::with_id(app, "preferences", "Preferences...", true, None::<&str>)?;
+            let widget_i = MenuItem::with_id(app, "widget", "Toggle widget", true, None::<&str>)?;
             let about_i =
                 MenuItem::with_id(app, "about", "About CodexBar4Windows", true, None::<&str>)?;
             let check_updates_i = MenuItem::with_id(
@@ -1253,6 +1285,7 @@ pub fn run() {
                     &pause_i,
                     &sep1,
                     &prefs_i,
+                    &widget_i,
                     &about_i,
                     &check_updates_i,
                     &sep2,
@@ -1310,6 +1343,13 @@ pub fn run() {
                             .visible(true)
                             .build();
                         }
+                    }
+                    "widget" => {
+                        info!(target: "codexbar::tray", "menu.widget_toggle");
+                        let app = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = crate::commands::toggle_widget(app).await;
+                        });
                     }
                     "about" => {
                         info!(target: "codexbar::tray", "menu.about");
@@ -1436,6 +1476,9 @@ pub fn run() {
             commands::refresh_now,
             commands::toggle_pause,
             commands::open_preferences,
+            commands::show_widget,
+            commands::hide_widget,
+            commands::toggle_widget,
             commands::quit_app,
             commands::provider_settings_descriptors,
             commands::status_snapshots,

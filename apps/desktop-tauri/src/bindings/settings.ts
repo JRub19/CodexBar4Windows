@@ -23,6 +23,13 @@ export interface DisplayPreferences {
   hide_quota_warning_markers: boolean;
 }
 
+export interface WidgetPreferences {
+  enabled: boolean;
+  always_on_top: boolean;
+  compact: boolean;
+  provider_ids: string[];
+}
+
 export interface DebugFlags {
   debug_menu_enabled: boolean;
   verbose_logging: boolean;
@@ -42,6 +49,7 @@ export interface Settings {
   notifications_enabled: boolean;
   popup_toggle_hotkey: string | null;
   telemetry_enabled: boolean;
+  widget: WidgetPreferences;
 }
 
 export interface SettingsPatch {
@@ -56,6 +64,7 @@ export interface SettingsPatch {
   notifications_enabled?: boolean;
   popup_toggle_hotkey?: string | null;
   telemetry_enabled?: boolean;
+  widget?: WidgetPreferences;
 }
 
 export interface SettingsChangedPayload {

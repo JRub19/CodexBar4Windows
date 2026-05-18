@@ -58,7 +58,7 @@ export function CardHeader({ snapshot }: Props) {
           <StatusPill
             severity={snapshot.status.severity}
             title={snapshot.status.title}
-            statusPageUrl={null}
+            statusPageUrl={snapshot.status.statusPageUrl}
           />
         </div>
       ) : null}

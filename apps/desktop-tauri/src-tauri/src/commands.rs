@@ -72,7 +72,7 @@ pub async fn status_snapshots(
     // order with every provider enabled.
     let mut order = codexbar::status::AggregationOrder::new();
     for id in codexbar::status::registry::all_status_capable_provider_ids() {
-        order.push(*id, true);
+        order.push(id, true);
     }
     let aggregated = codexbar::status::aggregate(store, &order);
     Ok(StatusOverviewDto {
@@ -161,6 +161,7 @@ pub struct ProviderMetadataDto {
     pub display_name: String,
     pub homepage: String,
     pub dashboard_url: Option<String>,
+    pub status_page_url: Option<String>,
     pub session_label: String,
     pub weekly_label: String,
     pub supports_opus: bool,
@@ -207,6 +208,7 @@ fn catalog_to_dtos(catalog: &ProviderCatalog) -> Vec<ProviderDescriptorDto> {
                 display_name: d.metadata.display_name.to_string(),
                 homepage: d.metadata.homepage.to_string(),
                 dashboard_url: d.metadata.dashboard_url.map(|s| s.to_string()),
+                status_page_url: d.metadata.status.status_page_url.map(|s| s.to_string()),
                 session_label: d.metadata.session_label.to_string(),
                 weekly_label: d.metadata.weekly_label.to_string(),
                 supports_opus: d.metadata.supports_opus,
@@ -265,11 +267,19 @@ pub async fn provider_settings_descriptors(
         .with_section(codexbar::providers::copilot::settings::contribution())
         .with_section(codexbar::providers::gemini::settings::contribution())
         .with_section(codexbar::providers::openrouter::settings::contribution())
+        .with_section(codexbar::providers::openai::settings::contribution())
         .with_section(codexbar::providers::factory::settings::contribution())
         .with_section(codexbar::providers::deepseek::settings::contribution())
         .with_section(codexbar::providers::moonshot::settings::contribution())
         .with_section(codexbar::providers::zai::settings::contribution())
         .with_section(codexbar::providers::venice::settings::contribution())
+        .with_section(codexbar::providers::minimax::settings::contribution())
+        .with_section(codexbar::providers::mistral::settings::contribution())
+        .with_section(codexbar::providers::kimi::settings::contribution())
+        .with_section(codexbar::providers::kimi_k2::settings::contribution())
+        .with_section(codexbar::providers::augment::settings::contribution())
+        .with_section(codexbar::providers::manus::settings::contribution())
+        .with_section(codexbar::providers::codebuff::settings::contribution())
         .build();
     Ok(snap)
 }
@@ -347,6 +357,53 @@ pub async fn open_preferences(
     let _ = builder.build().map_err(|e| e.to_string())?;
     emit_focus_provider(&app, provider_id.as_deref());
     info!(target: "codexbar::commands", "open_preferences.recreated");
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn show_widget(app: AppHandle) -> Result<(), String> {
+    use tauri::{LogicalPosition, Manager};
+    let widget = app
+        .get_webview_window("widget")
+        .ok_or_else(|| "widget window not found".to_string())?;
+    if let Some(monitor) = widget.current_monitor().ok().flatten() {
+        let pos = monitor.position();
+        let size = monitor.size();
+        let scale = widget.scale_factor().unwrap_or(1.0);
+        let width = (320.0 * scale) as i32;
+        let x = pos.x + size.width as i32 - width - 16;
+        let y = pos.y + 80;
+        let _ = widget.set_position(LogicalPosition::new(
+            (x as f64 / scale).max(0.0),
+            (y as f64 / scale).max(0.0),
+        ));
+    }
+    let _ = widget.set_always_on_top(true);
+    widget.show().map_err(|e| e.to_string())?;
+    widget.set_focus().ok();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn hide_widget(app: AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    if let Some(widget) = app.get_webview_window("widget") {
+        widget.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_widget(app: AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let widget = app
+        .get_webview_window("widget")
+        .ok_or_else(|| "widget window not found".to_string())?;
+    if widget.is_visible().unwrap_or(false) {
+        widget.hide().map_err(|e| e.to_string())?;
+    } else {
+        show_widget(app).await?;
+    }
     Ok(())
 }
 

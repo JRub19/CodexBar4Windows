@@ -8,7 +8,7 @@ read_when:
 
 # Codex Provider
 
-CodexBar4Windows v1.0.1 supports Codex usage through OAuth credentials, a local
+CodexBar4Windows v1.0.2 supports Codex usage through OAuth credentials, a local
 Codex CLI TUI fallback, and a best-effort web-cookie path.
 
 ## Preferred Sources
@@ -21,7 +21,7 @@ Codex CLI TUI fallback, and a best-effort web-cookie path.
    Codex installed but no usable OAuth file.
 3. **Web-cookie path** is best-effort. Raw `chatgpt.com` requests can fail behind
    Cloudflare, login interstitials, or Chromium cookie encryption changes. It is
-   kept as a fallback and future integration point, not as the primary v1.0.1
+   kept as a fallback and future integration point, not as the primary v1.0.2
    data source.
 
 ## Windows Auth Notes
@@ -40,10 +40,10 @@ monthly totals, and exposes per-day/per-model rollups for the popup cost
 popover. Pricing is bundled for known OpenAI/Codex models and falls back safely
 for unknown model names.
 
-## Not Shipped in v1.0.1
+## Not Shipped in v1.0.2
 
 - A standalone `codexbar.exe` CLI peer.
 - Full ChatGPT dashboard rendering through a hidden WebView.
 - Full multi-account promotion UX for managed Codex homes.
 
-These are post-1.0 roadmap items, not v1.0.1 release blockers.
+These are post-1.0 roadmap items, not v1.0.2 release blockers.
