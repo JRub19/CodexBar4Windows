@@ -10,13 +10,9 @@ CodexBar4Windows is the Windows-native port of [`steipete/CodexBar`](https://git
 
 ## Screenshots
 
-The images below use sanitized demo data only; no real account email, token, or usage history is shown.
+The screenshot below is rendered from the actual popup UI using sanitized demo data only; no real account email, token, or usage history is shown.
 
-![CodexBar4Windows tray popup with provider quota cards](docs/screenshots/popup-overview.png)
-
-| Preferences | Pinned widget |
-|---|---|
-| ![CodexBar4Windows provider preferences](docs/screenshots/preferences-providers.png) | ![CodexBar4Windows pinned widget](docs/screenshots/pinned-widget.png) |
+![CodexBar4Windows tray popup](docs/screenshots/codexbar4windows-popup.png)
 
 ## Features
 
