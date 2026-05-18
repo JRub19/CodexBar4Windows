@@ -8,6 +8,16 @@
 
 CodexBar4Windows is the Windows-native port of [`steipete/CodexBar`](https://github.com/steipete/CodexBar), built on Tauri 2 + React + a shared Rust core. It lives in the system tray and keeps your AI coding quota visible at a glance across **nineteen providers**: Claude, Codex, Cursor, Copilot, Gemini, OpenRouter, OpenAI API, Factory, DeepSeek, Moonshot, Z.ai, Venice, MiniMax, Mistral, Kimi, Kimi K2, Augment, Manus, and Codebuff.
 
+## Screenshots
+
+The images below use sanitized demo data only; no real account email, token, or usage history is shown.
+
+![CodexBar4Windows tray popup with provider quota cards](docs/screenshots/popup-overview.png)
+
+| Preferences | Pinned widget |
+|---|---|
+| ![CodexBar4Windows provider preferences](docs/screenshots/preferences-providers.png) | ![CodexBar4Windows pinned widget](docs/screenshots/pinned-widget.png) |
+
 ## Features
 
 - **Live tray icon** that morphs between a primary bar (session quota) and a secondary bar (weekly quota) per provider, and aggregates across providers when several are active.
@@ -74,9 +84,9 @@ The release EXE lands at `target\release\CodexBar4Windows.exe`.
 
 ## Current Scope
 
-The v1.0.2 line ships the 19 providers listed above. The macOS upstream and Finesssee Windows fork support a broader provider catalog; parity work is tracked separately in [`docs/PROVIDER_PARITY.md`](docs/PROVIDER_PARITY.md).
+The v1.0.3 line ships the 19 providers listed above. The macOS upstream and Finesssee Windows fork support a broader provider catalog; parity work is tracked separately in [`docs/PROVIDER_PARITY.md`](docs/PROVIDER_PARITY.md).
 
-There is no shipped `codexbar.exe` CLI peer in v1.0.2. The Rust core is shared with the desktop app, but the installer and portable ZIP currently ship the desktop app plus helper binaries only. The CLI remains post-1.0 work.
+There is no shipped `codexbar.exe` CLI peer in v1.0.3. The Rust core is shared with the desktop app, but the installer and portable ZIP currently ship the desktop app plus helper binaries only. The CLI remains post-1.0 work.
 
 Codex usage should prefer OAuth credentials from `~\.codex\auth.json` or the local Codex CLI TUI path. ChatGPT/OpenAI web-cookie scraping is best-effort and can fail behind Cloudflare or Chromium cookie-encryption changes. Cookie-backed providers can also fail automatic Chrome/Edge import when Chrome App-Bound Encryption blocks cookie decryption; paste tokens/cookies manually when that happens.
 
