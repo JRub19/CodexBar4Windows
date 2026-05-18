@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { ActionRow } from "./ActionRow";
 import { formatUpdated } from "../format/reset";
 import { useUsageStore } from "../state/usageStore";
@@ -34,6 +35,7 @@ export function PopupFooter({ onOpenAbout: _onOpenAbout }: Props = {}) {
   const [now, setNow] = useState(() => new Date());
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (lastUsageEvent != null) {
@@ -52,9 +54,34 @@ export function PopupFooter({ onOpenAbout: _onOpenAbout }: Props = {}) {
   useEffect(() => {
     if (!visible) return;
     void invoke<UpdateInfoDto>("check_for_update")
-      .then((info) => setUpdateAvailable(info.available_version))
+      .then((info) => {
+        setUpdateAvailable(info.available_version);
+        setUpdateError(null);
+      })
       .catch(() => setUpdateAvailable(null));
   }, [visible]);
+
+  useEffect(() => {
+    const unlistenStage = listen<{
+      stage: string;
+      detail: string | null;
+    }>("updater:stage", (event) => {
+      const { stage, detail } = event.payload;
+      if (stage === "checking" || stage === "downloading" || stage === "installing") {
+        setInstalling(true);
+        setUpdateError(null);
+      } else if (stage === "relaunching") {
+        setInstalling(false);
+        setUpdateError(null);
+      } else if (stage === "error") {
+        setInstalling(false);
+        setUpdateError(detail ?? "Update failed");
+      }
+    });
+    return () => {
+      void unlistenStage.then((f) => f());
+    };
+  }, []);
 
   const subtitle = refreshError
     ? refreshError
@@ -80,10 +107,11 @@ export function PopupFooter({ onOpenAbout: _onOpenAbout }: Props = {}) {
 
   const onInstallUpdate = async () => {
     setInstalling(true);
+    setUpdateError(null);
     try {
       await invoke("install_update");
-    } catch {
-      /* runtime guard handles logging */
+    } catch (e) {
+      setUpdateError(String(e));
     } finally {
       setInstalling(false);
     }
@@ -94,10 +122,11 @@ export function PopupFooter({ onOpenAbout: _onOpenAbout }: Props = {}) {
       {updateAvailable ? (
         <ActionRow
           icon={<Icon name="download" />}
-          title={installing ? "Installing update…" : "Update ready"}
-          subtitle={`v${updateAvailable}`}
+          title={updateError ? "Update failed" : installing ? "Installing update..." : "Update ready"}
+          subtitle={updateError ?? `v${updateAvailable}`}
           onClick={() => void onInstallUpdate()}
           variant="accent"
+          destructive={updateError != null}
         />
       ) : null}
       <ActionRow

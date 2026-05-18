@@ -19,7 +19,7 @@ body:
     attributes:
       label: CodexBar4Windows version
       description: From Preferences → About, or the filename of the installer you ran.
-      placeholder: "1.0.2"
+      placeholder: "1.0.3"
     validations:
       required: true
   - type: input

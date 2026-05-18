@@ -235,6 +235,14 @@ jobs:
           if (-not $windows) { throw "latest.json missing windows-x86_64 platform" }
           if ($windows.url -notmatch '\.nsis\.zip$') { throw "latest.json must point to the NSIS updater zip, got $($windows.url)" }
           if ([string]::IsNullOrWhiteSpace($windows.signature)) { throw "latest.json missing updater signature" }
+          try {
+            $decodedSignature = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($windows.signature))
+          } catch {
+            throw "latest.json signature must be base64-encoded minisign .sig contents"
+          }
+          if ($decodedSignature -notmatch '^untrusted comment: signature') {
+            throw "latest.json signature decoded, but does not look like minisign .sig contents"
+          }
 
       - name: Verify Authenticode signatures
         if: steps.signing.outputs.codesign == 'true'

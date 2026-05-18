@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.3] - 2026-05-18
+
+### Fixed
+- Fixed the Windows updater manifest signature format so Tauri can verify and
+  install updater ZIPs instead of returning to "Update ready".
+- Added release validation for base64-encoded minisign `.sig` manifest fields.
+- Made popup update install failures visible instead of silently resetting the
+  update row.
+
 ## [1.0.2] - 2026-05-18
 
 ### Added

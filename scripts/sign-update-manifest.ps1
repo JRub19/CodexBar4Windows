@@ -5,8 +5,9 @@
 .DESCRIPTION
   After the Tauri updater bundle is built, this script wraps it in
   the JSON manifest format the tauri-plugin-updater expects, then
-  signs the updater bundle bytes with minisign and embeds the raw
-  signature-file contents in the manifest.
+  signs the updater bundle bytes with minisign and embeds the base64
+  encoded signature-file contents in the manifest. Tauri decodes the
+  manifest field first, then parses the minisign `.sig` text.
 
   Two output files:
    * dist/latest.json — Stable channel manifest.
@@ -107,9 +108,11 @@ if ($LASTEXITCODE -ne 0) {
   throw "minisign signing failed (exit $LASTEXITCODE)"
 }
 
-# Tauri's manifest format wants the content of the generated .sig file,
-# not a path and not another layer of base64 wrapping.
-$signature = Get-Content -Raw -Path $sigPath
+# Tauri's manifest format wants base64(.sig file contents), not the
+# raw `.sig` text. The runtime decodes this field before passing it to
+# minisign_verify::Signature::decode.
+$signatureText = Get-Content -Raw -Path $sigPath
+$signature = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($signatureText))
 
 $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
