@@ -40,6 +40,11 @@ impl Default for TrayRenderInputs {
 
 /// Build a fresh tray icon image (.ico bytes wrapped in `tauri::Image`).
 pub fn render_icon(inputs: TrayRenderInputs) -> Result<Image<'static>, String> {
+    let (rgba, width, height) = render_icon_rgba(inputs);
+    Ok(Image::new_owned(rgba, width, height))
+}
+
+pub fn render_icon_rgba(inputs: TrayRenderInputs) -> (Vec<u8>, u32, u32) {
     let mut renderer = IconRenderer::new();
     renderer.clear();
     let alphas: BarAlphas = bar_alphas_for(inputs.stale);
@@ -78,7 +83,7 @@ pub fn render_icon(inputs: TrayRenderInputs) -> Result<Image<'static>, String> {
     paint_overlay(renderer.pixmap_mut(), inputs.indicator, inputs.fg);
 
     let rgba: Vec<u8> = renderer.rgba().to_vec();
-    Ok(Image::new_owned(rgba, renderer.width(), renderer.height()))
+    (rgba, renderer.width(), renderer.height())
 }
 
 /// Update the tray icon image registered as `main`. Returns `Err` when
@@ -121,5 +126,20 @@ mod tests {
         })
         .expect("render");
         assert!(img.width() > 0);
+    }
+
+    #[test]
+    fn different_usage_inputs_change_icon_pixels() {
+        let (a, _, _) = render_icon_rgba(TrayRenderInputs {
+            primary: Some(80.0),
+            weekly: Some(90.0),
+            ..Default::default()
+        });
+        let (b, _, _) = render_icon_rgba(TrayRenderInputs {
+            primary: Some(20.0),
+            weekly: Some(10.0),
+            ..Default::default()
+        });
+        assert_ne!(a, b);
     }
 }

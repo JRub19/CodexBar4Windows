@@ -15,6 +15,7 @@ pub mod notification_bridge;
 pub mod perf;
 pub mod secrets_commands;
 pub mod tray_renderer;
+pub mod tray_usage;
 pub mod updater_commands;
 
 use std::sync::Arc;
@@ -116,7 +117,7 @@ use tauri::{
 use tokio::runtime::Runtime;
 use tracing::info;
 
-use crate::commands::{FirstRunHandle, RefreshHandle, UsageHandle};
+use crate::commands::{ActiveTrayProviderHandle, FirstRunHandle, RefreshHandle, UsageHandle};
 use crate::first_run::FirstRunStore;
 
 #[tauri::command]
@@ -231,6 +232,9 @@ impl WebClient for NullWebClient {
 async fn bridge_usage_events(
     mut rx: tokio::sync::broadcast::Receiver<codexbar::core::UsageEvent>,
     handle: Arc<parking_lot::Mutex<Option<tauri::AppHandle>>>,
+    active_tray: Arc<tray_usage::ActiveTrayProviderState>,
+    settings: SettingsHandle,
+    usage: Arc<UsageStore>,
 ) {
     loop {
         match rx.recv().await {
@@ -242,6 +246,16 @@ async fn bridge_usage_events(
                         "icon_rev": update.icon_rev,
                     });
                     let _ = app.emit("usage:updated", payload);
+                    let snapshot = settings.snapshot();
+                    if let Err(err) =
+                        tray_usage::update_tray_from_state(&app, &active_tray, &snapshot, &usage)
+                    {
+                        tracing::warn!(
+                            target: "codexbar::tray",
+                            error = %err,
+                            "tray.usage_icon_refresh_failed",
+                        );
+                    }
                 }
             }
             Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
@@ -931,8 +945,22 @@ pub fn run() {
     let app_handle_for_bridge = app_handle_holder.clone();
     let app_handle_for_notif = app_handle_holder.clone();
     let usage_rx = usage.subscribe();
+    let active_tray_provider = Arc::new(tray_usage::ActiveTrayProviderState::default());
+    if let Some(provider_id) = tray_usage::first_enabled_provider_id(&settings.snapshot()) {
+        active_tray_provider.set(provider_id);
+    }
+    let active_tray_for_bridge = active_tray_provider.clone();
+    let settings_for_bridge = settings.clone();
+    let usage_for_bridge = usage.clone();
     runtime.spawn(async move {
-        bridge_usage_events(usage_rx, app_handle_for_bridge).await;
+        bridge_usage_events(
+            usage_rx,
+            app_handle_for_bridge,
+            active_tray_for_bridge,
+            settings_for_bridge,
+            usage_for_bridge,
+        )
+        .await;
     });
 
     // Phase 7C: bridge UsageStore updates into desktop toasts via
@@ -1211,6 +1239,7 @@ pub fn run() {
         .manage(settings.clone())
         .manage(RefreshHandle(refresh))
         .manage(UsageHandle(usage))
+        .manage(ActiveTrayProviderHandle(active_tray_provider))
         .manage(FirstRunHandle(first_run_store))
         .manage(secrets_commands::TokenAccountHandle(token_store))
         .manage(secrets_commands::CookieImporterHandle(cookie_importer))
@@ -1474,6 +1503,7 @@ pub fn run() {
             commands::provider_descriptors,
             commands::provider_snapshots,
             commands::refresh_now,
+            commands::set_active_tray_provider,
             commands::toggle_pause,
             commands::open_preferences,
             commands::show_widget,

@@ -53,6 +53,7 @@ export function PopupShell() {
   const setSnapshots = useUsageStore((s) => s.setSnapshots);
   const applyUsageEvent = useUsageStore((s) => s.applyUsageEvent);
   const applyStatusEvent = useUsageStore((s) => s.applyStatusEvent);
+  const selectedProviderId = useUsageStore((s) => s.selectedProviderId);
   const [onboardingActive, setOnboardingActive] = useState<boolean | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   useKeyboardNav();
@@ -173,6 +174,18 @@ export function PopupShell() {
       void unlistenStatus.then((f) => f());
     };
   }, [setDescriptors, setSnapshots, applyUsageEvent, applyStatusEvent]);
+
+  useEffect(() => {
+    if (!selectedProviderId) return;
+    void invoke("set_active_tray_provider", {
+      providerId: selectedProviderId,
+    }).catch((err) => {
+      debugLog.warn(
+        "PopupShell",
+        `set_active_tray_provider failed: ${String(err)}`,
+      );
+    });
+  }, [selectedProviderId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

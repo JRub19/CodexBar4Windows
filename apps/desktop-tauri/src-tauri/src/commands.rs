@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tracing::info;
 
 use crate::first_run::{FirstRunState, FirstRunStore, WindowGeometry};
+use crate::tray_usage::ActiveTrayProviderState;
 
 pub const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 
@@ -21,6 +22,7 @@ pub struct SettingsChangedPayload {
 
 pub struct RefreshHandle(pub Arc<RefreshLoop>);
 pub struct UsageHandle(pub Arc<UsageStore>);
+pub struct ActiveTrayProviderHandle(pub Arc<ActiveTrayProviderState>);
 pub struct StatusHandle(pub codexbar::status::StatusStore);
 /// Shared cost-history store. The first call kicks off a scan; the
 /// scan is also rerun on demand by the `refresh_cost_history`
@@ -96,6 +98,8 @@ pub async fn get_settings(store: State<'_, SettingsHandle>) -> Result<Settings, 
 pub async fn update_settings(
     app: AppHandle,
     store: State<'_, SettingsHandle>,
+    usage: State<'_, UsageHandle>,
+    active_tray: State<'_, ActiveTrayProviderHandle>,
     patch: SettingsPatch,
 ) -> Result<Settings, String> {
     let next = store.update(patch).map_err(|e| e.to_string())?;
@@ -105,6 +109,15 @@ pub async fn update_settings(
             settings: next.clone(),
         },
     );
+    if let Err(err) =
+        crate::tray_usage::update_tray_from_state(&app, &active_tray.0, &next, &usage.0)
+    {
+        tracing::warn!(
+            target: "codexbar::tray",
+            error = %err,
+            "tray.usage_icon_settings_update_failed",
+        );
+    }
     info!(target: "codexbar::commands", "settings.update_applied");
     Ok(next)
 }
@@ -287,6 +300,24 @@ pub async fn provider_settings_descriptors(
 #[tauri::command]
 pub async fn refresh_now(refresh: State<'_, RefreshHandle>) -> Result<(), String> {
     refresh.0.refresh_now().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_active_tray_provider(
+    app: AppHandle,
+    store: State<'_, SettingsHandle>,
+    usage: State<'_, UsageHandle>,
+    active_tray: State<'_, ActiveTrayProviderHandle>,
+    provider_id: String,
+) -> Result<(), String> {
+    if !crate::tray_usage::provider_exists(&provider_id) {
+        return Err(format!("unknown provider id: {provider_id}"));
+    }
+    active_tray.0.set(provider_id.clone());
+    let settings = store.snapshot();
+    crate::tray_usage::update_tray_from_state(&app, &active_tray.0, &settings, &usage.0)?;
+    info!(target: "codexbar::tray", provider = %provider_id, "tray.active_provider_set");
+    Ok(())
 }
 
 #[tauri::command]

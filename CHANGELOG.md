@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.4] - 2026-05-19
+
+### Added
+- Added dynamic Windows tray usage bars for the selected popup provider.
+- Added tray tooltip usage parity with compact primary and weekly remaining
+  percentages.
+
+### Changed
+- The tray icon now updates when usage refreshes, when the selected popup
+  provider changes, and when provider settings change.
+- The tray falls back from the selected provider to the first enabled provider
+  with usable quota data, then to the default placeholder icon.
+
 ## [1.0.3] - 2026-05-18
 
 ### Fixed

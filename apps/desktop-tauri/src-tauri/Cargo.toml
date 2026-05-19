@@ -1,6 +1,6 @@
 [package]
 name = "codexbar4windows-desktop"
-version = "1.0.3"
+version = "1.0.4"
 description = "CodexBar4Windows Tauri desktop shell."
 edition.workspace = true
 license.workspace = true

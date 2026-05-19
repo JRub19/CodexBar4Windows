@@ -1,6 +1,6 @@
 [package]
 name = "codexbar4windows-claude-watchdog"
-version = "1.0.3"
+version = "1.0.4"
 description = "Job Object babysitter for Claude CLI PTY child processes."
 edition.workspace = true
 license.workspace = true
